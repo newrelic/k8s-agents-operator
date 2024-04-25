@@ -1,0 +1,55 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+# A known prefix used to filter release tags. For matching tags,
+# this prefix is stripped before attempting to parse the version
+tag-prefix: 'v'
+
+categories:
+  - title: '💥 Breaking Changes'
+    label: 'Release/break'
+  - title: '🚀 Features'
+    label: 'Release/feat'
+  - title: '🐛 Bug Fixes'
+    label: 'Release/fix'
+  - title: '📝 Other'
+    label: 'Release/other'
+exclude-labels:
+  - 'Release/skip'
+
+autolabeler:
+  - label: 'Release/break'
+    title:
+      - '/!:/'
+  - label: 'Release/feat'
+    title:
+      - '/^feat/i'
+  - label: 'Release/fix'
+    title:
+      - '/^fix/i'
+  - label: 'Release/other'
+    title:
+      - '/^(build|chore|ci|docs|perf|refactor|revert|style|test)/i'
+
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+replacers:
+  # Remove conventional commit prefix
+  - search: '/^- [a-zA-Z]+(\([a-zA-Z]+\))?!?:\s*/gm'
+    replace: '- '
+
+version-resolver:
+  major:
+    labels:
+      - 'Release/break'
+  minor:
+    labels:
+      - 'Release/feat'
+  patch:
+    labels:
+      - 'Release/fix'
+  default: minor
+
+template: |
+  $CHANGES
+
+  **Full Changelog**: https://github.com/newrelic/k8s-agents-operator/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
