@@ -1,0 +1,50 @@
+name: Draft Image Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  update_release_draft:
+    name: Autolabeler and release drafter
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      # Command `gh pr edit` needs to run in a repository,
+      # so fetch a single file to make next step succeed
+      - name: Checkout GitHub Repository
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+        if: github.event_name == 'pull_request'
+        with:
+          sparse-checkout: |
+            README.md
+          sparse-checkout-cone-mode: false
+
+      - name: Remove labels in preparation for autolabeler
+        if: github.event_name == 'pull_request'
+        run: |
+          gh pr edit ${{ github.event.number }} \
+            --remove-label "Release/break,Release/feat,Release/fix,Release/other" \
+          || exit 0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release drafter
+        uses: release-drafter/release-drafter@3f0f87098bd6b5c5b9a36d49c41d998ea58f9348 # v6.0.0
+        id: draft-image-release
+        # (Optional) specify config name to use, relative to .github/. Default: release-drafter.yml
+        with:
+          # To achive consistent results with different branches
+          # Source: https://github.com/release-drafter/release-drafter/issues/1061#issuecomment-1032888355
+          commitish: "${{ github.ref_name }}"
+          config-name: draft-image-release-config.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
