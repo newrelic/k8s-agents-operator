@@ -11,6 +11,8 @@ on: [push, workflow_dispatch]
 jobs:
   repolint:
     name: Run Repolinter
+    permissions:
+      issues: write
     runs-on: ubuntu-latest
     steps:
       - name: Test Default Branch
