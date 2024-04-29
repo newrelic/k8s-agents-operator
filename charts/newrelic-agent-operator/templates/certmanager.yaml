@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ template "newrelic-agent-operator.fullname" . }}-serving-cert
+  labels:
+  {{- include "newrelic-agent-operator.labels" . | nindent 4 }}
+spec:
+  dnsNames:
+  - '{{ template "newrelic-agent-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc'
+  - '{{ template "newrelic-agent-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{
+    .Values.kubernetesClusterDomain }}'
+  issuerRef:
+    kind: Issuer
+    name: '{{ template "newrelic-agent-operator.fullname" . }}-selfsigned-issuer'
+  secretName: newrelic-agent-operator-controller-manager-service-cert
+  subject:
+    organizationalUnits:
+    - newrelic-agent-operator

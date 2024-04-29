@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "newrelic-agent-operator.fullname" . }}-webhook-service
+  labels:
+  {{- include "newrelic-agent-operator.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.webhookService.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "newrelic-agent-operator.chart" . }}
+    app.kubernetes.io/name: newrelic-agent-operator
+    control-plane: controller-manager
+  {{- include "newrelic-agent-operator.labels" . | nindent 4 }}
+  ports:
+	{{- .Values.webhookService.ports | toYaml | nindent 2 -}}
