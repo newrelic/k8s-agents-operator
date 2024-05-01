@@ -36,8 +36,8 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic-experimental/newrelic-agent-operator/api/v1alpha1"
-	"github.com/newrelic-experimental/newrelic-agent-operator/pkg/constants"
+	"github.com/newrelic/k8s-agents-operator/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/pkg/constants"
 )
 
 const (

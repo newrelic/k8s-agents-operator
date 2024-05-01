@@ -41,13 +41,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	v1alpha1 "github.com/newrelic-experimental/newrelic-agent-operator/api/v1alpha1"
-	"github.com/newrelic-experimental/newrelic-agent-operator/internal/config"
-	"github.com/newrelic-experimental/newrelic-agent-operator/internal/version"
-	"github.com/newrelic-experimental/newrelic-agent-operator/internal/webhookhandler"
-	"github.com/newrelic-experimental/newrelic-agent-operator/pkg/autodetect"
-	"github.com/newrelic-experimental/newrelic-agent-operator/pkg/instrumentation"
-	instrumentationupgrade "github.com/newrelic-experimental/newrelic-agent-operator/pkg/instrumentation/upgrade"
+	v1alpha1 "github.com/newrelic/k8s-agents-operator/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/internal/config"
+	"github.com/newrelic/k8s-agents-operator/internal/version"
+	"github.com/newrelic/k8s-agents-operator/internal/webhookhandler"
+	"github.com/newrelic/k8s-agents-operator/pkg/autodetect"
+	"github.com/newrelic/k8s-agents-operator/pkg/instrumentation"
+	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/pkg/instrumentation/upgrade"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -114,8 +114,8 @@ func main() {
 	logger := zap.New(zap.UseFlagOptions(&opts))
 	ctrl.SetLogger(logger)
 
-	logger.Info("Starting the New Relic Agent Operator",
-		"newrelic-agent-operator", v.Operator,
+	logger.Info("Starting the Kubernetes Agents Operator",
+		"k8s-agents-operator", v.Operator,
 		"auto-instrumentation-java", autoInstrumentationJava,
 		"auto-instrumentation-nodejs", autoInstrumentationNodeJS,
 		"auto-instrumentation-python", autoInstrumentationPython,

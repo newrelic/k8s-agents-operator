@@ -23,8 +23,8 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/newrelic-experimental/newrelic-agent-operator/internal/version"
-	"github.com/newrelic-experimental/newrelic-agent-operator/pkg/autodetect"
+	"github.com/newrelic/k8s-agents-operator/internal/version"
+	"github.com/newrelic/k8s-agents-operator/pkg/autodetect"
 )
 
 // Option represents one specific configuration option.
