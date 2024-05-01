@@ -12,7 +12,7 @@ spec:
   issuerRef:
     kind: Issuer
     name: '{{ template "newrelic-agent-operator.fullname" . }}-selfsigned-issuer'
-  secretName: newrelic-agent-operator-controller-manager-service-cert
+  secretName: {{ template "newrelic-agent-operator.certificateSecret" . }}
   subject:
     organizationalUnits:
     - newrelic-agent-operator
