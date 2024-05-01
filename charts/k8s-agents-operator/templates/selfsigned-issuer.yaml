@@ -1,8 +1,8 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ template "newrelic-agent-operator.fullname" . }}-selfsigned-issuer
+  name: {{ template "k8s-agents-operator.fullname" . }}-selfsigned-issuer
   labels:
-  {{- include "newrelic-agent-operator.labels" . | nindent 4 }}
+  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
 spec:
   selfSigned: {}
