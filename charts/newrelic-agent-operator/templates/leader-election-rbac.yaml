@@ -45,5 +45,5 @@ roleRef:
   name: '{{ template "newrelic-agent-operator.fullname" . }}-leader-election-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ template "newrelic-agent-operator.fullname" . }}'
+  name: '{{ template "newrelic-agent-operator.serviceAccountName" . }}'
   namespace: '{{ .Release.Namespace }}'

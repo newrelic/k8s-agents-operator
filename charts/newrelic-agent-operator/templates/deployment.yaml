@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ template "newrelic-agent-operator.fullname" . }}
+  name: {{ template "newrelic-agent-operator.serviceAccountName" . }}
   labels:
   {{- include "newrelic-agent-operator.labels" . | nindent 4 }}
 ---
@@ -89,7 +89,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: {{ default (printf "%s-controller-manager-service-cert" (include "newrelic-agent-operator.fullname" .)) .Values.admissionWebhooks.secretName }} 
+          secretName: {{ template "newrelic-agent-operator.certificateSecret" . }}
       {{- end }}
       securityContext:
 {{ toYaml .Values.securityContext | indent 8 }}
