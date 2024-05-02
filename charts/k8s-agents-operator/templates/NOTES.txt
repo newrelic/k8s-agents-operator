@@ -1,6 +1,6 @@
 This project is currently in experimental phases and is provided AS-IS WITHOUT WARRANTY OR DEDICATED SUPPORT.
 Issues and contributions should be reported to the project's GitHub.
-{{- if (include "newrelic-agent-operator.areValuesValid" .) }}
+{{- if (include "k8s-agents-operator.areValuesValid" .) }}
 =====================================
 
                              ********               
@@ -19,12 +19,12 @@ Issues and contributions should be reported to the project's GitHub.
 Your deployment of the New Relic Agent Operator is complete.
 You can check on the progress of this by running the following command:                                                                                                        
                                                                                                    
-kubectl get deployments -o wide -w --namespace {{ .Release.Namespace }} {{ template "newrelic-agent-operator.fullname" . }}
+kubectl get deployments -o wide -w --namespace {{ .Release.Namespace }} {{ template "k8s-agents-operator.fullname" . }}
 
 WARNING: This deployment will be incomplete until configure your Instrumentation custom resource definition.
 =====================================
 
-Please visit https://github.com/newrelic-experimental/newrelic-agent-operator for instructions on how to create & configure the
+Please visit https://github.com/newrelic-experimental/k8s-agents-operator for instructions on how to create & configure the
 Instrumentation custom resource definition required by the Operator.
 {{- else -}}
 
