@@ -1,8 +1,9 @@
-# IMPORTANT: Specify your New Relic Ingest key here.
+# -- Ingest license key to use
 # licenseKey:
 
 controllerManager:
   replicas: 1
+
   kubeRbacProxy:
     image:
       repository: gcr.io/kubebuilder/kube-rbac-proxy
@@ -15,7 +16,6 @@ controllerManager:
         cpu: 5m
         memory: 64Mi
 
-  ## Provide New Relic Agent Operator manager container image and resources.
   manager:
     image:
       repository: ghcr.io/newrelic-experimental/newrelic-agent-operator/newrelic-agent-operator
@@ -24,16 +24,15 @@ controllerManager:
       requests:
         cpu: 100m
         memory: 64Mi
-    # -- Create the manager ServiceAccount
     serviceAccount:
       create: true
-
-    ## Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started.
-    ## See more at https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
+    # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
+    # -- See more at https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
     leaderElection:
       enabled: true
 
 kubernetesClusterDomain: cluster.local
+
 metricsService:
   ports:
   - name: https
@@ -41,6 +40,7 @@ metricsService:
     protocol: TCP
     targetPort: https
   type: ClusterIP
+
 webhookService:
   ports:
   - port: 443
@@ -48,14 +48,14 @@ webhookService:
     targetPort: 9443
   type: ClusterIP
 
-## SecurityContext holds pod-level security attributes and common container settings.
-## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+# -- SecurityContext holds pod-level security attributes and common container settings
+# -- ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 securityContext:
   runAsGroup: 65532
   runAsNonRoot: true
   runAsUser: 65532
   fsGroup: 65532
 
-## Admission webhooks make sure only requests with correctly formatted rules will get into the Operator.
+# -- Admission webhooks make sure only requests with correctly formatted rules will get into the Operator
 admissionWebhooks:
   create: true
