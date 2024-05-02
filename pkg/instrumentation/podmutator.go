@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic-experimental/newrelic-agent-operator/api/v1alpha1"
-	"github.com/newrelic-experimental/newrelic-agent-operator/internal/webhookhandler"
+	"github.com/newrelic/k8s-agents-operator/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/internal/webhookhandler"
 )
 
 var (

@@ -58,7 +58,7 @@ func (r *Instrumentation) Default() {
 		r.Labels = map[string]string{}
 	}
 	if r.Labels["app.kubernetes.io/managed-by"] == "" {
-		r.Labels["app.kubernetes.io/managed-by"] = "newrelic-agent-operator"
+		r.Labels["app.kubernetes.io/managed-by"] = "k8s-agents-operator"
 	}
 
 	if r.Spec.Java.Image == "" {

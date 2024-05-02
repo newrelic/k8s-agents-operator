@@ -35,7 +35,7 @@ var (
 
 // Version holds this Operator's version as well as the version of some of the components it uses.
 type Version struct {
-	Operator                  string `json:"newrelic-agent-operator"`
+	Operator                  string `json:"k8s-agents-operator"`
 	BuildDate                 string `json:"build-date"`
 	Go                        string `json:"go-version"`
 	AutoInstrumentationJava   string `json:"newrelic-instrumentation-java"`

@@ -24,7 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic-experimental/newrelic-agent-operator/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/api/v1alpha1"
 )
 
 type InstrumentationUpgrade struct {
@@ -40,13 +40,13 @@ type InstrumentationUpgrade struct {
 
 //+kubebuilder:rbac:groups=newrelic.com,resources=instrumentations,verbs=get;list;watch;update;patch
 
-// ManagedInstances upgrades managed instances by the newrelic-agent-operator.
+// ManagedInstances upgrades managed instances by the k8s-agents-operator.
 func (u *InstrumentationUpgrade) ManagedInstances(ctx context.Context) error {
 	u.Logger.Info("looking for managed Instrumentation instances to upgrade")
 
 	opts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
-			"app.kubernetes.io/managed-by": "newrelic-agent-operator",
+			"app.kubernetes.io/managed-by": "k8s-agents-operator",
 		}),
 	}
 	list := &v1alpha1.InstrumentationList{}
