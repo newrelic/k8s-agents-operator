@@ -18,8 +18,8 @@ controllerManager:
 
   manager:
     image:
-      repository: ghcr.io/newrelic-experimental/newrelic-agent-operator/newrelic-agent-operator
-      tag: main
+      repository: newrelic/k8s-agents-operator
+      tag: '0.1.0'
     resources:
       requests:
         cpu: 100m
