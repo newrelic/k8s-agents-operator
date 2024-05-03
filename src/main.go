@@ -41,13 +41,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	v1alpha1 "github.com/newrelic/k8s-agents-operator/api/v1alpha1"
-	"github.com/newrelic/k8s-agents-operator/internal/config"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
-	"github.com/newrelic/k8s-agents-operator/internal/webhookhandler"
-	"github.com/newrelic/k8s-agents-operator/pkg/autodetect"
-	"github.com/newrelic/k8s-agents-operator/pkg/instrumentation"
-	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/pkg/instrumentation/upgrade"
+	v1alpha1 "github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/autodetect"
+	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
+	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/instrumentation/upgrade"
+	"github.com/newrelic/k8s-agents-operator/src/internal/config"
+	"github.com/newrelic/k8s-agents-operator/src/internal/version"
+	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
 	// +kubebuilder:scaffold:imports
 )
 

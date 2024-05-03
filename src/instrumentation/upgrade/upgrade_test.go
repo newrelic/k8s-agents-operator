@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
 )
 
 func TestUpgrade(t *testing.T) {

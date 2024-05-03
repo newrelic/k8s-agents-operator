@@ -16,46 +16,43 @@ limitations under the License.
 package instrumentation
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
 )
 
 const (
-	envPythonPath           = "PYTHONPATH"
-	pythonPathPrefix        = "/newrelic-instrumentation/newrelic/bootstrap"
-	pythonPathSuffix        = "/newrelic-instrumentation"
-	pythonVolumeName        = volumeName + "-python"
-	pythonInitContainerName = initContainerName + "-python"
+	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
+	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
+	javaInitContainerName = initContainerName + "-java"
+	javaVolumeName        = volumeName + "-java"
 )
 
-func injectPythonSDK(pythonSpec v1alpha1.Python, pod corev1.Pod, index int) (corev1.Pod, error) {
+func injectJavaagent(javaSpec v1alpha1.Java, pod corev1.Pod, index int) (corev1.Pod, error) {
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[index]
 
-	err := validateContainerEnv(container.Env, envPythonPath)
+	err := validateContainerEnv(container.Env, envJavaToolsOptions)
 	if err != nil {
 		return pod, err
 	}
 
-	// inject Python instrumentation spec env vars.
-	for _, env := range pythonSpec.Env {
+	// inject Java instrumentation spec env vars.
+	for _, env := range javaSpec.Env {
 		idx := getIndexOfEnv(container.Env, env.Name)
 		if idx == -1 {
 			container.Env = append(container.Env, env)
 		}
 	}
 
-	idx := getIndexOfEnv(container.Env, envPythonPath)
+	idx := getIndexOfEnv(container.Env, envJavaToolsOptions)
 	if idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  envPythonPath,
-			Value: fmt.Sprintf("%s:%s", pythonPathPrefix, pythonPathSuffix),
+			Name:  envJavaToolsOptions,
+			Value: javaJVMArgument,
 		})
-	} else if idx > -1 {
-		container.Env[idx].Value = fmt.Sprintf("%s:%s:%s", pythonPathPrefix, container.Env[idx].Value, pythonPathSuffix)
+	} else {
+		container.Env[idx].Value = container.Env[idx].Value + javaJVMArgument
 	}
 
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -73,13 +70,13 @@ func injectPythonSDK(pythonSpec v1alpha1.Python, pod corev1.Pod, index int) (cor
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
 			Name:    initContainerName,
-			Image:   pythonSpec.Image,
-			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+			Image:   javaSpec.Image,
+			Command: []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
 		})
 	}
-	return pod, nil
+	return pod, err
 }

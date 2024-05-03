@@ -23,8 +23,8 @@ import (
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/newrelic/k8s-agents-operator/internal/version"
-	"github.com/newrelic/k8s-agents-operator/pkg/autodetect"
+	"github.com/newrelic/k8s-agents-operator/src/autodetect"
+	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 )
 
 const (
