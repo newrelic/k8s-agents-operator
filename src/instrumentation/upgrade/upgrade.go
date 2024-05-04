@@ -24,7 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
 )
 
 type InstrumentationUpgrade struct {

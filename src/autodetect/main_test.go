@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	"github.com/newrelic/k8s-agents-operator/pkg/autodetect"
+	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 )
 
 func TestDetectPlatformBasedOnAvailableAPIGroups(t *testing.T) {
