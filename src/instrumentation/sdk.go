@@ -37,13 +37,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	apm "github.com/newrelic/k8s-agents-operator/src/apm"
 	"github.com/newrelic/k8s-agents-operator/src/constants"
-)
-
-const (
-	volumeName        = "newrelic-instrumentation"
-	initContainerName = "newrelic-instrumentation"
-	sideCarName       = "opentelemetry-auto-instrumentation"
 )
 
 type sdkInjector struct {
@@ -69,7 +64,7 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 		newrelic := *insts.Java
 		var err error
 		i.logger.V(1).Info("injecting Java instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = injectJavaagent(newrelic.Spec.Java, pod, index)
+		pod, err = apm.InjectJavaagent(newrelic.Spec.Java, pod, index)
 		if err != nil {
 			i.logger.Info("Skipping Java agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
 		} else {
@@ -80,7 +75,7 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 		newrelic := *insts.NodeJS
 		var err error
 		i.logger.V(1).Info("injecting NodeJS instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = injectNodeJSSDK(newrelic.Spec.NodeJS, pod, index)
+		pod, err = apm.InjectNodeJSSDK(newrelic.Spec.NodeJS, pod, index)
 		if err != nil {
 			i.logger.Info("Skipping NodeJS agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
 		} else {
@@ -91,7 +86,7 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 		newrelic := *insts.Python
 		var err error
 		i.logger.V(1).Info("injecting Python instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = injectPythonSDK(newrelic.Spec.Python, pod, index)
+		pod, err = apm.InjectPythonSDK(newrelic.Spec.Python, pod, index)
 		if err != nil {
 			i.logger.Info("Skipping Python agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
 		} else {
@@ -102,7 +97,7 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 		newrelic := *insts.DotNet
 		var err error
 		i.logger.V(1).Info("injecting DotNet instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = injectDotNetSDK(newrelic.Spec.DotNet, pod, index)
+		pod, err = apm.InjectDotNetSDK(newrelic.Spec.DotNet, pod, index)
 		if err != nil {
 			i.logger.Info("Skipping DotNet agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
 		} else {
@@ -113,7 +108,7 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 		newrelic := *insts.Php
 		var err error
 		i.logger.V(1).Info("injecting Php instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = injectPhpagent(newrelic.Spec.Php, pod, index)
+		pod, err = apm.InjectPhpagent(newrelic.Spec.Php, pod, index)
 		if err != nil {
 			i.logger.Info("Skipping Php agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
 		} else {
@@ -121,7 +116,6 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 		}
 	}
 	if insts.Go != nil {
-		origPod := pod
 		newrelic := *insts.Go
 		var err error
 		i.logger.V(1).Info("injecting Go instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
@@ -130,20 +124,13 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 		index := getContainerIndex(goContainers, pod)
 
 		// Go instrumentation supports only single container instrumentation.
-		pod, err = injectGoSDK(newrelic.Spec.Go, pod)
+		pod, err = apm.InjectGoSDK(newrelic.Spec.Go, pod)
 		if err != nil {
 			i.logger.Info("Skipping Go SDK injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
 		} else {
 			// Common env vars and config need to be applied to the agent container.
 			pod = i.injectCommonEnvVar(newrelic, pod, len(pod.Spec.Containers)-1)
 			pod = i.injectCommonSDKConfig(ctx, newrelic, ns, pod, len(pod.Spec.Containers)-1, 0)
-
-			// Ensure that after all the env var coalescing we have a value for OTEL_GO_AUTO_TARGET_EXE
-			idx := getIndexOfEnv(pod.Spec.Containers[len(pod.Spec.Containers)-1].Env, envOtelTargetExe)
-			if idx == -1 {
-				i.logger.Info("Skipping Go SDK injection", "reason", "OTEL_GO_AUTO_TARGET_EXE not set", "container", pod.Spec.Containers[index].Name)
-				pod = origPod
-			}
 		}
 	}
 	return pod
@@ -506,18 +493,4 @@ func moveEnvToListEnd(envs []corev1.EnvVar, idx int) []corev1.EnvVar {
 	}
 
 	return envs
-}
-
-func validateContainerEnv(envs []corev1.EnvVar, envsToBeValidated ...string) error {
-	for _, envToBeValidated := range envsToBeValidated {
-		for _, containerEnv := range envs {
-			if containerEnv.Name == envToBeValidated {
-				if containerEnv.ValueFrom != nil {
-					return fmt.Errorf("the container defines env var value via ValueFrom, envVar: %s", containerEnv.Name)
-				}
-				break
-			}
-		}
-	}
-	return nil
 }
