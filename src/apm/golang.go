@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package instrumentation
+package apm
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ const (
 	kernelDebugVolumePath = "/sys/kernel/debug"
 )
 
-func injectGoSDK(goSpec v1alpha1.Go, pod corev1.Pod) (corev1.Pod, error) {
+func InjectGoSDK(goSpec v1alpha1.Go, pod corev1.Pod) (corev1.Pod, error) {
 	// skip instrumentation if share process namespaces is explicitly disabled
 	if pod.Spec.ShareProcessNamespace != nil && !*pod.Spec.ShareProcessNamespace {
 		return pod, fmt.Errorf("shared process namespace has been explicitly disabled")

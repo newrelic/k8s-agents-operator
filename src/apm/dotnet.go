@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package instrumentation
+package apm
 
 import (
 	"errors"
@@ -37,7 +37,7 @@ const (
 	dotnetInitContainerName             = initContainerName + "-dotnet"
 )
 
-func injectDotNetSDK(dotNetSpec v1alpha1.DotNet, pod corev1.Pod, index int) (corev1.Pod, error) {
+func InjectDotNetSDK(dotNetSpec v1alpha1.DotNet, pod corev1.Pod, index int) (corev1.Pod, error) {
 
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[index]

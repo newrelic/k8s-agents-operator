@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package instrumentation
+package apm
 
 import (
 	"fmt"
@@ -33,7 +33,7 @@ const (
 	phpInstallArgument        = "/newrelic-instrumentation/newrelic-install install && sed -i -e \"s/PHP Application/$NEW_RELIC_APP_NAME/g; s/REPLACE_WITH_REAL_KEY/$NEW_RELIC_LICENSE_KEY/g\" /usr/local/etc/php/conf.d/newrelic.ini"
 )
 
-func injectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod, error) {
+func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod, error) {
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[index]
 

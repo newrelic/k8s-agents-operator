@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package instrumentation
+package apm
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -22,37 +22,37 @@ import (
 )
 
 const (
-	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
-	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
-	javaInitContainerName = initContainerName + "-java"
-	javaVolumeName        = volumeName + "-java"
+	envNodeOptions          = "NODE_OPTIONS"
+	nodeRequireArgument     = " --require /newrelic-instrumentation/newrelicinstrumentation.js"
+	nodejsInitContainerName = initContainerName + "-nodejs"
+	nodejsVolumeName        = volumeName + "-nodejs"
 )
 
-func injectJavaagent(javaSpec v1alpha1.Java, pod corev1.Pod, index int) (corev1.Pod, error) {
+func InjectNodeJSSDK(nodeJSSpec v1alpha1.NodeJS, pod corev1.Pod, index int) (corev1.Pod, error) {
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[index]
 
-	err := validateContainerEnv(container.Env, envJavaToolsOptions)
+	err := validateContainerEnv(container.Env, envNodeOptions)
 	if err != nil {
 		return pod, err
 	}
 
-	// inject Java instrumentation spec env vars.
-	for _, env := range javaSpec.Env {
+	// inject NodeJS instrumentation spec env vars.
+	for _, env := range nodeJSSpec.Env {
 		idx := getIndexOfEnv(container.Env, env.Name)
 		if idx == -1 {
 			container.Env = append(container.Env, env)
 		}
 	}
 
-	idx := getIndexOfEnv(container.Env, envJavaToolsOptions)
+	idx := getIndexOfEnv(container.Env, envNodeOptions)
 	if idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  envJavaToolsOptions,
-			Value: javaJVMArgument,
+			Name:  envNodeOptions,
+			Value: nodeRequireArgument,
 		})
-	} else {
-		container.Env[idx].Value = container.Env[idx].Value + javaJVMArgument
+	} else if idx > -1 {
+		container.Env[idx].Value = container.Env[idx].Value + nodeRequireArgument
 	}
 
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -60,7 +60,7 @@ func injectJavaagent(javaSpec v1alpha1.Java, pod corev1.Pod, index int) (corev1.
 		MountPath: "/newrelic-instrumentation",
 	})
 
-	// We just inject Volumes and init containers for the first processed container.
+	// We just inject Volumes and init containers for the first processed container
 	if isInitContainerMissing(pod) {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name: volumeName,
@@ -70,13 +70,13 @@ func injectJavaagent(javaSpec v1alpha1.Java, pod corev1.Pod, index int) (corev1.
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
 			Name:    initContainerName,
-			Image:   javaSpec.Image,
-			Command: []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
+			Image:   nodeJSSpec.Image,
+			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
 		})
 	}
-	return pod, err
+	return pod, nil
 }
