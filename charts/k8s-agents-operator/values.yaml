@@ -26,8 +26,8 @@ controllerManager:
         memory: 64Mi
     serviceAccount:
       create: true
+    # -- Source: https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
     # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
-    # -- See more at https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
     leaderElection:
       enabled: true
 
@@ -48,8 +48,8 @@ webhookService:
     targetPort: 9443
   type: ClusterIP
 
+# -- Source: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 # -- SecurityContext holds pod-level security attributes and common container settings
-# -- ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 securityContext:
   runAsGroup: 65532
   runAsNonRoot: true
