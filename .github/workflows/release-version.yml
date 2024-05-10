@@ -1,0 +1,109 @@
+name: Release Version
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron:  '0 12 * * 1' # Monday at 12pm UTC or 5am PT
+
+permissions:
+  contents: read
+
+jobs:
+  promote-draft-release:
+    name: Promote draft release
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      tagName: ${{ steps.promote.outputs.tagName }}
+    steps:
+      # Command `gh release edit` needs to run in a repository,
+      # so fetch a single file to make next step succeed
+      - name: Checkout GitHub Repository
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        with:
+          sparse-checkout: |
+            README.md
+          sparse-checkout-cone-mode: false
+
+      - name: Promote draft release
+        id: promote
+        env:
+          # Default GITHUB_TOKEN does not allow to create a new workflow run,
+          # so it does not allow CI pipeline to run when tag is pushed
+          # Source: https://docs.github.com/en/actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow
+          GITHUB_TOKEN: ${{ secrets.K8S_AGENTS_BOT_TOKEN }}
+        run: |
+          echo "$( gh release list --limit 5)"
+          tagName=$( gh release list | grep Draft | awk -F' ' '{ print $3; }' )
+          if [[ -n "$tagName" ]]; then
+            echo "Proceeding to publish release $tagName"
+            gh release edit $tagName --draft=false --latest
+            echo "tagName=$tagName" >> "$GITHUB_OUTPUT"
+          else
+            echo "Draft release tag not found. Skipping"
+          fi
+
+  bump-charts:
+    name: Bump Helm chart versions
+    needs: [promote-draft-release]
+    if: needs.promote-draft-release.outputs.tagName
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitHub Repository
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+
+      - name: Bump Helm chart versions in `Chart.yaml`
+        env:
+          tagName: ${{ needs.promote-draft-release.outputs.tagName }}
+        run: |
+          echo "Bumping Helm chart versions to $tagName"
+          tagName=$( echo "$tagName" | sed 's/v//' )
+          yq eval --inplace ".appVersion=\"$tagName\"" "charts/k8s-agents-operator/Chart.yaml"
+          yq eval --inplace ".version=\"$tagName\"" "charts/k8s-agents-operator/Chart.yaml"
+
+      - name: Install Helm Docs
+        run: |
+          version="v1.13.1"
+          stripped=$( echo "${version}" | sed s'/v//' )
+          wget https://github.com/norwoodj/helm-docs/releases/download/${version}/helm-docs_${stripped}_Linux_x86_64.tar.gz
+          tar --extract --verbose --file="helm-docs_${stripped}_Linux_x86_64.tar.gz" helm-docs
+          sudo mv helm-docs /usr/local/sbin
+
+      - name: Run Helm Docs
+        run: |
+          helm-docs
+
+      - name: Configure Git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Push changes
+        run: |
+          git branch "${{ github.actor }}/bump-versions-${{ github.sha }}"
+          git checkout "${{ github.actor }}/bump-versions-${{ github.sha }}"
+          git add charts/k8s-agents-operator/Chart.yaml
+          git add charts/k8s-agents-operator/README.md
+          git commit --message="ci: Bump Helm chart version and update docs"
+          git push --set-upstream origin "${{ github.actor }}/bump-versions-${{ github.sha }}"
+
+      - name: Create pull request, skip release notes, merge
+        env:
+          # Default GITHUB_TOKEN does not allow to merge PRs with admin privileges
+          # Source: https://stackoverflow.com/questions/74274130/allow-github-actions-to-merge-prs-on-protected-branch
+          GITHUB_TOKEN: ${{ secrets.K8S_AGENTS_BOT_TOKEN }}
+        run: |
+          gh pr create \
+            --label "Release/skip" \
+            --base main \
+            --head "${{ github.actor }}/bump-versions-${{ github.sha }}" \
+            --title "ci: Bump Helm chart version and update docs" \
+            --body "Update Helm chart versions to reflect the newly-published release"
+          gh pr merge \
+            --admin \
+            --body "Automatically merged by github-actions" \
+            --delete-branch \
+            --squash
