@@ -1,0 +1,42 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.badgesSection" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.homepageLine" . }}
+
+## Prerequisites
+
+[Helm](https://helm.sh) must be installed to use the charts.  Please refer to Helm's [documentation](https://helm.sh/docs) to get started.
+
+Add the repository:
+```shell
+helm repo add k8s-agents-operator https://newrelic.github.io/k8s-agents-operator
+```
+
+If you had already added this repo earlier, retrieve the latest versions of the packages:
+```shell
+helm repo update
+```
+
+## Available Chart Releases
+
+To see the available charts:
+```shell
+helm search repo k8s-agents-operator
+```
+
+If you want to see a list of all available charts and releases, check [index.yaml](https://newrelic.github.io/k8s-agents-operator/index.yaml).
+
+{{ template "chart.sourcesSection" . }}
+
+{{ template "chart.requirementsSection" . }}
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "chart.maintainersSection" . }}
+
+{{ template "helm-docs.versionFooter" . }}
