@@ -6,9 +6,14 @@ This project auto-instruments containerized workloads in Kubernetes with New Rel
 
 ## Table Of Contents
 
+- [Installation](#installation)
 - [Support](#support)
 - [Contribute](#contribute)
 - [License](#license)
+
+## Installation
+
+For instructions on how to install the Helm chart, read the [chart's README](./charts/k8s-agents-operator/README.md)
 
 ## Support
 
