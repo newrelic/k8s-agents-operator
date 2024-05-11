@@ -12,14 +12,118 @@
 
 [Helm](https://helm.sh) must be installed to use the charts.  Please refer to Helm's [documentation](https://helm.sh/docs) to get started.
 
-Add the repository:
+## Installation
+
+### Requirements
+
+Add the `jetstack` and `k8s-agents-operator` Helm chart repositories:
 ```shell
+helm repo add jetstack https://charts.jetstack.io
 helm repo add k8s-agents-operator https://newrelic.github.io/k8s-agents-operator
 ```
 
-If you had already added this repo earlier, retrieve the latest versions of the packages:
+Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm chart:
 ```shell
-helm repo update
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set installCRDs=true
+```
+
+### Instrumentation
+
+Install the [`k8s-agents-operator`](https://github.com/newrelic/k8s-agents-operator) Helm chart:
+```shell
+helm upgrade --install k8s-agents-operator k8s-agents-operator/k8s-agents-operator \
+  --namespace k8s-agents-operator \
+  --create-namespace \
+  --values your-custom-values.yaml
+```
+
+### Monitored namespaces
+
+For each namespace you want the operator to be instrumented, create a secret containing a valid New Relic ingest license key:
+```
+kubectl create secret generic newrelic-key-secret \
+  --namespace my-monitored-namespace \
+  --from-literal=new_relic_license_key=<NEW RELIC INGEST LICENSE KEY>
+```
+
+Similarly, for each namespace you need to instrument create the `Instrumentation` custom resource, specifying which APM agents you want to instrument:
+```yaml
+apiVersion: newrelic.com/v1alpha1
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation
+spec:
+  java:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-java:latest
+    # env:
+    # Example New Relic agent supported environment variables
+    # - name: NEW_RELIC_LABELS
+    #   value: "environment:auto-injection"
+    # Example overriding the appName configuration
+    # - name: NEW_RELIC_POD_NAME
+    #   valueFrom:
+    #     fieldRef:
+    #       fieldPath: metadata.name
+    # - name: NEW_RELIC_APP_NAME
+    #   value: "$(NEW_RELIC_LABELS)-$(NEW_RELIC_POD_NAME)"
+  nodejs:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-nodejs:latest
+  python:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-python:latest
+  dotnet:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-dotnet-arm:latest
+  php:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-php:latest
+```
+In the example above, we show how you can configure the agent settings globally using ENV variables.
+
+Global agent settings can be overridden in your deployment manifest if a different configuration is required.
+
+### Annotations
+
+The `k8s-agents-operator` looks for language-specific annotations when your pods are being scheduled to know which applications you want to monitor.
+
+Below are the currently supported annotations:
+```
+instrumentation.newrelic.com/inject-java: "true"
+instrumentation.newrelic.com/inject-nodejs: "true"
+instrumentation.newrelic.com/inject-python: "true"
+instrumentation.newrelic.com/inject-dotnet: "true"
+instrumentation.newrelic.com/inject-php: "true"
+```
+
+Example deployment with annotation to instrument the Java agent:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-petclinic
+spec:
+  selector:
+    matchLabels:
+      app: spring-petclinic
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: spring-petclinic
+      annotations:
+        instrumentation.newrelic.com/inject-java: "true"
+    spec:
+      containers:
+        - name: spring-petclinic
+          image: ghcr.io/pavolloffay/spring-petclinic:latest
+          ports:
+            - containerPort: 8080
+          env:
+          - name: NEW_RELIC_APP_NAME
+            value: spring-petclinic-demo
 ```
 
 ## Available Chart Releases

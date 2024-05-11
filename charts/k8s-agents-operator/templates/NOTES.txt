@@ -26,16 +26,11 @@ WARNING: This deployment will be incomplete until configure your Instrumentation
 
 Please visit https://github.com/newrelic-experimental/k8s-agents-operator for instructions on how to create & configure the
 Instrumentation custom resource definition required by the Operator.
-{{- else -}}
+{{- else }}
 
 ##############################################################################
 ####     ERROR: You did not set a license key.                            ####
 ##############################################################################
 
 This deployment will be incomplete until you get your ingest license key from New Relic.
-
-Then run:
-
-    helm upgrade {{ .Release.Name }} path/to/chart/ \
-        --set licenseKey=(your-license-key)
 {{- end -}}
