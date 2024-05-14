@@ -28,8 +28,8 @@ const (
 	EnvPodUID   = "OTEL_RESOURCE_ATTRIBUTES_POD_UID"
 	EnvNodeName = "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME"
 
-	EnvNewRelicAppName    		  = "NEW_RELIC_APP_NAME"
+	EnvNewRelicAppName            = "NEW_RELIC_APP_NAME"
 	EnvNewRelicK8sOperatorEnabled = "NEW_RELIC_K8S_OPERATOR_ENABLED"
-	EnvNewRelicLabels     		  = "NEW_RELIC_LABELS"
-	EnvNewRelicLicenseKey		  = "NEW_RELIC_LICENSE_KEY"
+	EnvNewRelicLabels             = "NEW_RELIC_LABELS"
+	EnvNewRelicLicenseKey         = "NEW_RELIC_LICENSE_KEY"
 )
