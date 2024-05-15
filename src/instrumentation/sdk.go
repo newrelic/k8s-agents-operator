@@ -313,8 +313,15 @@ func (i *sdkInjector) injectNewrelicConfig(ctx context.Context, newrelic v1alpha
 	idx = getIndexOfEnv(container.Env, constants.EnvNewRelicLabels)
 	if idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  "NEW_RELIC_LABELS",
+			Name:  constants.EnvNewRelicLabels,
 			Value: "operator:auto-injection",
+		})
+	}
+	idx = getIndexOfEnv(container.Env, constants.EnvNewRelicK8sOperatorEnabled)
+	if idx == -1 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.EnvNewRelicK8sOperatorEnabled,
+			Value: "true",
 		})
 	}
 	return pod

@@ -25,8 +25,7 @@ import (
 
 const (
 	envPythonPath           = "PYTHONPATH"
-	pythonPathPrefix        = "/newrelic-instrumentation/newrelic/bootstrap"
-	pythonPathSuffix        = "/newrelic-instrumentation"
+	pythonPathPrefix        = "/newrelic-instrumentation"
 	pythonVolumeName        = volumeName + "-python"
 	pythonInitContainerName = initContainerName + "-python"
 )
@@ -52,10 +51,10 @@ func InjectPythonSDK(pythonSpec v1alpha1.Python, pod corev1.Pod, index int) (cor
 	if idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  envPythonPath,
-			Value: fmt.Sprintf("%s:%s", pythonPathPrefix, pythonPathSuffix),
+			Value: pythonPathPrefix,
 		})
 	} else if idx > -1 {
-		container.Env[idx].Value = fmt.Sprintf("%s:%s:%s", pythonPathPrefix, container.Env[idx].Value, pythonPathSuffix)
+		container.Env[idx].Value = fmt.Sprintf("%s:%s", pythonPathPrefix, container.Env[idx].Value)
 	}
 
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
