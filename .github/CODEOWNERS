@@ -5,3 +5,6 @@
 # the repo. Unless a later match takes precedence.
 
 * @newrelic/k8s-agents
+
+# APM team owned directories
+/src/apm/ @newrelic/dotnet @newrelic/go-agent @newrelic/java-agent @newrelic/node-js-agent @newrelic/php-agent @newrelic/python @newrelic/ruby-agent
