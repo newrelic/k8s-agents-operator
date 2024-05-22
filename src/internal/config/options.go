@@ -40,6 +40,7 @@ type options struct {
 	autoInstrumentationPythonImage string
 	autoInstrumentationNodeJSImage string
 	autoInstrumentationPhpImage    string
+	autoInstrumentationRubyImage   string
 	onOpenShiftRoutesChange        changeHandler
 	labelsFilter                   []string
 	openshiftRoutes                openshiftRoutesStore
@@ -108,6 +109,12 @@ func WithAutoInstrumentationDotNetImage(s string) Option {
 func WithAutoInstrumentationPhpImage(s string) Option {
 	return func(o *options) {
 		o.autoInstrumentationPhpImage = s
+	}
+}
+
+func WithAutoInstrumentationRubyImage(s string) Option {
+	return func(o *options) {
+		o.autoInstrumentationRubyImage = s
 	}
 }
 

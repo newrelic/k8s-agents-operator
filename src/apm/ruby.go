@@ -13,14 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package instrumentation
+package apm
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic-experimental/newrelic-agent-operator/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
 )
 
 const (
@@ -30,7 +28,7 @@ const (
 	rubyInitContainerName = initContainerName + "-ruby"
 )
 
-func injectRubySDK(rubySpec v1alpha1.Ruby, pod corev1.Pod, index int) (corev1.Pod, error) {
+func InjectRubySDK(rubySpec v1alpha1.Ruby, pod corev1.Pod, index int) (corev1.Pod, error) {
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[index]
 

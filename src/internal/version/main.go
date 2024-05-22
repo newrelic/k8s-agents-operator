@@ -30,6 +30,7 @@ var (
 	autoInstrumentationPython string
 	autoInstrumentationDotNet string
 	autoInstrumentationPhp    string
+	autoInstrumentationRuby   string
 	autoInstrumentationGo     string
 )
 
@@ -43,6 +44,7 @@ type Version struct {
 	AutoInstrumentationPython string `json:"newrelic-instrumentation-python"`
 	AutoInstrumentationDotNet string `json:"newrelic-instrumentation-dotnet"`
 	AutoInstrumentationPhp    string `json:"newrelic-instrumentation-php"`
+	AutoInstrumentationRuby   string `json:"newrelic-instrumentation-ruby"`
 	AutoInstrumentationGo     string `json:"autoinstrumentation-go"`
 }
 
@@ -57,13 +59,14 @@ func Get() Version {
 		AutoInstrumentationPython: AutoInstrumentationPython(),
 		AutoInstrumentationDotNet: AutoInstrumentationDotNet(),
 		AutoInstrumentationPhp:    AutoInstrumentationPhp(),
+		AutoInstrumentationRuby:   AutoInstrumentationRuby(),
 		AutoInstrumentationGo:     AutoInstrumentationGo(),
 	}
 }
 
 func (v Version) String() string {
 	return fmt.Sprintf(
-		"Version(Operator='%v', BuildDate='%v', Go='%v', AutoInstrumentationJava='%v', AutoInstrumentationNodeJS='%v', AutoInstrumentationPython='%v', AutoInstrumentationDotNet='%v', AutoInstrumentationPhp='%v', AutoInstrumentationGo='%v')",
+		"Version(Operator='%v', BuildDate='%v', Go='%v', AutoInstrumentationJava='%v', AutoInstrumentationNodeJS='%v', AutoInstrumentationPython='%v', AutoInstrumentationDotNet='%v', AutoInstrumentationPhp='%v',  AutoInstrumentationRuby='%v', AutoInstrumentationGo='%v')",
 		v.Operator,
 		v.BuildDate,
 		v.Go,
@@ -72,6 +75,7 @@ func (v Version) String() string {
 		v.AutoInstrumentationPython,
 		v.AutoInstrumentationDotNet,
 		v.AutoInstrumentationPhp,
+		v.AutoInstrumentationRuby,
 		v.AutoInstrumentationGo,
 	)
 }
@@ -109,6 +113,13 @@ func AutoInstrumentationPhp() string {
 		return autoInstrumentationPhp
 	}
 	return "0.0.0.0"
+}
+
+func AutoInstrumentationRuby() string {
+	if len(autoInstrumentationRuby) > 0 {
+		return autoInstrumentationRuby
+	}
+	return "0.0.0"
 }
 
 func AutoInstrumentationGo() string {

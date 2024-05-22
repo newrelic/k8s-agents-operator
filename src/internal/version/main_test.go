@@ -42,6 +42,10 @@ func TestAutoInstrumentationPhpFallbackVersion(t *testing.T) {
 	assert.Equal(t, "0.0.0.0", AutoInstrumentationPhp())
 }
 
+func TestAutoInstrumentationRubyFallbackVersion(t *testing.T) {
+	assert.Equal(t, "0.0.0", AutoInstrumentationRuby())
+}
+
 func TestAutoInstrumentationGoFallbackVersion(t *testing.T) {
 	assert.Equal(t, "0.0.0", AutoInstrumentationGo())
 }
