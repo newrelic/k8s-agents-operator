@@ -19,7 +19,8 @@ controllerManager:
   manager:
     image:
       repository: newrelic/k8s-agents-operator
-      tag: 
+      tag:
+      pullPolicy:
     resources:
       requests:
         cpu: 100m
