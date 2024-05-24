@@ -23,6 +23,10 @@ import (
 )
 
 const (
+	volumeName        = "newrelic-instrumentation"
+	initContainerName = "newrelic-instrumentation"
+	sideCarName       = "opentelemetry-auto-instrumentation"
+
 	// indicates whether newrelic agents should be injected or not.
 	// Possible values are "true", "false" or "<Instrumentation>" name.
 	annotationInjectJava                 = "instrumentation.newrelic.com/inject-java"
