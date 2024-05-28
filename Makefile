@@ -5,6 +5,7 @@ TMP_DIR = $(shell pwd)/tmp
 
 # Go packages to test
 TEST_PACKAGES = ./src/internal/config \
+				./src/api/v1alpha1 \
 				./src/instrumentation/ \
                 ./src/internal/version
 
