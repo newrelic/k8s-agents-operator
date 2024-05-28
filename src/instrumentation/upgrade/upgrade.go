@@ -116,7 +116,7 @@ func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1alpha1.Instru
 	autoInstGo := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo]
 	if autoInstGo != "" {
 		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Go.Image == autoInstDotnet {
+		if inst.Spec.Go.Image == autoInstGo {
 			inst.Spec.Go.Image = u.DefaultAutoInstGo
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo] = u.DefaultAutoInstGo
 		}
