@@ -90,7 +90,7 @@ func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod
 	return pod, nil
 }
 
-// setDotNetEnvVar function sets env var to the container if not exist already.
+// setPhpEnvVar function sets env var to the container if not exist already.
 // value of concatValues should be set to true if the env var supports multiple values separated by :.
 // If it is set to false, the original container's env var value has priority.
 func setPhpEnvVar(container *corev1.Container, envVarName string, envVarValue string, concatValues bool) {
