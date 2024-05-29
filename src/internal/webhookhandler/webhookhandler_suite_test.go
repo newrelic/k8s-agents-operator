@@ -55,9 +55,9 @@ func TestMain(m *testing.M) {
 	defer cancel()
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "tests", "kustomize", "crd", "bases")},
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+			Paths: []string{filepath.Join("..", "..", "..", "tests", "kustomize", "webhook")},
 		},
 	}
 	cfg, err = testEnv.Start()
