@@ -157,7 +157,7 @@ func (c *Config) AutoInstrumentationDotNetImage() string {
 	return c.autoInstrumentationDotNetImage
 }
 
-// AutoInstrumentationDotNetImage returns New Relic DotNet auto-instrumentation container image.
+// AutoInstrumentationPhpImage returns New Relic PHP auto-instrumentation container image.
 func (c *Config) AutoInstrumentationPhpImage() string {
 	return c.autoInstrumentationPhpImage
 }
