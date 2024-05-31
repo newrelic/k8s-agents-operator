@@ -78,6 +78,8 @@ spec:
     image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-dotnet-arm:latest
   php:
     image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-php:latest
+  ruby:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-ruby:latest
 ```
 In the example above, we show how you can configure the agent settings globally using ENV variables.
 
@@ -94,6 +96,7 @@ instrumentation.newrelic.com/inject-nodejs: "true"
 instrumentation.newrelic.com/inject-python: "true"
 instrumentation.newrelic.com/inject-dotnet: "true"
 instrumentation.newrelic.com/inject-php: "true"
+instrumentation.newrelic.com/inject-ruby: "true"
 ```
 
 Example deployment with annotation to instrument the Java agent:

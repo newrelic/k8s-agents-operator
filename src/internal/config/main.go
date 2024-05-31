@@ -41,6 +41,7 @@ type Config struct {
 	autoInstrumentationJavaImage   string
 	autoInstrumentationGoImage     string
 	autoInstrumentationPhpImage    string
+	autoInstrumentationRubyImage   string
 	onOpenShiftRoutesChange        changeHandler
 	labelsFilter                   []string
 	openshiftRoutes                openshiftRoutesStore
@@ -74,6 +75,7 @@ func New(opts ...Option) Config {
 		autoInstrumentationPythonImage: o.autoInstrumentationPythonImage,
 		autoInstrumentationDotNetImage: o.autoInstrumentationDotNetImage,
 		autoInstrumentationPhpImage:    o.autoInstrumentationPhpImage,
+		autoInstrumentationRubyImage:   o.autoInstrumentationRubyImage,
 		autoInstrumentationGoImage:     o.autoInstrumentationGoImage,
 		labelsFilter:                   o.labelsFilter,
 		autoscalingVersion:             o.autoscalingVersion,
@@ -160,6 +162,11 @@ func (c *Config) AutoInstrumentationDotNetImage() string {
 // AutoInstrumentationDotNetImage returns New Relic DotNet auto-instrumentation container image.
 func (c *Config) AutoInstrumentationPhpImage() string {
 	return c.autoInstrumentationPhpImage
+}
+
+// AutoInstrumentationRubyImage returns New Relic Ruby auto-instrumentation container image.
+func (c *Config) AutoInstrumentationRubyImage() string {
+	return c.autoInstrumentationRubyImage
 }
 
 // AutoInstrumentationGoImage returns Opentelemtrey Go auto-instrumentation container image.

@@ -115,6 +115,17 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 			pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
 		}
 	}
+	if insts.Ruby != nil {
+		newrelic := *insts.Ruby
+		var err error
+		i.logger.V(1).Info("injecting Ruby instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
+		pod, err = apm.InjectRubySDK(newrelic.Spec.Ruby, pod, index)
+		if err != nil {
+			i.logger.Info("Skipping Ruby agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
+		} else {
+			pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
+		}
+	}
 	if insts.Go != nil {
 		newrelic := *insts.Go
 		var err error
@@ -164,7 +175,7 @@ func (i *sdkInjector) injectCommonEnvVar(newrelic v1alpha1.Instrumentation, pod 
 // agentIndex represents the index of the pod the needs the env vars to instrument the application.
 // appIndex represents the index of the pod the will produce the telemetry.
 // When the pod handling the instrumentation is the same as the pod producing the telemetry agentIndex
-// and appIndex should be the same value.  This is true for dotnet, java, nodejs, and python instrumentations.
+// and appIndex should be the same value.  This is true for dotnet, java, nodejs, python, and ruby instrumentations.
 // Go requires the agent to be a different container in the pod, so the agentIndex should represent this new sidecar
 // and appIndex should represent the application being instrumented.
 func (i *sdkInjector) injectCommonSDKConfig(ctx context.Context, newrelic v1alpha1.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentIndex int, appIndex int) corev1.Pod {
