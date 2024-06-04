@@ -23,7 +23,7 @@ import (
 
 const (
 	envRubyOpt            = "RUBYOPT"
-	rubyOptRequire        = "-r /newrelic-instrumentation/lib/bootstrap"
+	rubyOptRequire        = "-r /newrelic-instrumentation/lib/boot/strap"
 	rubyVolumeName        = volumeName + "-ruby"
 	rubyInitContainerName = initContainerName + "-ruby"
 )
