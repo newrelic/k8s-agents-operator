@@ -27,7 +27,7 @@ Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm 
 helm install cert-manager jetstack/cert-manager \
   --namespace cert-manager \
   --create-namespace \
-  --set installCRDs=true
+  --set crds.enabled=true
 ```
 
 ### Instrumentation
