@@ -1,11 +1,29 @@
 # Directories
 GO_DIR = ./src
 BIN_DIR = ./bin
-TMP_DIR = ./tmp
+TMP_DIR = $(shell pwd)/tmp
 
 # Go packages to test
 TEST_PACKAGES = ./src/internal/config \
+				./src/api/v1alpha1 \
+				./src/autodetect \
+				./src/instrumentation/ \
+				./src/instrumentation/upgrade \
                 ./src/internal/version
+
+# Kubebuilder variables
+SETUP_ENVTEST = sigs.k8s.io/controller-runtime/tools/setup-envtest
+ENVTEST_VERSION = release-0.18
+ENVTEST_BIN = $(TMP_DIR)/setup-envtest
+ENVTEST_K8S_VERSION = 1.29.0
+
+# Temp location to install dependencies
+$(TMP_DIR):
+	mkdir $(TMP_DIR)
+
+# Install setup-envtest
+$(ENVTEST_BIN): $(TMP_DIR)
+	GOBIN="$(realpath $(TMP_DIR))" go install $(SETUP_ENVTEST)@$(ENVTEST_VERSION)
 
 .PHONY: all
 all: clean format modules test build
@@ -27,9 +45,10 @@ modules:
 	go mod verify
 
 .PHONY: test
-test:
-	mkdir $(TMP_DIR) || true
-	go test -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
+test: $(ENVTEST_BIN)
+	@chmod -R 755 $(TMP_DIR)/k8s
+	KUBEBUILDER_ASSETS="$(shell $(TMP_DIR)/setup-envtest use $(ENVTEST_K8S_VERSION) --bin-dir $(TMP_DIR) -p path)" \
+		go test -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
 
 .PHONY: build
 build:

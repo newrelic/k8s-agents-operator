@@ -23,6 +23,10 @@ import (
 )
 
 const (
+	volumeName        = "newrelic-instrumentation"
+	initContainerName = "newrelic-instrumentation"
+	sideCarName       = "opentelemetry-auto-instrumentation"
+
 	// indicates whether newrelic agents should be injected or not.
 	// Possible values are "true", "false" or "<Instrumentation>" name.
 	annotationInjectJava                 = "instrumentation.newrelic.com/inject-java"
@@ -35,6 +39,8 @@ const (
 	annotationInjectDotnetContainersName = "instrumentation.newrelic.com/dotnet-container-names"
 	annotationInjectPhp                  = "instrumentation.newrelic.com/inject-php"
 	annotationInjectPhpContainersName    = "instrumentation.newrelic.com/php-container-names"
+	annotationInjectRuby                 = "instrumentation.newrelic.com/inject-ruby"
+	annotationInjectRubyContainersName   = "instrumentation.newrelic.com/ruby-container-names"
 	annotationPhpExecCmd                 = "instrumentation.newrelic.com/php-exec-command"
 	annotationInjectContainerName        = "instrumentation.newrelic.com/container-name"
 	annotationInjectGo                   = "instrumentation.opentelemetry.io/inject-go"

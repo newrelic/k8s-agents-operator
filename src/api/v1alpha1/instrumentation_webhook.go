@@ -33,6 +33,7 @@ const (
 	AnnotationDefaultAutoInstrumentationPython = "instrumentation.newrelic.com/default-auto-instrumentation-python-image"
 	AnnotationDefaultAutoInstrumentationDotNet = "instrumentation.newrelic.com/default-auto-instrumentation-dotnet-image"
 	AnnotationDefaultAutoInstrumentationPhp    = "instrumentation.newrelic.com/default-auto-instrumentation-php-image"
+	AnnotationDefaultAutoInstrumentationRuby   = "instrumentation.newrelic.com/default-auto-instrumentation-ruby-image"
 	AnnotationDefaultAutoInstrumentationGo     = "instrumentation.newrelic.com/default-auto-instrumentation-go-image"
 	envNewRelicPrefix                          = "NEW_RELIC_"
 	envOtelPrefix                              = "OTEL_"
@@ -86,6 +87,11 @@ func (r *Instrumentation) Default() {
 			r.Spec.Php.Image = val
 		}
 	}
+	if r.Spec.Ruby.Image == "" {
+		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationRuby]; ok {
+			r.Spec.Ruby.Image = val
+		}
+	}
 	if r.Spec.Go.Image == "" {
 		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationGo]; ok {
 			r.Spec.Go.Image = val
@@ -135,6 +141,9 @@ func (r *Instrumentation) validate() error {
 		return err
 	}
 	if err := r.validateEnv(r.Spec.Php.Env); err != nil {
+		return err
+	}
+	if err := r.validateEnv(r.Spec.Ruby.Env); err != nil {
 		return err
 	}
 	if err := r.validateEnv(r.Spec.Go.Env); err != nil {

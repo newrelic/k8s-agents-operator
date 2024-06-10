@@ -35,6 +35,7 @@ type InstrumentationUpgrade struct {
 	DefaultAutoInstPython string
 	DefaultAutoInstDotNet string
 	DefaultAutoInstPhp    string
+	DefaultAutoInstRuby   string
 	DefaultAutoInstGo     string
 }
 
@@ -111,6 +112,14 @@ func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1alpha1.Instru
 		if inst.Spec.Php.Image == autoInstPhp {
 			inst.Spec.Php.Image = u.DefaultAutoInstPhp
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstPhp
+		}
+	}
+	autoInstRuby := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby]
+	if autoInstRuby != "" {
+		// upgrade the image only if the image matches the annotation
+		if inst.Spec.Ruby.Image == autoInstRuby {
+			inst.Spec.Ruby.Image = u.DefaultAutoInstRuby
+			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby] = u.DefaultAutoInstRuby
 		}
 	}
 	autoInstGo := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo]

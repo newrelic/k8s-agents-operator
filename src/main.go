@@ -87,6 +87,7 @@ func main() {
 		autoInstrumentationPython string
 		autoInstrumentationDotNet string
 		autoInstrumentationPhp    string
+		autoInstrumentationRuby   string
 		autoInstrumentationGo     string
 		labelsFilter              []string
 		webhookPort               int
@@ -103,6 +104,7 @@ func main() {
 	pflag.StringVar(&autoInstrumentationPython, "auto-instrumentation-python-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-python:%s", v.AutoInstrumentationPython), "The default New Relic Python instrumentation image. This image is used when no image is specified in the CustomResource.")
 	pflag.StringVar(&autoInstrumentationDotNet, "auto-instrumentation-dotnet-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-dotnet:%s", v.AutoInstrumentationDotNet), "The default New Relic DotNet instrumentation image. This image is used when no image is specified in the CustomResource.")
 	pflag.StringVar(&autoInstrumentationPhp, "auto-instrumentation-php-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-php:%s", v.AutoInstrumentationDotNet), "The default New Relic Php instrumentation image. This image is used when no image is specified in the CustomResource.")
+	pflag.StringVar(&autoInstrumentationRuby, "auto-instrumentation-ruby-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-ruby:%s", v.AutoInstrumentationRuby), "The default New Relic Ruby instrumentation image. This image is used when no image is specified in the CustomResource.")
 	pflag.StringVar(&autoInstrumentationGo, "auto-instrumentation-go-image", fmt.Sprintf("ghcr.io/open-telemetry/opentelemetry-go-instrumentation/autoinstrumentation-go:%s", v.AutoInstrumentationGo), "The default Opentelemtry Go instrumentation image. This image is used when no image is specified in the CustomResource.")
 
 	pflag.StringArrayVar(&labelsFilter, "labels", []string{}, "Labels to filter away from propagating onto deploys")
@@ -121,6 +123,7 @@ func main() {
 		"auto-instrumentation-python", autoInstrumentationPython,
 		"auto-instrumentation-dotnet", autoInstrumentationDotNet,
 		"auto-instrumentation-php", autoInstrumentationPhp,
+		"auto-instrumentation-ruby", autoInstrumentationRuby,
 		"auto-instrumentation-go", autoInstrumentationGo,
 		"build-date", v.BuildDate,
 		"go-version", v.Go,
@@ -146,6 +149,7 @@ func main() {
 		config.WithAutoInstrumentationPythonImage(autoInstrumentationPython),
 		config.WithAutoInstrumentationDotNetImage(autoInstrumentationDotNet),
 		config.WithAutoInstrumentationPhpImage(autoInstrumentationPhp),
+		config.WithAutoInstrumentationRubyImage(autoInstrumentationRuby),
 		config.WithAutoInstrumentationGoImage(autoInstrumentationGo),
 		config.WithAutoDetect(ad),
 		config.WithLabelFilters(labelsFilter),
@@ -208,6 +212,7 @@ func main() {
 					v1alpha1.AnnotationDefaultAutoInstrumentationPython: autoInstrumentationPython,
 					v1alpha1.AnnotationDefaultAutoInstrumentationDotNet: autoInstrumentationDotNet,
 					v1alpha1.AnnotationDefaultAutoInstrumentationPhp:    autoInstrumentationPhp,
+					v1alpha1.AnnotationDefaultAutoInstrumentationRuby: autoInstrumentationRuby,
 					v1alpha1.AnnotationDefaultAutoInstrumentationGo:     autoInstrumentationGo,
 				},
 			},
@@ -261,6 +266,7 @@ func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config, v v
 			DefaultAutoInstPython: cfg.AutoInstrumentationPythonImage(),
 			DefaultAutoInstDotNet: cfg.AutoInstrumentationDotNetImage(),
 			DefaultAutoInstPhp:    cfg.AutoInstrumentationPhpImage(),
+			DefaultAutoInstRuby:   cfg.AutoInstrumentationRubyImage(),
 			DefaultAutoInstGo:     cfg.AutoInstrumentationGoImage(),
 			Client:                mgr.GetClient(),
 		}
