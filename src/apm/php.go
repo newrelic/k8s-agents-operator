@@ -24,13 +24,15 @@ import (
 )
 
 const (
-	envPhpsymbolicOption      = "NR_INSTALL_USE_CP_NOT_LN"
-	phpSymbolicOptionArgument = "1"
-	envPhpSilentOption        = "NR_INSTALL_SILENT"
-	phpSilentOptionArgument   = "1"
-	phpInitContainerName      = initContainerName + "-php"
-	phpVolumeName             = volumeName + "-php"
-	phpInstallArgument        = "/newrelic-instrumentation/newrelic-install install && sed -i -e \"s/PHP Application/$NEW_RELIC_APP_NAME/g; s/REPLACE_WITH_REAL_KEY/$NEW_RELIC_LICENSE_KEY/g\" /usr/local/etc/php/conf.d/newrelic.ini"
+	envPhpsymbolicOption        = "NR_INSTALL_USE_CP_NOT_LN"
+	phpSymbolicOptionArgument   = "1"
+	envPhpSilentOption          = "NR_INSTALL_SILENT"
+	phpSilentOptionArgument     = "1"
+	envConfigWithEnvVarOption   = "NR_CONFIG_WITH_ENVIRON"
+	phpConfigWithEnvVarArgument = "1"
+	phpInitContainerName        = initContainerName + "-php"
+	phpVolumeName               = volumeName + "-php"
+	phpInstallArgument          = "/newrelic-instrumentation/newrelic-install install"
 )
 
 func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod, error) {
@@ -53,6 +55,8 @@ func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod
 	setPhpEnvVar(container, envPhpsymbolicOption, phpSymbolicOptionArgument, phpConcatEnvValues)
 
 	setPhpEnvVar(container, envPhpSilentOption, phpSilentOptionArgument, phpConcatEnvValues)
+
+	setPhpEnvVar(container, envConfigWithEnvVarOption, phpConfigWithEnvVarArgument, phpConcatEnvValues)
 
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 		Name:      volumeName,
