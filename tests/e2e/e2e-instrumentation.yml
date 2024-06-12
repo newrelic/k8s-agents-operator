@@ -1,0 +1,16 @@
+apiVersion: newrelic.com/v1alpha1
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation
+spec:
+  java:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-java:latest
+  nodejs:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-nodejs:latest
+  python:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-python:latest
+  dotnet:
+    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-dotnet-arm:latest
