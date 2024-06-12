@@ -17,7 +17,6 @@ package apm
 
 import (
 	"fmt"
-	"os"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -25,8 +24,8 @@ import (
 )
 
 const (
-	envK8sLicenseKey            = "NEW_RELIC_LICENSE_KEY"
 	envPhpLicenseKey            = "NEW_RELIC_LICENSE"
+	phpLicenseKeyArgument       = "${NEW_RELIC_LICENSE_KEY}"
 	envPhpsymbolicOption        = "NR_INSTALL_USE_CP_NOT_LN"
 	phpSymbolicOptionArgument   = "1"
 	envPhpSilentOption          = "NR_INSTALL_SILENT"
@@ -57,13 +56,8 @@ func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod
 
 	// the k8s operator uses NEW_RELIC_LICENSE_KEY for the license key, while
 	// the agent expects NEW_RELIC_LICENSE to be set - so handle this 
-	license, ok := os.LookupEnv(envK8sLicenseKey);
-	if !ok {
-		fmt.Printf("NEW_RELIC_LICENSE_KEY not defined, unable to inject license!")
-	} else {
-		setPhpEnvVar(container, envPhpLicenseKey, license, phpConcatEnvValues)
-	}
-
+	setPhpEnvVar(container, envPhpLicenseKey, phpLicenseKeyArgument, phpConcatEnvValues)
+	
 	setPhpEnvVar(container, envPhpsymbolicOption, phpSymbolicOptionArgument, phpConcatEnvValues)
 
 	setPhpEnvVar(container, envPhpSilentOption, phpSilentOptionArgument, phpConcatEnvValues)
