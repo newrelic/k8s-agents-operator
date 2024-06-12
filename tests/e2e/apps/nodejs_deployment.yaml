@@ -1,0 +1,38 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejsapp
+spec:
+  selector:
+    matchLabels:
+      app: nodejsapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nodejsapp
+      annotations:
+        instrumentation.newrelic.com/inject-nodejs: "true"
+    spec:
+      containers:
+        - name: nodejsapp
+          image:  ghcr.io/open-telemetry/opentelemetry-operator/e2e-test-app-nodejs:main
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_PATH
+              value: /usr/local/lib/node_modules
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodejsapp-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: nodejsapp 
+
