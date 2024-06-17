@@ -77,7 +77,7 @@ function create_cluster() {
     CLUSTER_NAME=${now}-e2e-tests
 
     echo "🔄 Creating cluster ${CLUSTER_NAME}"
-    minikube start --container-runtime=containerd --kubernetes-version=v${K8S_VERSION} --profile ${CLUSTER_NAME} > /dev/null
+    minikube start --container-runtime=containerd --kubernetes-version=${K8S_VERSION} --profile ${CLUSTER_NAME} > /dev/null
 
     echo "🔄 Building Docker image"
     cd ../..
