@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 jobs:
-  tests:
+  unit-tests:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +46,29 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           files: ./tmp/cover.out
+
+  e2e-tests:
+    name: E2E tests
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 6 # len(k8sVersion)/2 is a good number to have here
+      matrix:
+        # Latest patch version can be found in https://github.com/kubernetes/website/blob/main/content/en/releases/patch-releases.md
+        # Some versions might not be available yet in https://storage.googleapis.com/kubernetes-release/release/v1.X.Y/bin/linux/amd64/kubelet
+        k8sVersion: [ "v1.30.0", "v1.29.5", "v1.28.3", "v1.27.5", "v1.26.8" ]
+    steps:
+      - name: Checkout GitHub Repository
+        uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+
+      - name: Download minikube
+        run: |
+          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+
+      - name: Run E2E tests
+        run: |
+          cd tests/e2e
+          ./e2e-tests.sh --k8s_version ${{ matrix.k8sVersion }} --license_key ${{ secrets.K8S_AGENTS_E2E_LICENSE_KEY }} --run_tests
 
   build:
     name: Build Docker image
