@@ -47,7 +47,13 @@ kubectl create secret generic newrelic-key-secret \
   --from-literal=new_relic_license_key=<NEW RELIC INGEST LICENSE KEY>
 ```
 
-Similarly, for each namespace you need to instrument create the `Instrumentation` custom resource, specifying which APM agents you want to instrument:
+Similarly, for each namespace you need to instrument create the `Instrumentation` custom resource, specifying which APM agents you want to instrument. All available APM agent docker images and corresponding tags are listed on DockerHub:
+* [Java](https://hub.docker.com/repository/docker/newrelic/newrelic-java-init/general)
+* [Node](https://hub.docker.com/repository/docker/newrelic/newrelic-node-init/general)
+* [Python](https://hub.docker.com/repository/docker/newrelic/newrelic-python-init/general)
+* [.NET](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
+* [Ruby](https://hub.docker.com/repository/docker/newrelic/newrelic-ruby-init/general)
+
 ```yaml
 apiVersion: newrelic.com/v1alpha1
 kind: Instrumentation
@@ -58,7 +64,7 @@ metadata:
   name: newrelic-instrumentation
 spec:
   java:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-java:latest
+    image: newrelic-java-init:latest
     # env:
     # Example New Relic agent supported environment variables
     # - name: NEW_RELIC_LABELS
@@ -71,17 +77,20 @@ spec:
     # - name: NEW_RELIC_APP_NAME
     #   value: "$(NEW_RELIC_LABELS)-$(NEW_RELIC_POD_NAME)"
   nodejs:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-nodejs:latest
+    image: newrelic-nodejs-init:latest
   python:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-python:latest
+    image: newrelic-python-init:latest
   dotnet:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-dotnet-arm:latest
-  php:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-php:latest
+    image: newrelic-dotnet-init:latest
   ruby:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-ruby:latest
+    image: newrelic-ruby-init:latest
 ```
-In the example above, we show how you can configure the agent settings globally using ENV variables.
+In the example above, we show how you can configure the agent settings globally using environment variables. See each agent's configuration documentation for available configuration options:
+* [Java](https://docs.newrelic.com/docs/apm/agents/java-agent/configuration/java-agent-configuration-config-file/)
+* [Node](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/installation-configuration/nodejs-agent-configuration/)
+* [Python](https://docs.newrelic.com/docs/apm/agents/python-agent/configuration/python-agent-configuration/)
+* [.NET](https://docs.newrelic.com/docs/apm/agents/net-agent/configuration/net-agent-configuration/)
+* [Ruby](https://docs.newrelic.com/docs/apm/agents/ruby-agent/configuration/ruby-agent-configuration/)
 
 Global agent settings can be overridden in your deployment manifest if a different configuration is required.
 
@@ -95,7 +104,6 @@ instrumentation.newrelic.com/inject-java: "true"
 instrumentation.newrelic.com/inject-nodejs: "true"
 instrumentation.newrelic.com/inject-python: "true"
 instrumentation.newrelic.com/inject-dotnet: "true"
-instrumentation.newrelic.com/inject-php: "true"
 instrumentation.newrelic.com/inject-ruby: "true"
 ```
 
