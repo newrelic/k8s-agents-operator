@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.4.0](https://img.shields.io/badge/Version-0.4.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.4.0](https://img.shields.io/badge/AppVersion-0.4.0-informational?style=flat-square)
+![Version: 0.5.0](https://img.shields.io/badge/Version-0.5.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.5.0](https://img.shields.io/badge/AppVersion-0.5.0-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -25,7 +25,7 @@ Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm 
 helm install cert-manager jetstack/cert-manager \
   --namespace cert-manager \
   --create-namespace \
-  --set installCRDs=true
+  --set crds.enabled=true
 ```
 
 ### Instrumentation
@@ -151,6 +151,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.kubeRbacProxy.resources.limits.memory | string | `"128Mi"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.cpu | string | `"5m"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.memory | string | `"64Mi"` |  |
+| controllerManager.manager.image.pullPolicy | string | `nil` |  |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` |  |
 | controllerManager.manager.image.tag | string | `nil` |  |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
