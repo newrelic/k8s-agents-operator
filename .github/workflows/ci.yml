@@ -18,6 +18,30 @@ permissions:
   contents: read
 
 jobs:
+  golangci-lint:
+    name: Lint Go files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitHub Repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: '0'
+
+      - name: Set up Go
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version-file: './go.mod'
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@a4f60bb28d35aeee14e6880718e0c85ff1882e64 # v6.0.1
+        with:
+          version: latest
+          args: --config=./.github/.golangci.yml
+          # Skip cache because of flaky behavior:
+          # https://github.com/golangci/golangci-lint/blob/master/.github/workflows/pr.yml#L49
+          skip-cache: true
+          skip-save-cache: true
+
   unit-tests:
     name: Unit tests
     runs-on: ubuntu-latest
