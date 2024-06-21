@@ -42,6 +42,33 @@ jobs:
           skip-cache: true
           skip-save-cache: true
 
+  lint-charts:
+    name: Lint Helm charts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GitHub Repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Helm lint
+        run: |
+          helm lint charts/**
+
+      - name: Install Helm Docs
+        # Use syntax ${version} instead of $version
+        # In certain contexts, only the less ambiguous ${version} form works
+        # Source: https://tldp.org/LDP/abs/html/parameter-substitution.html
+        run: |
+          version="v1.13.1"
+          stripped=$( echo "${version}" | sed s'/v//' )
+          wget https://github.com/norwoodj/helm-docs/releases/download/${version}/helm-docs_${stripped}_Linux_x86_64.tar.gz
+          tar --extract --verbose --file="helm-docs_${stripped}_Linux_x86_64.tar.gz" helm-docs
+          sudo mv helm-docs /usr/local/sbin
+
+      - name: Verify Helm docs are up to date
+        run: |
+         helm-docs
+         git diff --exit-code -- charts/k8s-agents-operator/README.md
+
   unit-tests:
     name: Unit tests
     runs-on: ubuntu-latest
