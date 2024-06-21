@@ -7,10 +7,12 @@ metadata:
   name: newrelic-instrumentation
 spec:
   java:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-java:latest
+    image: newrelic/newrelic-java-init:latest
   nodejs:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-nodejs:latest
+    image: newrelic/newrelic-nodejs-init:latest
   python:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-python:latest
+    image: newrelic/newrelic-python-init:latest
   dotnet:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-dotnet-arm:latest
+    image: newrelic/newrelic-dotnet-init:latest
+  ruby:
+    image: newrelic/newrelic-ruby-init:latest
