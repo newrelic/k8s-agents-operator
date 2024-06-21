@@ -64,7 +64,7 @@ metadata:
   name: newrelic-instrumentation
 spec:
   java:
-    image: newrelic-java-init:latest
+    image: newrelic/newrelic-java-init:latest
     # env:
     # Example New Relic agent supported environment variables
     # - name: NEW_RELIC_LABELS
@@ -77,13 +77,13 @@ spec:
     # - name: NEW_RELIC_APP_NAME
     #   value: "$(NEW_RELIC_LABELS)-$(NEW_RELIC_POD_NAME)"
   nodejs:
-    image: newrelic-nodejs-init:latest
+    image: newrelic/newrelic-nodejs-init:latest
   python:
-    image: newrelic-python-init:latest
+    image: newrelic/newrelic-python-init:latest
   dotnet:
-    image: newrelic-dotnet-init:latest
+    image: newrelic/newrelic-dotnet-init:latest
   ruby:
-    image: newrelic-ruby-init:latest
+    image: newrelic/newrelic-ruby-init:latest
 ```
 In the example above, we show how you can configure the agent settings globally using environment variables. See each agent's configuration documentation for available configuration options:
 * [Java](https://docs.newrelic.com/docs/apm/agents/java-agent/configuration/java-agent-configuration-config-file/)
