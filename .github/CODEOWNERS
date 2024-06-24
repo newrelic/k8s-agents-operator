@@ -7,4 +7,4 @@
 * @newrelic/k8s-agents
 
 # APM team owned directories
-/src/apm/ @newrelic/dotnet @newrelic/go-agent @newrelic/java-agent @newrelic/node-js-agent @newrelic/php-agent @newrelic/python @newrelic/ruby-agent
+/src/apm/ @newrelic/dotnet-code-reviewers @newrelic/go-agent @newrelic/java-agent @newrelic/node-js-agent @newrelic/php-agent @newrelic/python @newrelic/ruby-agent
