@@ -1,0 +1,5 @@
+{
+  "extends": [
+    "github>newrelic/k8s-agents-automation:renovate-base.json5"
+  ],
+}
