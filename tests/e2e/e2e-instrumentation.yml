@@ -9,7 +9,7 @@ spec:
   java:
     image: newrelic/newrelic-java-init:latest
   nodejs:
-    image: newrelic/newrelic-nodejs-init:latest
+    image: newrelic/newrelic-node-init:latest
   python:
     image: newrelic/newrelic-python-init:latest
   dotnet:

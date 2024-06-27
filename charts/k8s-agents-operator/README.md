@@ -77,7 +77,7 @@ spec:
     # - name: NEW_RELIC_APP_NAME
     #   value: "$(NEW_RELIC_LABELS)-$(NEW_RELIC_POD_NAME)"
   nodejs:
-    image: newrelic/newrelic-nodejs-init:latest
+    image: newrelic/newrelic-node-init:latest
   python:
     image: newrelic/newrelic-python-init:latest
   dotnet:
