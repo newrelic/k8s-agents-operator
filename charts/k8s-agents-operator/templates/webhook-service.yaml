@@ -7,8 +7,6 @@ metadata:
 spec:
   type: {{ .Values.webhookService.type }}
   selector:
-    app.kubernetes.io/name: {{ include "k8s-agents-operator.chart" . }}
-    app.kubernetes.io/name: k8s-agents-operator
     control-plane: controller-manager
   {{- include "k8s-agents-operator.labels" . | nindent 4 }}
   ports:
