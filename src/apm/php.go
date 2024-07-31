@@ -85,9 +85,7 @@ func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod
 		}
 
 		// inject the spec env vars into the initcontainer in order to construct the ini file
-		for _, env := range container.Env {
-			initContainer.Env = append(initContainer.Env, env)
-		}
+		initContainer.Env = append(initContainer.Env, container.Env...)
 
 		// inject the license key secret
 		optional := true
