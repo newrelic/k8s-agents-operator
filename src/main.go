@@ -87,6 +87,7 @@ func main() {
 		autoInstrumentationPython string
 		autoInstrumentationDotNet string
 		autoInstrumentationRuby   string
+		autoInstrumentationPhp    string
 		labelsFilter              []string
 		webhookPort               int
 		tlsOpt                    tlsConfig
@@ -102,6 +103,7 @@ func main() {
 	pflag.StringVar(&autoInstrumentationPython, "auto-instrumentation-python-image", fmt.Sprintf("newrelic/newrelic-python-init:%s", v.AutoInstrumentationPython), "The default New Relic Python instrumentation image. This image is used when no image is specified in the CustomResource.")
 	pflag.StringVar(&autoInstrumentationDotNet, "auto-instrumentation-dotnet-image", fmt.Sprintf("newrelic/newrelic-dotnet-init:%s", v.AutoInstrumentationDotNet), "The default New Relic DotNet instrumentation image. This image is used when no image is specified in the CustomResource.")
 	pflag.StringVar(&autoInstrumentationRuby, "auto-instrumentation-ruby-image", fmt.Sprintf("newrelic/newrelic-ruby-init:%s", v.AutoInstrumentationRuby), "The default New Relic Ruby instrumentation image. This image is used when no image is specified in the CustomResource.")
+	pflag.StringVar(&autoInstrumentationPhp, "auto-instrumentation-php-image", fmt.Sprintf("newrelic/newrelic-php-init:%s", v.AutoInstrumentationPhp), "The default New Relic Php instrumentation image. This image is used when no image is specified in the CustomResource.")
 
 	pflag.StringArrayVar(&labelsFilter, "labels", []string{}, "Labels to filter away from propagating onto deploys")
 	pflag.IntVar(&webhookPort, "webhook-port", 9443, "The port the webhook endpoint binds to.")
@@ -119,6 +121,7 @@ func main() {
 		"auto-instrumentation-python", autoInstrumentationPython,
 		"auto-instrumentation-dotnet", autoInstrumentationDotNet,
 		"auto-instrumentation-ruby", autoInstrumentationRuby,
+		"auto-instrumentation-php", autoInstrumentationPhp,
 		"build-date", v.BuildDate,
 		"go-version", v.Go,
 		"go-arch", runtime.GOARCH,
@@ -143,6 +146,7 @@ func main() {
 		config.WithAutoInstrumentationPythonImage(autoInstrumentationPython),
 		config.WithAutoInstrumentationDotNetImage(autoInstrumentationDotNet),
 		config.WithAutoInstrumentationRubyImage(autoInstrumentationRuby),
+		config.WithAutoInstrumentationPhpImage(autoInstrumentationPhp),
 		config.WithAutoDetect(ad),
 		config.WithLabelFilters(labelsFilter),
 	)
@@ -204,6 +208,7 @@ func main() {
 					v1alpha1.AnnotationDefaultAutoInstrumentationPython: autoInstrumentationPython,
 					v1alpha1.AnnotationDefaultAutoInstrumentationDotNet: autoInstrumentationDotNet,
 					v1alpha1.AnnotationDefaultAutoInstrumentationRuby:   autoInstrumentationRuby,
+					v1alpha1.AnnotationDefaultAutoInstrumentationPhp:    autoInstrumentationPhp,
 				},
 			},
 		}).SetupWebhookWithManager(mgr); err != nil {

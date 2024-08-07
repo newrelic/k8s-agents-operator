@@ -16,6 +16,7 @@ limitations under the License.
 package apm
 
 import (
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,16 +25,32 @@ import (
 )
 
 const (
-	envPhpsymbolicOption      = "NR_INSTALL_USE_CP_NOT_LN"
-	phpSymbolicOptionArgument = "1"
-	envPhpSilentOption        = "NR_INSTALL_SILENT"
-	phpSilentOptionArgument   = "1"
-	phpInitContainerName      = initContainerName + "-php"
-	phpVolumeName             = volumeName + "-php"
-	phpInstallArgument        = "/newrelic-instrumentation/newrelic-install install && sed -i -e \"s/PHP Application/$NEW_RELIC_APP_NAME/g; s/REPLACE_WITH_REAL_KEY/$NEW_RELIC_LICENSE_KEY/g\" /usr/local/etc/php/conf.d/newrelic.ini"
+	envIniScanDirKey = "PHP_INI_SCAN_DIR"
+	envIniScanDirVal = "/newrelic-instrumentation/php-agent/ini"
 )
 
+var phpApiMap = map[string]string{
+	"7.2": "20170718",
+	"7.3": "20180731",
+	"7.4": "20190902",
+	"8.0": "20200930",
+	"8.1": "20210902",
+	"8.2": "20220829",
+	"8.3": "20230831",
+}
+
 func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod, error) {
+	// exit early if we're missing mandatory annotations
+	phpVer, ok := pod.Annotations[annotationPhpVersion]
+	if !ok {
+		return pod, errors.New("missing php version annotation")
+	}
+
+	apiNum, ok := phpApiMap[phpVer]
+	if !ok {
+		return pod, errors.New("invalid php version")
+	}
+
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[index]
 
@@ -45,52 +62,57 @@ func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod
 		}
 	}
 
-	const (
-		phpConcatEnvValues = false
-		concatEnvValues    = true
-	)
-
-	setPhpEnvVar(container, envPhpsymbolicOption, phpSymbolicOptionArgument, phpConcatEnvValues)
-
-	setPhpEnvVar(container, envPhpSilentOption, phpSilentOptionArgument, phpConcatEnvValues)
-
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+	// define instrumentation artifact volume
+	instVolume := corev1.VolumeMount{
 		Name:      volumeName,
 		MountPath: "/newrelic-instrumentation",
-	})
+	}
 
-	// We just inject Volumes and init containers for the first processed container.
+	setPhpEnvVar(container, envIniScanDirKey, envIniScanDirVal, true)
+
+	container.VolumeMounts = append(container.VolumeMounts, instVolume)
+
+	// We only inject Volumes and init containers for the first processed container.
 	if isInitContainerMissing(pod) {
+		initContainer := corev1.Container{
+			Name:    initContainerName,
+			Image:   phpSpec.Image,
+			Command: []string{"/bin/sh"},
+			Args: []string{
+				"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh " + apiNum + " && /newrelic-instrumentation/nr_env_to_ini.sh",
+			},
+			VolumeMounts: []corev1.VolumeMount{instVolume},
+		}
+
+		// inject the spec env vars into the initcontainer in order to construct the ini file
+		initContainer.Env = append(initContainer.Env, container.Env...)
+
+		// inject the license key secret
+		optional := true
+		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+			Name: "NEW_RELIC_LICENSE_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"},
+					Key:                  "new_relic_license_key",
+					Optional:             &optional,
+				},
+			},
+		})
+
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			}})
 
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-			Name:    initContainerName,
-			Image:   phpSpec.Image,
-			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      volumeName,
-				MountPath: "/newrelic-instrumentation",
-			}},
-		})
-	}
-
-	// Continue with the function regardless of whether annotationPhpExecCmd is present or not
-	execCmd, ok := pod.Annotations[annotationPhpExecCmd]
-	if ok {
-		// Add phpInstallArgument to the command field.
-		container.Command = append(container.Command, "/bin/sh", "-c", phpInstallArgument+" && "+execCmd)
-	} else {
-		container.Command = append(container.Command, "/bin/sh", "-c", phpInstallArgument)
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	}
 
 	return pod, nil
 }
 
-// setDotNetEnvVar function sets env var to the container if not exist already.
+// setPhpEnvVar function sets env var to the container if not exist already.
 // value of concatValues should be set to true if the env var supports multiple values separated by :.
 // If it is set to false, the original container's env var value has priority.
 func setPhpEnvVar(container *corev1.Container, envVarName string, envVarValue string, concatValues bool) {

@@ -111,7 +111,7 @@ func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1alpha1.Instru
 		// upgrade the image only if the image matches the annotation
 		if inst.Spec.Php.Image == autoInstPhp {
 			inst.Spec.Php.Image = u.DefaultAutoInstPhp
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstPhp
+			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPhp] = u.DefaultAutoInstPhp
 		}
 	}
 	autoInstRuby := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby]
