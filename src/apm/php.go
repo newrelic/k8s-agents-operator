@@ -26,7 +26,7 @@ import (
 
 const (
 	envIniScanDirKey = "PHP_INI_SCAN_DIR"
-	envIniScanDirVal = ":/newrelic-instrumentation/php-agent/ini"
+	envIniScanDirVal = "/newrelic-instrumentation/php-agent/ini"
 )
 
 var phpApiMap = map[string]string{
