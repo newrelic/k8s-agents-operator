@@ -61,8 +61,11 @@ coverprofile:
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.0.0
-CONTROLLER_TOOLS_VERSION ?= v0.11.3
-KUSTOMIZE ?= $(LOCALBIN)/kustomize
+CONTROLLER_TOOLS_VERSION ?= v0.14.0
+HELMIFY ?= $(LOCALBIN)/helmify
+HELMIFY_VERSION ?= v0.3.34
+
+KUSTOMIZE ?= kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 
@@ -70,9 +73,11 @@ LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
-.PHONY: kustomize
-kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
+.PHONY: helmify
+helmify: $(HELMIFY) ## Download helmify locally if necessary.
+$(HELMIFY): $(LOCALBIN)
+	test -s $(LOCALBIN)/helmify || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@$(HELMIFY_VERSION)
+
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
@@ -85,4 +90,8 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=tests/kustomize/crd/bases
 
 generate: controller-gen
-	$(CONTROLLER_GEN)  paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="boilerplate.txt"  paths="./..."
+
+helm: manifests helmify
+	$(KUSTOMIZE) build tests/kustomize/default | $(HELMIFY)
+	cp ./chart/templates/instrumentation-crd.yaml ./charts/k8s-agents-operator/templates/instrumentation-crd.yaml

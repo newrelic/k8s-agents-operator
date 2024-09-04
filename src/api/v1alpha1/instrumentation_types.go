@@ -75,6 +75,10 @@ type InstrumentationSpec struct {
 	// +optional
 	Ruby Ruby `json:"ruby,omitempty"`
 
+	// Useless defines a useless configuration.
+	// +optional
+	Useless string `json:"useless,omitempty"`
+
 	// Go defines configuration for Go auto-instrumentation.
 	// When using Go auto-instrumentation you must provide a value for the OTEL_GO_AUTO_TARGET_EXE env var via the
 	// Instrumentation env vars or via the instrumentation.opentelemetry.io/otel-go-auto-target-exe pod annotation.
