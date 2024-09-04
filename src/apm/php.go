@@ -28,8 +28,6 @@ const (
 	phpSymbolicOptionArgument = "1"
 	envPhpSilentOption        = "NR_INSTALL_SILENT"
 	phpSilentOptionArgument   = "1"
-	phpInitContainerName      = initContainerName + "-php"
-	phpVolumeName             = volumeName + "-php"
 	phpInstallArgument        = "/newrelic-instrumentation/newrelic-install install && sed -i -e \"s/PHP Application/$NEW_RELIC_APP_NAME/g; s/REPLACE_WITH_REAL_KEY/$NEW_RELIC_LICENSE_KEY/g\" /usr/local/etc/php/conf.d/newrelic.ini"
 )
 
@@ -47,7 +45,6 @@ func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod
 
 	const (
 		phpConcatEnvValues = false
-		concatEnvValues    = true
 	)
 
 	setPhpEnvVar(container, envPhpsymbolicOption, phpSymbolicOptionArgument, phpConcatEnvValues)

@@ -22,10 +22,8 @@ import (
 )
 
 const (
-	envRubyOpt            = "RUBYOPT"
-	rubyOptRequire        = "-r /newrelic-instrumentation/lib/boot/strap"
-	rubyVolumeName        = volumeName + "-ruby"
-	rubyInitContainerName = initContainerName + "-ruby"
+	envRubyOpt     = "RUBYOPT"
+	rubyOptRequire = "-r /newrelic-instrumentation/lib/boot/strap"
 )
 
 func InjectRubySDK(rubySpec v1alpha1.Ruby, pod corev1.Pod, index int) (corev1.Pod, error) {

@@ -33,8 +33,6 @@ const (
 	dotNetCoreClrProfilerID             = "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
 	dotNetCoreClrProfilerPath           = "/newrelic-instrumentation/libNewRelicProfiler.so"
 	dotNetNewrelicHomePath              = "/newrelic-instrumentation"
-	dotnetVolumeName                    = volumeName + "-dotnet"
-	dotnetInitContainerName             = initContainerName + "-dotnet"
 )
 
 func InjectDotNetSDK(dotNetSpec v1alpha1.DotNet, pod corev1.Pod, index int) (corev1.Pod, error) {
@@ -64,7 +62,6 @@ func InjectDotNetSDK(dotNetSpec v1alpha1.DotNet, pod corev1.Pod, index int) (cor
 
 	const (
 		doNotConcatEnvValues = false
-		concatEnvValues      = true
 	)
 
 	setDotNetEnvVar(container, envDotNetCoreClrEnableProfiling, dotNetCoreClrEnableProfilingEnabled, doNotConcatEnvValues)

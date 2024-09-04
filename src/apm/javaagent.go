@@ -22,10 +22,8 @@ import (
 )
 
 const (
-	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
-	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
-	javaInitContainerName = initContainerName + "-java"
-	javaVolumeName        = volumeName + "-java"
+	envJavaToolsOptions = "JAVA_TOOL_OPTIONS"
+	javaJVMArgument     = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
 )
 
 func InjectJavaagent(javaSpec v1alpha1.Java, pod corev1.Pod, index int) (corev1.Pod, error) {

@@ -126,6 +126,8 @@ func main() {
 		"labels-filter", labelsFilter,
 	)
 
+	logger.Info("Working!")
+
 	restConfig := ctrl.GetConfigOrDie()
 
 	// builds the operator's configuration
@@ -189,7 +191,7 @@ func main() {
 	}
 
 	ctx := ctrl.SetupSignalHandler()
-	err = addDependencies(ctx, mgr, cfg, v)
+	err = addDependencies(ctx, mgr, cfg)
 	if err != nil {
 		setupLog.Error(err, "failed to add/run bootstrap dependencies to the controller manager")
 		os.Exit(1)
@@ -238,7 +240,7 @@ func main() {
 	}
 }
 
-func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config, v version.Version) error {
+func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config) error {
 	// run the auto-detect mechanism for the configuration
 	err := mgr.Add(manager.RunnableFunc(func(_ context.Context) error {
 		return cfg.StartAutoDetect()

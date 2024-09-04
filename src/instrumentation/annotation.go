@@ -25,27 +25,18 @@ import (
 const (
 	volumeName        = "newrelic-instrumentation"
 	initContainerName = "newrelic-instrumentation"
-	sideCarName       = "opentelemetry-auto-instrumentation"
 
 	// indicates whether newrelic agents should be injected or not.
 	// Possible values are "true", "false" or "<Instrumentation>" name.
-	annotationInjectJava                 = "instrumentation.newrelic.com/inject-java"
-	annotationInjectJavaContainersName   = "instrumentation.newrelic.com/java-container-names"
-	annotationInjectNodeJS               = "instrumentation.newrelic.com/inject-nodejs"
-	annotationInjectNodeJSContainersName = "instrumentation.newrelic.com/nodejs-container-names"
-	annotationInjectPython               = "instrumentation.newrelic.com/inject-python"
-	annotationInjectPythonContainersName = "instrumentation.newrelic.com/python-container-names"
-	annotationInjectDotNet               = "instrumentation.newrelic.com/inject-dotnet"
-	annotationInjectDotnetContainersName = "instrumentation.newrelic.com/dotnet-container-names"
-	annotationInjectPhp                  = "instrumentation.newrelic.com/inject-php"
-	annotationInjectPhpContainersName    = "instrumentation.newrelic.com/php-container-names"
-	annotationInjectRuby                 = "instrumentation.newrelic.com/inject-ruby"
-	annotationInjectRubyContainersName   = "instrumentation.newrelic.com/ruby-container-names"
-	annotationPhpExecCmd                 = "instrumentation.newrelic.com/php-exec-command"
-	annotationInjectContainerName        = "instrumentation.newrelic.com/container-name"
-	annotationInjectGo                   = "instrumentation.opentelemetry.io/inject-go"
-	annotationGoExecPath                 = "instrumentation.opentelemetry.io/otel-go-auto-target-exe"
-	annotationInjectGoContainerName      = "instrumentation.opentelemetry.io/go-container-name"
+	annotationInjectJava            = "instrumentation.newrelic.com/inject-java"
+	annotationInjectNodeJS          = "instrumentation.newrelic.com/inject-nodejs"
+	annotationInjectPython          = "instrumentation.newrelic.com/inject-python"
+	annotationInjectDotNet          = "instrumentation.newrelic.com/inject-dotnet"
+	annotationInjectPhp             = "instrumentation.newrelic.com/inject-php"
+	annotationInjectRuby            = "instrumentation.newrelic.com/inject-ruby"
+	annotationInjectContainerName   = "instrumentation.newrelic.com/container-name"
+	annotationInjectGo              = "instrumentation.opentelemetry.io/inject-go"
+	annotationInjectGoContainerName = "instrumentation.opentelemetry.io/go-container-name"
 )
 
 // annotationValue returns the effective annotation value, based on the annotations from the pod and namespace.

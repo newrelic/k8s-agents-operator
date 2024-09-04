@@ -106,21 +106,9 @@ func WithAutoInstrumentationDotNetImage(s string) Option {
 	}
 }
 
-func WithAutoInstrumentationPhpImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationPhpImage = s
-	}
-}
-
 func WithAutoInstrumentationRubyImage(s string) Option {
 	return func(o *options) {
 		o.autoInstrumentationRubyImage = s
-	}
-}
-
-func WithAutoInstrumentationGoImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationGoImage = s
 	}
 }
 

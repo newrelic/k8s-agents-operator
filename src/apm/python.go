@@ -24,10 +24,8 @@ import (
 )
 
 const (
-	envPythonPath           = "PYTHONPATH"
-	pythonPathPrefix        = "/newrelic-instrumentation"
-	pythonVolumeName        = volumeName + "-python"
-	pythonInitContainerName = initContainerName + "-python"
+	envPythonPath    = "PYTHONPATH"
+	pythonPathPrefix = "/newrelic-instrumentation"
 )
 
 func InjectPythonSDK(pythonSpec v1alpha1.Python, pod corev1.Pod, index int) (corev1.Pod, error) {

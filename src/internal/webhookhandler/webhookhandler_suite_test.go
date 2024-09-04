@@ -41,7 +41,6 @@ import (
 )
 
 var (
-	k8sClient  client.Client
 	testEnv    *envtest.Environment
 	testScheme *runtime.Scheme = scheme.Scheme
 	ctx        context.Context

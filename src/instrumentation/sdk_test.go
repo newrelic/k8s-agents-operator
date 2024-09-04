@@ -15,13 +15,6 @@ import (
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
 )
 
-const (
-	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
-	nodeRequireArgument     = " --require /newrelic-instrumentation/newrelicinstrumentation.js"
-	pythonPathPrefix        = "/newrelic-instrumentation"
-)
-
-
 func TestSDKInjection(t *testing.T) {
 	ns := corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
