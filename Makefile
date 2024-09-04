@@ -58,3 +58,31 @@ build:
 coverprofile: 
 	go tool cover -html=$(TMP_DIR)/cover.out
 	go tool cover -func=$(TMP_DIR)/cover.out
+
+## Tool Versions
+KUSTOMIZE_VERSION ?= v5.0.0
+CONTROLLER_TOOLS_VERSION ?= v0.11.3
+KUSTOMIZE ?= $(LOCALBIN)/kustomize
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
+
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+.PHONY: kustomize
+kustomize: ## Download kustomize locally if necessary.
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
+
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
+$(CONTROLLER_GEN): $(LOCALBIN)
+	test -s $(LOCALBIN)/controller-gen || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+# Generate manifests e.g. CRD, RBAC etc.
+.PHONY: manifests
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=tests/kustomize/crd/bases
+
+generate: controller-gen
+	$(CONTROLLER_GEN)  paths="./..."
