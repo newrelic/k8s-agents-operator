@@ -86,7 +86,7 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
-manifests: controller-gen
+manifests: generate controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=tests/kustomize/crd/bases
 
 generate: controller-gen

@@ -18,11 +18,10 @@ package instrumentation
 import (
 	"context"
 	"errors"
-	"strings"
-
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
@@ -38,16 +37,6 @@ type instPodMutator struct {
 	Client      client.Client
 	sdkInjector *sdkInjector
 	Logger      logr.Logger
-}
-
-type languageInstrumentations struct {
-	Java   *v1alpha1.Instrumentation
-	NodeJS *v1alpha1.Instrumentation
-	Python *v1alpha1.Instrumentation
-	DotNet *v1alpha1.Instrumentation
-	Php    *v1alpha1.Instrumentation
-	Ruby   *v1alpha1.Instrumentation
-	Go     *v1alpha1.Instrumentation
 }
 
 var _ webhookhandler.PodMutator = (*instPodMutator)(nil)
@@ -69,116 +58,59 @@ func (pm *instPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod c
 	var inst *v1alpha1.Instrumentation
 	var err error
 
-	insts := languageInstrumentations{}
-
-	// We bail out if any annotation fails to process.
-
-	if inst, err = pm.getInstrumentationInstance(ctx, ns, pod, annotationInjectJava); err != nil {
+	if inst, err = pm.getInstrumentationInstance(ctx, ns, pod); err != nil {
 		// we still allow the pod to be created, but we log a message to the operator's logs
 		logger.Error(err, "failed to select a New Relic Instrumentation instance for this pod")
 		return pod, err
 	}
-	insts.Java = inst
 
-	if inst, err = pm.getInstrumentationInstance(ctx, ns, pod, annotationInjectNodeJS); err != nil {
-		// we still allow the pod to be created, but we log a message to the operator's logs
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this pod")
-		return pod, err
-	}
-	insts.NodeJS = inst
-
-	if inst, err = pm.getInstrumentationInstance(ctx, ns, pod, annotationInjectPython); err != nil {
-		// we still allow the pod to be created, but we log a message to the operator's logs
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this pod")
-		return pod, err
-	}
-	insts.Python = inst
-
-	if inst, err = pm.getInstrumentationInstance(ctx, ns, pod, annotationInjectDotNet); err != nil {
-		// we still allow the pod to be created, but we log a message to the operator's logs
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this pod")
-		return pod, err
-	}
-	insts.DotNet = inst
-
-	if inst, err = pm.getInstrumentationInstance(ctx, ns, pod, annotationInjectPhp); err != nil {
-		// we still allow the pod to be created, but we log a message to the operator's logs
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this pod")
-		return pod, err
-	}
-	insts.Php = inst
-
-	if inst, err = pm.getInstrumentationInstance(ctx, ns, pod, annotationInjectRuby); err != nil {
-		// we still allow the pod to be created, but we log a message to the operator's logs
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this pod")
-		return pod, err
-	}
-	insts.Ruby = inst
-
-	if inst, err = pm.getInstrumentationInstance(ctx, ns, pod, annotationInjectGo); err != nil {
-		// we still allow the pod to be created, but we log a message to the operator's logs
-		logger.Error(err, "support for Go auto instrumentation is not enabled")
-		return pod, err
-	}
-	insts.Go = inst
-
-	if insts.Java == nil && insts.NodeJS == nil && insts.Python == nil && insts.DotNet == nil && insts.Php == nil && insts.Ruby == nil && insts.Go == nil {
-		logger.V(1).Info("annotation not present in deployment, skipping instrumentation injection")
-		return pod, nil
-	}
-
-	// We retrieve the annotation for podname
-	var targetContainers = annotationValue(ns.ObjectMeta, pod.ObjectMeta, annotationInjectContainerName)
-
-	// once it's been determined that instrumentation is desired, none exists yet, and we know which instance it should talk to,
-	// we should inject the instrumentation.
-	modifiedPod := pod
-	for _, currentContainer := range strings.Split(targetContainers, ",") {
-		modifiedPod = pm.sdkInjector.inject(ctx, insts, ns, modifiedPod, strings.TrimSpace(currentContainer))
-	}
-
-	return modifiedPod, nil
-}
-
-func (pm *instPodMutator) getInstrumentationInstance(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, instAnnotation string) (*v1alpha1.Instrumentation, error) {
-	instValue := annotationValue(ns.ObjectMeta, pod.ObjectMeta, instAnnotation)
-
-	if len(instValue) == 0 || strings.EqualFold(instValue, "false") {
-		return nil, nil
-	}
-
-	if strings.EqualFold(instValue, "true") {
-		return pm.selectInstrumentationInstanceFromNamespace(ctx, ns)
-	}
-
-	var instNamespacedName types.NamespacedName
-	if instNamespace, instName, namespaced := strings.Cut(instValue, "/"); namespaced {
-		instNamespacedName = types.NamespacedName{Name: instName, Namespace: instNamespace}
-	} else {
-		instNamespacedName = types.NamespacedName{Name: instValue, Namespace: ns.Name}
-	}
-
-	nrInst := &v1alpha1.Instrumentation{}
-	err := pm.Client.Get(ctx, instNamespacedName, nrInst)
+	// TODO We the user should list the containers if more than one is running
+	pod = pm.sdkInjector.inject(ctx, inst, ns, pod, "")
+	// Assure Secret Existence
+	err = pm.replicateSecret(ctx, ns, pod)
 	if err != nil {
-		return nil, err
+		logger.Error(err, "failed to replicate secret")
 	}
 
-	return nrInst, nil
+	return pod, nil
 }
 
-func (pm *instPodMutator) selectInstrumentationInstanceFromNamespace(ctx context.Context, ns corev1.Namespace) (*v1alpha1.Instrumentation, error) {
-	var nrInsts v1alpha1.InstrumentationList
-	if err := pm.Client.List(ctx, &nrInsts, client.InNamespace(ns.Name)); err != nil {
+func (pm *instPodMutator) replicateSecret(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) error {
+	logger := pm.Logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
+
+	var secret corev1.Secret
+
+	err := pm.Client.Get(ctx, client.ObjectKey{Name: pod.Spec.ServiceAccountName}, &secret)
+	if err != nil {
+		logger.Error(err, "failed to retrieve the secret")
+	}
+
+	err = pm.Client.Create(ctx, &secret)
+	if err != nil {
+		logger.Error(err, "failed to create a new secret")
+	}
+
+	return nil
+}
+
+func (pm *instPodMutator) getInstrumentationInstance(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (*v1alpha1.Instrumentation, error) {
+	logger := pm.Logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
+
+	var listInst v1alpha1.InstrumentationList
+	if err := pm.Client.List(ctx, &listInst, client.InNamespace(ns.Name)); err != nil {
 		return nil, err
 	}
 
-	switch s := len(nrInsts.Items); {
-	case s == 0:
-		return nil, errNoInstancesAvailable
-	case s > 1:
-		return nil, errMultipleInstancesPossible
-	default:
-		return &nrInsts.Items[0], nil
+	for _, inst := range listInst.Items {
+		selector, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector)
+		if err != nil {
+			logger.Error(err, "failed to parse label selector %s: %s", inst.Name, err)
+			continue
+		}
+		// TODO we should decide what to do if multiple rule matches
+		if selector.Matches(fields.Set(pod.Labels)) {
+			return &inst, nil
+		}
 	}
+	return nil, nil
 }

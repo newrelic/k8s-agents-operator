@@ -17,10 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-	"strings"
-
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -61,42 +57,6 @@ func (r *Instrumentation) Default() {
 	if r.Labels["app.kubernetes.io/managed-by"] == "" {
 		r.Labels["app.kubernetes.io/managed-by"] = "k8s-agents-operator"
 	}
-
-	if r.Spec.Java.Image == "" {
-		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationJava]; ok {
-			r.Spec.Java.Image = val
-		}
-	}
-	if r.Spec.NodeJS.Image == "" {
-		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationNodeJS]; ok {
-			r.Spec.NodeJS.Image = val
-		}
-	}
-	if r.Spec.Python.Image == "" {
-		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationPython]; ok {
-			r.Spec.Python.Image = val
-		}
-	}
-	if r.Spec.DotNet.Image == "" {
-		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationDotNet]; ok {
-			r.Spec.DotNet.Image = val
-		}
-	}
-	if r.Spec.Php.Image == "" {
-		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationPhp]; ok {
-			r.Spec.Php.Image = val
-		}
-	}
-	if r.Spec.Ruby.Image == "" {
-		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationRuby]; ok {
-			r.Spec.Ruby.Image = val
-		}
-	}
-	if r.Spec.Go.Image == "" {
-		if val, ok := r.Annotations[AnnotationDefaultAutoInstrumentationGo]; ok {
-			r.Spec.Go.Image = val
-		}
-	}
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1alpha1-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1alpha1,name=vinstrumentationcreateupdate.kb.io,sideEffects=none,admissionReviewVersions=v1
@@ -123,41 +83,5 @@ func (r *Instrumentation) ValidateDelete() error {
 }
 
 func (r *Instrumentation) validate() error {
-
-	// validate env vars
-	if err := r.validateEnv(r.Spec.Env); err != nil {
-		return err
-	}
-	if err := r.validateEnv(r.Spec.Java.Env); err != nil {
-		return err
-	}
-	if err := r.validateEnv(r.Spec.NodeJS.Env); err != nil {
-		return err
-	}
-	if err := r.validateEnv(r.Spec.Python.Env); err != nil {
-		return err
-	}
-	if err := r.validateEnv(r.Spec.DotNet.Env); err != nil {
-		return err
-	}
-	if err := r.validateEnv(r.Spec.Php.Env); err != nil {
-		return err
-	}
-	if err := r.validateEnv(r.Spec.Ruby.Env); err != nil {
-		return err
-	}
-	if err := r.validateEnv(r.Spec.Go.Env); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *Instrumentation) validateEnv(envs []corev1.EnvVar) error {
-	for _, env := range envs {
-		if !strings.HasPrefix(env.Name, envNewRelicPrefix) && !strings.HasPrefix(env.Name, envOtelPrefix) {
-			return fmt.Errorf("env name should start with \"NEW_RELIC_\" or \"OTEL_\": %s", env.Name)
-		}
-	}
 	return nil
 }

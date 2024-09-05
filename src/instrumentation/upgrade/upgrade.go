@@ -77,56 +77,56 @@ func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1alpha1.Instru
 	autoInstJava := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava]
 	if autoInstJava != "" {
 		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Java.Image == autoInstJava {
-			inst.Spec.Java.Image = u.DefaultAutoInstJava
+		if inst.Spec.Configurations.Java.Image == autoInstJava {
+			inst.Spec.Configurations.Java.Image = u.DefaultAutoInstJava
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava] = u.DefaultAutoInstJava
 		}
 	}
 	autoInstNodeJS := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS]
 	if autoInstNodeJS != "" {
 		// upgrade the image only if the image matches the annotation
-		if inst.Spec.NodeJS.Image == autoInstNodeJS {
-			inst.Spec.NodeJS.Image = u.DefaultAutoInstNodeJS
+		if inst.Spec.Configurations.NodeJS.Image == autoInstNodeJS {
+			inst.Spec.Configurations.NodeJS.Image = u.DefaultAutoInstNodeJS
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS] = u.DefaultAutoInstNodeJS
 		}
 	}
 	autoInstPython := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython]
 	if autoInstPython != "" {
 		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Python.Image == autoInstPython {
-			inst.Spec.Python.Image = u.DefaultAutoInstPython
+		if inst.Spec.Configurations.Python.Image == autoInstPython {
+			inst.Spec.Configurations.Python.Image = u.DefaultAutoInstPython
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython] = u.DefaultAutoInstPython
 		}
 	}
 	autoInstDotnet := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet]
 	if autoInstDotnet != "" {
 		// upgrade the image only if the image matches the annotation
-		if inst.Spec.DotNet.Image == autoInstDotnet {
-			inst.Spec.DotNet.Image = u.DefaultAutoInstDotNet
+		if inst.Spec.Configurations.DotNet.Image == autoInstDotnet {
+			inst.Spec.Configurations.DotNet.Image = u.DefaultAutoInstDotNet
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstDotNet
 		}
 	}
 	autoInstPhp := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPhp]
 	if autoInstPhp != "" {
 		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Php.Image == autoInstPhp {
-			inst.Spec.Php.Image = u.DefaultAutoInstPhp
+		if inst.Spec.Configurations.Php.Image == autoInstPhp {
+			inst.Spec.Configurations.Php.Image = u.DefaultAutoInstPhp
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstPhp
 		}
 	}
 	autoInstRuby := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby]
 	if autoInstRuby != "" {
 		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Ruby.Image == autoInstRuby {
-			inst.Spec.Ruby.Image = u.DefaultAutoInstRuby
+		if inst.Spec.Configurations.Ruby.Image == autoInstRuby {
+			inst.Spec.Configurations.Ruby.Image = u.DefaultAutoInstRuby
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby] = u.DefaultAutoInstRuby
 		}
 	}
 	autoInstGo := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo]
 	if autoInstGo != "" {
 		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Go.Image == autoInstDotnet {
-			inst.Spec.Go.Image = u.DefaultAutoInstGo
+		if inst.Spec.Configurations.Go.Image == autoInstDotnet {
+			inst.Spec.Configurations.Go.Image = u.DefaultAutoInstGo
 			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo] = u.DefaultAutoInstGo
 		}
 	}

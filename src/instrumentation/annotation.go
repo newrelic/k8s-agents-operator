@@ -16,57 +16,7 @@ limitations under the License.
 
 package instrumentation
 
-import (
-	"strings"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
 const (
 	volumeName        = "newrelic-instrumentation"
 	initContainerName = "newrelic-instrumentation"
-
-	// indicates whether newrelic agents should be injected or not.
-	// Possible values are "true", "false" or "<Instrumentation>" name.
-	annotationInjectJava            = "instrumentation.newrelic.com/inject-java"
-	annotationInjectNodeJS          = "instrumentation.newrelic.com/inject-nodejs"
-	annotationInjectPython          = "instrumentation.newrelic.com/inject-python"
-	annotationInjectDotNet          = "instrumentation.newrelic.com/inject-dotnet"
-	annotationInjectPhp             = "instrumentation.newrelic.com/inject-php"
-	annotationInjectRuby            = "instrumentation.newrelic.com/inject-ruby"
-	annotationInjectContainerName   = "instrumentation.newrelic.com/container-name"
-	annotationInjectGo              = "instrumentation.opentelemetry.io/inject-go"
-	annotationInjectGoContainerName = "instrumentation.opentelemetry.io/go-container-name"
 )
-
-// annotationValue returns the effective annotation value, based on the annotations from the pod and namespace.
-func annotationValue(ns metav1.ObjectMeta, pod metav1.ObjectMeta, annotation string) string {
-	// is the pod annotated with instructions to inject sidecars? is the namespace annotated?
-	// if any of those is true, a sidecar might be desired.
-	podAnnValue := pod.Annotations[annotation]
-	nsAnnValue := ns.Annotations[annotation]
-
-	// if the namespace value is empty, the pod annotation should be used, whatever it is
-	if len(nsAnnValue) == 0 {
-		return podAnnValue
-	}
-
-	// if the pod value is empty, the annotation should be used (true, false, instance)
-	if len(podAnnValue) == 0 {
-		return nsAnnValue
-	}
-
-	// the pod annotation isn't empty -- if it's an instance name, or false, that's the decision
-	if !strings.EqualFold(podAnnValue, "true") {
-		return podAnnValue
-	}
-
-	// pod annotation is 'true', and if the namespace annotation is false, we just return 'true'
-	if strings.EqualFold(nsAnnValue, "false") {
-		return podAnnValue
-	}
-
-	// by now, the pod annotation is 'true', and the namespace annotation is either true or an instance name
-	// so, the namespace annotation can be used
-	return nsAnnValue
-}

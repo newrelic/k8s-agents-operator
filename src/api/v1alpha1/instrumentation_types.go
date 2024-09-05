@@ -45,46 +45,17 @@ type InstrumentationSpec struct {
 	// +optional
 	Sampler `json:"sampler,omitempty"`
 
-	// Env defines common env vars. There are four layers for env vars' definitions and
-	// the precedence order is: `original container env vars` > `language specific env vars` > `common env vars` > `instrument spec configs' vars`.
-	// If the former var had been defined, then the other vars would be ignored.
+	// PodLabelSelector defines to which pods the config should be applied.
 	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
+	PodLabelSelector metav1.LabelSelector `json:"labelSelector"`
 
-	// Java defines configuration for java auto-instrumentation.
+	// Configurations defines the config to inject.
 	// +optional
-	Java Java `json:"java,omitempty"`
+	Configurations Configurations `json:"configuration"`
 
-	// NodeJS defines configuration for nodejs auto-instrumentation.
-	// +optional
-	NodeJS NodeJS `json:"nodejs,omitempty"`
-
-	// Python defines configuration for python auto-instrumentation.
-	// +optional
-	Python Python `json:"python,omitempty"`
-
-	// DotNet defines configuration for dotnet auto-instrumentation.
-	// +optional
-	DotNet DotNet `json:"dotnet,omitempty"`
-
-	// Php defines configuration for php auto-instrumentation.
-	// +optional
-	Php Php `json:"php,omitempty"`
-
-	// Ruby defines configuration for ruby auto-instrumentation.
-	// +optional
-	Ruby Ruby `json:"ruby,omitempty"`
-
-	// Useless defines a useless configuration.
-	// +optional
-	Useless string `json:"useless,omitempty"`
-
-	// Go defines configuration for Go auto-instrumentation.
-	// When using Go auto-instrumentation you must provide a value for the OTEL_GO_AUTO_TARGET_EXE env var via the
-	// Instrumentation env vars or via the instrumentation.opentelemetry.io/otel-go-auto-target-exe pod annotation.
-	// Failure to set this value causes instrumentation injection to abort, leaving the original pod unchanged.
-	// +optional
-	Go Go `json:"go,omitempty"`
+	// PodLabelSelector defines to which pods the config should be applied.
+	// +required
+	NamespaceLabelSelector metav1.LabelSelector `json:"labelSelector"`
 }
 
 type Resource struct {
@@ -96,6 +67,42 @@ type Resource struct {
 	// AddK8sUIDAttributes defines whether K8s UID attributes should be collected (e.g. k8s.deployment.uid).
 	// +optional
 	AddK8sUIDAttributes bool `json:"addK8sUIDAttributes,omitempty"`
+}
+
+type Configurations struct {
+
+	// TODO this could be simplified if there is just one image or make it generic
+
+	// Java defines configuration for java auto-instrumentation.
+	// +optional
+	Java *Java `json:"java,omitempty"`
+
+	// NodeJS defines configuration for nodejs auto-instrumentation.
+	// +optional
+	NodeJS *NodeJS `json:"nodejs,omitempty"`
+
+	// Python defines configuration for python auto-instrumentation.
+	// +optional
+	Python *Python `json:"python,omitempty"`
+
+	// DotNet defines configuration for dotnet auto-instrumentation.
+	// +optional
+	DotNet *DotNet `json:"dotnet,omitempty"`
+
+	// Php defines configuration for php auto-instrumentation.
+	// +optional
+	Php *Php `json:"php,omitempty"`
+
+	// Ruby defines configuration for ruby auto-instrumentation.
+	// +optional
+	Ruby *Ruby `json:"ruby,omitempty"`
+
+	// Go defines configuration for Go auto-instrumentation.
+	// When using Go auto-instrumentation you must provide a value for the OTEL_GO_AUTO_TARGET_EXE env var via the
+	// Instrumentation env vars or via the instrumentation.opentelemetry.io/otel-go-auto-target-exe pod annotation.
+	// Failure to set this value causes instrumentation injection to abort, leaving the original pod unchanged.
+	// +optional
+	Go *Go `json:"go,omitempty"`
 }
 
 // Exporter defines OTLP exporter configuration.

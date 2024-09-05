@@ -19,25 +19,25 @@ package instrumentation
 import (
 	"context"
 	"fmt"
+	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"go.opentelemetry.io/otel/attribute"
+	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"sort"
 	"strings"
 	"time"
 	"unsafe"
 
 	"github.com/go-logr/logr"
-	"go.opentelemetry.io/otel/attribute"
 	semconv "go.opentelemetry.io/otel/semconv/v1.5.0"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
-	apm "github.com/newrelic/k8s-agents-operator/src/apm"
 	"github.com/newrelic/k8s-agents-operator/src/constants"
 )
 
@@ -46,7 +46,7 @@ type sdkInjector struct {
 	logger logr.Logger
 }
 
-func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations, ns corev1.Namespace, pod corev1.Pod, containerName string) corev1.Pod {
+func (i *sdkInjector) inject(ctx context.Context, inst *v1alpha1.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) corev1.Pod {
 	if len(pod.Spec.Containers) < 1 {
 		return pod
 	}
@@ -60,90 +60,91 @@ func (i *sdkInjector) inject(ctx context.Context, insts languageInstrumentations
 		}
 	}
 
-	if insts.Java != nil {
-		newrelic := *insts.Java
+	if inst.Spec.Configurations.Java != nil {
+		java := *inst.Spec.Configurations.Java
 		var err error
-		i.logger.V(1).Info("injecting Java instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = apm.InjectJavaagent(newrelic.Spec.Java, pod, index)
+		i.logger.V(1).Info("injecting Java instrumentation into pod", "newrelic-namespace", inst.Namespace, "newrelic-name", inst.Name)
+		pod, err = apm.InjectJavaagent(java, pod, index)
 		if err != nil {
 			i.logger.Info("Skipping Java agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
-		} else {
-			pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
 		}
+		pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, index)
 	}
-	if insts.NodeJS != nil {
-		newrelic := *insts.NodeJS
-		var err error
-		i.logger.V(1).Info("injecting NodeJS instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = apm.InjectNodeJSSDK(newrelic.Spec.NodeJS, pod, index)
-		if err != nil {
-			i.logger.Info("Skipping NodeJS agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
-		} else {
-			pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
-		}
-	}
-	if insts.Python != nil {
-		newrelic := *insts.Python
-		var err error
-		i.logger.V(1).Info("injecting Python instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = apm.InjectPythonSDK(newrelic.Spec.Python, pod, index)
-		if err != nil {
-			i.logger.Info("Skipping Python agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
-		} else {
-			pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
-		}
-	}
-	if insts.DotNet != nil {
-		newrelic := *insts.DotNet
-		var err error
-		i.logger.V(1).Info("injecting DotNet instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = apm.InjectDotNetSDK(newrelic.Spec.DotNet, pod, index)
-		if err != nil {
-			i.logger.Info("Skipping DotNet agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
-		} else {
-			pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
-		}
-	}
-	if insts.Php != nil {
-		newrelic := *insts.Php
-		var err error
-		i.logger.V(1).Info("injecting Php instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = apm.InjectPhpagent(newrelic.Spec.Php, pod, index)
-		if err != nil {
-			i.logger.Info("Skipping Php agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
-		} else {
-			pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
-		}
-	}
-	if insts.Ruby != nil {
-		newrelic := *insts.Ruby
-		var err error
-		i.logger.V(1).Info("injecting Ruby instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
-		pod, err = apm.InjectRubySDK(newrelic.Spec.Ruby, pod, index)
-		if err != nil {
-			i.logger.Info("Skipping Ruby agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
-		} else {
-			pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
-		}
-	}
-	if insts.Go != nil {
-		newrelic := *insts.Go
-		var err error
-		i.logger.V(1).Info("injecting Go instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
 
-		goContainers := annotationValue(ns.ObjectMeta, pod.ObjectMeta, annotationInjectGoContainerName)
-		index := getContainerIndex(goContainers, pod)
-
-		// Go instrumentation supports only single container instrumentation.
-		pod, err = apm.InjectGoSDK(newrelic.Spec.Go, pod)
-		if err != nil {
-			i.logger.Info("Skipping Go SDK injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
-		} else {
-			// Common env vars and config need to be applied to the agent container.
-			pod = i.injectCommonEnvVar(newrelic, pod, len(pod.Spec.Containers)-1)
-			pod = i.injectCommonSDKConfig(ctx, newrelic, ns, pod, len(pod.Spec.Containers)-1, 0)
-		}
-	}
+	//}
+	//if insts.NodeJS != nil {
+	//	newrelic := *insts.NodeJS
+	//	var err error
+	//	i.logger.V(1).Info("injecting NodeJS instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
+	//	pod, err = apm.InjectNodeJSSDK(newrelic.Spec.NodeJS, pod, index)
+	//	if err != nil {
+	//		i.logger.Info("Skipping NodeJS agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
+	//	} else {
+	//		pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
+	//	}
+	//}
+	//if insts.Python != nil {
+	//	newrelic := *insts.Python
+	//	var err error
+	//	i.logger.V(1).Info("injecting Python instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
+	//	pod, err = apm.InjectPythonSDK(newrelic.Spec.Python, pod, index)
+	//	if err != nil {
+	//		i.logger.Info("Skipping Python agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
+	//	} else {
+	//		pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
+	//	}
+	//}
+	//if insts.DotNet != nil {
+	//	newrelic := *insts.DotNet
+	//	var err error
+	//	i.logger.V(1).Info("injecting DotNet instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
+	//	pod, err = apm.InjectDotNetSDK(newrelic.Spec.DotNet, pod, index)
+	//	if err != nil {
+	//		i.logger.Info("Skipping DotNet agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
+	//	} else {
+	//		pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
+	//	}
+	//}
+	//if insts.Php != nil {
+	//	newrelic := *insts.Php
+	//	var err error
+	//	i.logger.V(1).Info("injecting Php instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
+	//	pod, err = apm.InjectPhpagent(newrelic.Spec.Php, pod, index)
+	//	if err != nil {
+	//		i.logger.Info("Skipping Php agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
+	//	} else {
+	//		pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
+	//	}
+	//}
+	//if insts.Ruby != nil {
+	//	newrelic := *insts.Ruby
+	//	var err error
+	//	i.logger.V(1).Info("injecting Ruby instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
+	//	pod, err = apm.InjectRubySDK(newrelic.Spec.Ruby, pod, index)
+	//	if err != nil {
+	//		i.logger.Info("Skipping Ruby agent injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
+	//	} else {
+	//		pod = i.injectNewrelicConfig(ctx, newrelic, ns, pod, index)
+	//	}
+	//}
+	//if insts.Go != nil {
+	//	newrelic := *insts.Go
+	//	var err error
+	//	i.logger.V(1).Info("injecting Go instrumentation into pod", "newrelic-namespace", newrelic.Namespace, "newrelic-name", newrelic.Name)
+	//
+	//	goContainers := annotationValue(ns.ObjectMeta, pod.ObjectMeta, annotationInjectGoContainerName)
+	//	index := getContainerIndex(goContainers, pod)
+	//
+	//	// Go instrumentation supports only single container instrumentation.
+	//	pod, err = apm.InjectGoSDK(newrelic.Spec.Go, pod)
+	//	if err != nil {
+	//		i.logger.Info("Skipping Go SDK injection", "reason", err.Error(), "container", pod.Spec.Containers[index].Name)
+	//	} else {
+	//		// Common env vars and config need to be applied to the agent container.
+	//		pod = i.injectCommonEnvVar(newrelic, pod, len(pod.Spec.Containers)-1)
+	//		pod = i.injectCommonSDKConfig(ctx, newrelic, ns, pod, len(pod.Spec.Containers)-1, 0)
+	//	}
+	//}
 	return pod
 }
 
@@ -160,16 +161,16 @@ func getContainerIndex(containerName string, pod corev1.Pod) int {
 	return index
 }
 
-func (i *sdkInjector) injectCommonEnvVar(newrelic v1alpha1.Instrumentation, pod corev1.Pod, index int) corev1.Pod {
-	container := &pod.Spec.Containers[index]
-	for _, env := range newrelic.Spec.Env {
-		idx := getIndexOfEnv(container.Env, env.Name)
-		if idx == -1 {
-			container.Env = append(container.Env, env)
-		}
-	}
-	return pod
-}
+//func (i *sdkInjector) injectCommonEnvVar(newrelic v1alpha1.Instrumentation, pod corev1.Pod, index int) corev1.Pod {
+//	container := &pod.Spec.Containers[index]
+//	for _, env := range newrelic.Spec.Env {
+//		idx := getIndexOfEnv(container.Env, env.Name)
+//		if idx == -1 {
+//			container.Env = append(container.Env, env)
+//		}
+//	}
+//	return pod
+//}
 
 // injectCommonSDKConfig adds common SDK configuration environment variables to the necessary pod
 // agentIndex represents the index of the pod the needs the env vars to instrument the application.
@@ -180,7 +181,7 @@ func (i *sdkInjector) injectCommonEnvVar(newrelic v1alpha1.Instrumentation, pod 
 // and appIndex should represent the application being instrumented.
 func (i *sdkInjector) injectCommonSDKConfig(ctx context.Context, newrelic v1alpha1.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentIndex int, appIndex int) corev1.Pod {
 	container := &pod.Spec.Containers[agentIndex]
-	resourceMap := i.createResourceMap(ctx, newrelic, ns, pod, appIndex)
+	resourceMap := i.createResourceMap(ctx, newrelic.Spec.Resource, ns, pod, appIndex)
 	idx := getIndexOfEnv(container.Env, constants.EnvOTELServiceName)
 	if idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -297,9 +298,9 @@ func (i *sdkInjector) injectCommonSDKConfig(ctx context.Context, newrelic v1alph
 	return pod
 }
 
-func (i *sdkInjector) injectNewrelicConfig(ctx context.Context, newrelic v1alpha1.Instrumentation, ns corev1.Namespace, pod corev1.Pod, index int) corev1.Pod {
+func (i *sdkInjector) injectNewrelicConfig(ctx context.Context, resource v1alpha1.Resource, ns corev1.Namespace, pod corev1.Pod, index int) corev1.Pod {
 	container := &pod.Spec.Containers[index]
-	resourceMap := i.createResourceMap(ctx, newrelic, ns, pod, index)
+	resourceMap := i.createResourceMap(ctx, resource, ns, pod, index)
 	idx := getIndexOfEnv(container.Env, constants.EnvNewRelicAppName)
 	if idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -399,7 +400,7 @@ func createServiceInstanceId(namespaceName, podName, containerName string) strin
 
 // createResourceMap creates resource attribute map.
 // User defined attributes (in explicitly set env var) have higher precedence.
-func (i *sdkInjector) createResourceMap(ctx context.Context, newrelic v1alpha1.Instrumentation, ns corev1.Namespace, pod corev1.Pod, index int) map[string]string {
+func (i *sdkInjector) createResourceMap(ctx context.Context, resource v1alpha1.Resource, ns corev1.Namespace, pod corev1.Pod, index int) map[string]string {
 	// get existing resources env var and parse it into a map
 	existingRes := map[string]bool{}
 	existingResourceEnvIdx := getIndexOfEnv(pod.Spec.Containers[index].Env, constants.EnvOTELResourceAttrs)
@@ -415,7 +416,7 @@ func (i *sdkInjector) createResourceMap(ctx context.Context, newrelic v1alpha1.I
 	}
 
 	res := map[string]string{}
-	for k, v := range newrelic.Spec.Resource.Attributes {
+	for k, v := range resource.Attributes {
 		if !existingRes[k] {
 			res[k] = v
 		}
@@ -429,7 +430,7 @@ func (i *sdkInjector) createResourceMap(ctx context.Context, newrelic v1alpha1.I
 	k8sResources[semconv.K8SPodUIDKey] = string(pod.UID)
 	k8sResources[semconv.K8SNodeNameKey] = pod.Spec.NodeName
 	k8sResources[semconv.ServiceInstanceIDKey] = createServiceInstanceId(ns.Name, pod.Name, pod.Spec.Containers[index].Name)
-	i.addParentResourceLabels(ctx, newrelic.Spec.Resource.AddK8sUIDAttributes, ns, pod.ObjectMeta, k8sResources)
+	i.addParentResourceLabels(ctx, resource.AddK8sUIDAttributes, ns, pod.ObjectMeta, k8sResources)
 	for k, v := range k8sResources {
 		if !existingRes[string(k)] && v != "" {
 			res[string(k)] = v
