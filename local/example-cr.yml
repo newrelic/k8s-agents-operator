@@ -1,0 +1,33 @@
+apiVersion: newrelic.com/v1alpha1
+kind: Instrumentation
+metadata:
+  name: matching-include
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.kubernetes.io/name"
+        operator: "In"
+        values: ["test"]
+  configurations:
+    java:
+      image: newrelic/newrelic-java-init:latest
+    licenseKeySecret: "newrelic-key-secret"
+---
+apiVersion: newrelic.com/v1alpha1
+kind: Instrumentation
+metadata:
+  name: matching-whole-test2-namespace
+spec:
+  namespaceLabelSelector:
+    matchExpressions:
+      - key: "kubernetes.io/metadata.name"
+        operator: "In"
+        values: ["test2"]
+  configurations:
+    java:
+      image: newrelic/newrelic-java-init:8.14.0
+      env:
+       - name: NEW_RELIC_LABELS
+         value: "whatever"
+    licenseKeySecret: "newrelic-key-secret"
+

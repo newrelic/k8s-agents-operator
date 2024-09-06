@@ -47,7 +47,7 @@ spec:
           spec:
             description: InstrumentationSpec defines the desired state of Instrumentation
             properties:
-              configuration:
+              configurations:
                 description: Configurations defines the config to inject.
                 properties:
                   dotnet:
@@ -367,7 +367,9 @@ spec:
                         x-kubernetes-int-or-string: true
                     type: object
                   java:
-                    description: Java defines configuration for java auto-instrumentation.
+                    description: |-
+                      TODO this could be simplified if there is just one image or make it generic
+                      Java defines configuration for java auto-instrumentation.
                     properties:
                       env:
                         description: |-
@@ -490,6 +492,11 @@ spec:
                           JAR.
                         type: string
                     type: object
+                  licenseKeySecret:
+                    description: |-
+                      LicenseKeySecret defines where to take the licenseKeySecret.
+                      it should be present in the operator namespace.
+                    type: string
                   nodejs:
                     description: NodeJS defines configuration for nodejs auto-instrumentation.
                     properties:
@@ -993,7 +1000,52 @@ spec:
                     description: Endpoint is address of the collector with OTLP endpoint.
                     type: string
                 type: object
-              labelSelector:
+              namespaceLabelSelector:
+                description: PodLabelSelector defines to which pods the config should
+                  be applied.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+              podLabelSelector:
                 description: PodLabelSelector defines to which pods the config should
                   be applied.
                 properties:
@@ -1090,9 +1142,6 @@ spec:
                     - parentbased_traceidratio
                     type: string
                 type: object
-            required:
-            - configuration
-            - labelSelector
             type: object
           status:
             description: InstrumentationStatus defines the observed state of Instrumentation

@@ -201,11 +201,11 @@ func main() {
 		if err = (&v1alpha1.Instrumentation{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					v1alpha1.AnnotationDefaultAutoInstrumentationJava:   autoInstrumentationJava,
-					v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS: autoInstrumentationNodeJS,
-					v1alpha1.AnnotationDefaultAutoInstrumentationPython: autoInstrumentationPython,
-					v1alpha1.AnnotationDefaultAutoInstrumentationDotNet: autoInstrumentationDotNet,
-					v1alpha1.AnnotationDefaultAutoInstrumentationRuby:   autoInstrumentationRuby,
+					//v1alpha1.AnnotationDefaultAutoInstrumentationJava:   autoInstrumentationJava,
+					//v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS: autoInstrumentationNodeJS,
+					//v1alpha1.AnnotationDefaultAutoInstrumentationPython: autoInstrumentationPython,
+					//v1alpha1.AnnotationDefaultAutoInstrumentationDotNet: autoInstrumentationDotNet,
+					//v1alpha1.AnnotationDefaultAutoInstrumentationRuby:   autoInstrumentationRuby,
 				},
 			},
 		}).SetupWebhookWithManager(mgr); err != nil {

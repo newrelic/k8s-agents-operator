@@ -39,6 +39,7 @@ func InjectJavaagent(javaSpec v1alpha1.Java, pod corev1.Pod, index int) (corev1.
 	for _, env := range javaSpec.Env {
 		idx := getIndexOfEnv(container.Env, env.Name)
 		if idx == -1 {
+			println("Injecting environment variable")
 			container.Env = append(container.Env, env)
 		}
 	}

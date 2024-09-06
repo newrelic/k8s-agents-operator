@@ -19,8 +19,6 @@ package upgrade
 import (
 	"context"
 	"fmt"
-	"reflect"
-
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -55,17 +53,17 @@ func (u *InstrumentationUpgrade) ManagedInstances(ctx context.Context) error {
 		return fmt.Errorf("failed to list: %w", err)
 	}
 
-	for i := range list.Items {
-		toUpgrade := list.Items[i]
-		upgraded := u.upgrade(ctx, toUpgrade)
-		if !reflect.DeepEqual(upgraded, toUpgrade) {
-			// use update instead of patch because the patch does not upgrade annotations
-			if err := u.Client.Update(ctx, &upgraded); err != nil {
-				u.Logger.Error(err, "failed to apply changes to instance", "name", upgraded.Name, "namespace", upgraded.Namespace)
-				continue
-			}
-		}
-	}
+	//for i := range list.Items {
+	//	toUpgrade := list.Items[i]
+	//	upgraded := u.upgrade(ctx, toUpgrade)
+	//	if !reflect.DeepEqual(upgraded, toUpgrade) {
+	//		// use update instead of patch because the patch does not upgrade annotations
+	//		if err := u.Client.Update(ctx, &upgraded); err != nil {
+	//			u.Logger.Error(err, "failed to apply changes to instance", "name", upgraded.Name, "namespace", upgraded.Namespace)
+	//			continue
+	//		}
+	//	}
+	//}
 
 	if len(list.Items) == 0 {
 		u.Logger.Info("no instances to upgrade")
@@ -74,61 +72,61 @@ func (u *InstrumentationUpgrade) ManagedInstances(ctx context.Context) error {
 }
 
 func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1alpha1.Instrumentation) v1alpha1.Instrumentation {
-	autoInstJava := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava]
-	if autoInstJava != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Configurations.Java.Image == autoInstJava {
-			inst.Spec.Configurations.Java.Image = u.DefaultAutoInstJava
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava] = u.DefaultAutoInstJava
-		}
-	}
-	autoInstNodeJS := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS]
-	if autoInstNodeJS != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Configurations.NodeJS.Image == autoInstNodeJS {
-			inst.Spec.Configurations.NodeJS.Image = u.DefaultAutoInstNodeJS
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS] = u.DefaultAutoInstNodeJS
-		}
-	}
-	autoInstPython := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython]
-	if autoInstPython != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Configurations.Python.Image == autoInstPython {
-			inst.Spec.Configurations.Python.Image = u.DefaultAutoInstPython
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython] = u.DefaultAutoInstPython
-		}
-	}
-	autoInstDotnet := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet]
-	if autoInstDotnet != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Configurations.DotNet.Image == autoInstDotnet {
-			inst.Spec.Configurations.DotNet.Image = u.DefaultAutoInstDotNet
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstDotNet
-		}
-	}
-	autoInstPhp := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPhp]
-	if autoInstPhp != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Configurations.Php.Image == autoInstPhp {
-			inst.Spec.Configurations.Php.Image = u.DefaultAutoInstPhp
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstPhp
-		}
-	}
-	autoInstRuby := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby]
-	if autoInstRuby != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Configurations.Ruby.Image == autoInstRuby {
-			inst.Spec.Configurations.Ruby.Image = u.DefaultAutoInstRuby
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby] = u.DefaultAutoInstRuby
-		}
-	}
-	autoInstGo := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo]
-	if autoInstGo != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Configurations.Go.Image == autoInstDotnet {
-			inst.Spec.Configurations.Go.Image = u.DefaultAutoInstGo
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo] = u.DefaultAutoInstGo
-		}
-	}
+	//autoInstJava := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava]
+	//if autoInstJava != "" {
+	//	// upgrade the image only if the image matches the annotation
+	//	if inst.Spec.Configurations.Java.Image == autoInstJava {
+	//		inst.Spec.Configurations.Java.Image = u.DefaultAutoInstJava
+	//		inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava] = u.DefaultAutoInstJava
+	//	}
+	//}
+	//autoInstNodeJS := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS]
+	//if autoInstNodeJS != "" {
+	//	// upgrade the image only if the image matches the annotation
+	//	if inst.Spec.Configurations.NodeJS.Image == autoInstNodeJS {
+	//		inst.Spec.Configurations.NodeJS.Image = u.DefaultAutoInstNodeJS
+	//		inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS] = u.DefaultAutoInstNodeJS
+	//	}
+	//}
+	//autoInstPython := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython]
+	//if autoInstPython != "" {
+	//	// upgrade the image only if the image matches the annotation
+	//	if inst.Spec.Configurations.Python.Image == autoInstPython {
+	//		inst.Spec.Configurations.Python.Image = u.DefaultAutoInstPython
+	//		inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython] = u.DefaultAutoInstPython
+	//	}
+	//}
+	//autoInstDotnet := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet]
+	//if autoInstDotnet != "" {
+	//	// upgrade the image only if the image matches the annotation
+	//	if inst.Spec.Configurations.DotNet.Image == autoInstDotnet {
+	//		inst.Spec.Configurations.DotNet.Image = u.DefaultAutoInstDotNet
+	//		inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstDotNet
+	//	}
+	//}
+	//autoInstPhp := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPhp]
+	//if autoInstPhp != "" {
+	//	// upgrade the image only if the image matches the annotation
+	//	if inst.Spec.Configurations.Php.Image == autoInstPhp {
+	//		inst.Spec.Configurations.Php.Image = u.DefaultAutoInstPhp
+	//		inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstPhp
+	//	}
+	//}
+	//autoInstRuby := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby]
+	//if autoInstRuby != "" {
+	//	// upgrade the image only if the image matches the annotation
+	//	if inst.Spec.Configurations.Ruby.Image == autoInstRuby {
+	//		inst.Spec.Configurations.Ruby.Image = u.DefaultAutoInstRuby
+	//		inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby] = u.DefaultAutoInstRuby
+	//	}
+	//}
+	//autoInstGo := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo]
+	//if autoInstGo != "" {
+	//	// upgrade the image only if the image matches the annotation
+	//	if inst.Spec.Configurations.Go.Image == autoInstDotnet {
+	//		inst.Spec.Configurations.Go.Image = u.DefaultAutoInstGo
+	//		inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo] = u.DefaultAutoInstGo
+	//	}
+	//}
 	return inst
 }

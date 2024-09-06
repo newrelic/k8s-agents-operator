@@ -47,15 +47,15 @@ type InstrumentationSpec struct {
 
 	// PodLabelSelector defines to which pods the config should be applied.
 	// +optional
-	PodLabelSelector metav1.LabelSelector `json:"labelSelector"`
+	PodLabelSelector metav1.LabelSelector `json:"podLabelSelector"`
 
 	// Configurations defines the config to inject.
 	// +optional
-	Configurations Configurations `json:"configuration"`
+	Configurations Configurations `json:"configurations"`
 
 	// PodLabelSelector defines to which pods the config should be applied.
-	// +required
-	NamespaceLabelSelector metav1.LabelSelector `json:"labelSelector"`
+	// +optional
+	NamespaceLabelSelector metav1.LabelSelector `json:"namespaceLabelSelector"`
 }
 
 type Resource struct {
@@ -71,38 +71,42 @@ type Resource struct {
 
 type Configurations struct {
 
-	// TODO this could be simplified if there is just one image or make it generic
+	// LicenseKeySecret defines where to take the licenseKeySecret.
+	// it should be present in the operator namespace.
+	// +optional
+	LicenseKeySecret string `json:"licenseKeySecret,omitempty"`
 
+	// TODO this could be simplified if there is just one image or make it generic
 	// Java defines configuration for java auto-instrumentation.
 	// +optional
-	Java *Java `json:"java,omitempty"`
+	Java Java `json:"java,omitempty"`
 
 	// NodeJS defines configuration for nodejs auto-instrumentation.
 	// +optional
-	NodeJS *NodeJS `json:"nodejs,omitempty"`
+	NodeJS NodeJS `json:"nodejs,omitempty"`
 
 	// Python defines configuration for python auto-instrumentation.
 	// +optional
-	Python *Python `json:"python,omitempty"`
+	Python Python `json:"python,omitempty"`
 
 	// DotNet defines configuration for dotnet auto-instrumentation.
 	// +optional
-	DotNet *DotNet `json:"dotnet,omitempty"`
+	DotNet DotNet `json:"dotnet,omitempty"`
 
 	// Php defines configuration for php auto-instrumentation.
 	// +optional
-	Php *Php `json:"php,omitempty"`
+	Php Php `json:"php,omitempty"`
 
 	// Ruby defines configuration for ruby auto-instrumentation.
 	// +optional
-	Ruby *Ruby `json:"ruby,omitempty"`
+	Ruby Ruby `json:"ruby,omitempty"`
 
 	// Go defines configuration for Go auto-instrumentation.
 	// When using Go auto-instrumentation you must provide a value for the OTEL_GO_AUTO_TARGET_EXE env var via the
 	// Instrumentation env vars or via the instrumentation.opentelemetry.io/otel-go-auto-target-exe pod annotation.
 	// Failure to set this value causes instrumentation injection to abort, leaving the original pod unchanged.
 	// +optional
-	Go *Go `json:"go,omitempty"`
+	Go Go `json:"go,omitempty"`
 }
 
 // Exporter defines OTLP exporter configuration.

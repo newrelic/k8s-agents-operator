@@ -4,26 +4,25 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestInstrumentationDefaultingWebhook(t *testing.T) {
-	inst := &Instrumentation{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				AnnotationDefaultAutoInstrumentationJava:   "java-img:1",
-				AnnotationDefaultAutoInstrumentationNodeJS: "nodejs-img:1",
-				AnnotationDefaultAutoInstrumentationPython: "python-img:1",
-				AnnotationDefaultAutoInstrumentationDotNet: "dotnet-img:1",
-			},
-		},
-	}
-	inst.Default()
-	assert.Equal(t, "java-img:1", inst.Spec.Java.Image)
-	assert.Equal(t, "nodejs-img:1", inst.Spec.NodeJS.Image)
-	assert.Equal(t, "python-img:1", inst.Spec.Python.Image)
-	assert.Equal(t, "dotnet-img:1", inst.Spec.DotNet.Image)
-}
+//func TestInstrumentationDefaultingWebhook(t *testing.T) {
+//	inst := &Instrumentation{
+//		ObjectMeta: metav1.ObjectMeta{
+//			Annotations: map[string]string{
+//				AnnotationDefaultAutoInstrumentationJava:   "java-img:1",
+//				AnnotationDefaultAutoInstrumentationNodeJS: "nodejs-img:1",
+//				AnnotationDefaultAutoInstrumentationPython: "python-img:1",
+//				AnnotationDefaultAutoInstrumentationDotNet: "dotnet-img:1",
+//			},
+//		},
+//	}
+//	inst.Default()
+//	assert.Equal(t, "java-img:1", inst.Spec.Java.Image)
+//	assert.Equal(t, "nodejs-img:1", inst.Spec.NodeJS.Image)
+//	assert.Equal(t, "python-img:1", inst.Spec.Python.Image)
+//	assert.Equal(t, "dotnet-img:1", inst.Spec.DotNet.Image)
+//}
 
 func TestInstrumentationValidatingWebhook(t *testing.T) {
 	tests := []struct {

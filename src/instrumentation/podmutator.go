@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
@@ -62,12 +63,15 @@ func (pm *instPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod c
 		// we still allow the pod to be created, but we log a message to the operator's logs
 		logger.Error(err, "failed to select a New Relic Instrumentation instance for this pod")
 		return pod, err
+	} else if inst == nil {
+		logger.Info("no New Relic Instrumentation instance for this Pod")
+		return pod, errNoInstancesAvailable
 	}
 
 	// TODO We the user should list the containers if more than one is running
 	pod = pm.sdkInjector.inject(ctx, inst, ns, pod, "")
 	// Assure Secret Existence
-	err = pm.replicateSecret(ctx, ns, pod)
+	err = pm.replicateSecret(ctx, ns, inst.Spec.Configurations.LicenseKeySecret, pod)
 	if err != nil {
 		logger.Error(err, "failed to replicate secret")
 	}
@@ -75,19 +79,39 @@ func (pm *instPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod c
 	return pod, nil
 }
 
-func (pm *instPodMutator) replicateSecret(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) error {
+func (pm *instPodMutator) replicateSecret(ctx context.Context, ns corev1.Namespace, secretName string, pod corev1.Pod) error {
 	logger := pm.Logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
 
 	var secret corev1.Secret
 
-	err := pm.Client.Get(ctx, client.ObjectKey{Name: pod.Spec.ServiceAccountName}, &secret)
-	if err != nil {
-		logger.Error(err, "failed to retrieve the secret")
+	if secretName == "" {
+		secretName = "newrelic-key-secret"
 	}
 
-	err = pm.Client.Create(ctx, &secret)
+	err := pm.Client.Get(ctx, client.ObjectKey{Namespace: ns.Name, Name: secretName}, &secret)
+	if err == nil {
+		logger.Info("secret already exists")
+		return nil
+	}
+
+	err = pm.Client.Get(ctx, client.ObjectKey{Namespace: os.Getenv("POC_NAMESPACE"), Name: secretName}, &secret)
+	if err != nil {
+		logger.Error(err, "failed to retrieve the secret")
+		return err
+	}
+
+	newSecret := corev1.Secret{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: ns.Name,
+		},
+		Data: secret.Data,
+	}
+	err = pm.Client.Create(ctx, &newSecret)
 	if err != nil {
 		logger.Error(err, "failed to create a new secret")
+		return err
 	}
 
 	return nil
@@ -97,18 +121,26 @@ func (pm *instPodMutator) getInstrumentationInstance(ctx context.Context, ns cor
 	logger := pm.Logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
 
 	var listInst v1alpha1.InstrumentationList
-	if err := pm.Client.List(ctx, &listInst, client.InNamespace(ns.Name)); err != nil {
+	if err := pm.Client.List(ctx, &listInst); err != nil {
 		return nil, err
 	}
 
 	for _, inst := range listInst.Items {
-		selector, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector)
+
+		podSelector, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector)
 		if err != nil {
-			logger.Error(err, "failed to parse label selector %s: %s", inst.Name, err)
+			logger.Error(err, "failed to parse pod label selector %s: %s", inst.Name, err)
 			continue
 		}
+		namespaceSelector, err := metav1.LabelSelectorAsSelector(&inst.Spec.NamespaceLabelSelector)
+		if err != nil {
+			logger.Error(err, "failed to parse namespace label selector %s: %s", inst.Name, err)
+			continue
+		}
+
 		// TODO we should decide what to do if multiple rule matches
-		if selector.Matches(fields.Set(pod.Labels)) {
+		if podSelector.Matches(fields.Set(pod.Labels)) && namespaceSelector.Matches(fields.Set(ns.Labels)) {
+			logger.Info("matching instrumentation", inst.Name, inst.Namespace)
 			return &inst, nil
 		}
 	}

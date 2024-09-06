@@ -60,8 +60,8 @@ func (i *sdkInjector) inject(ctx context.Context, inst *v1alpha1.Instrumentation
 		}
 	}
 
-	if inst.Spec.Configurations.Java != nil {
-		java := *inst.Spec.Configurations.Java
+	if inst.Spec.Configurations.Java.Image != "" {
+		java := inst.Spec.Configurations.Java
 		var err error
 		i.logger.V(1).Info("injecting Java instrumentation into pod", "newrelic-namespace", inst.Namespace, "newrelic-name", inst.Name)
 		pod, err = apm.InjectJavaagent(java, pod, index)
