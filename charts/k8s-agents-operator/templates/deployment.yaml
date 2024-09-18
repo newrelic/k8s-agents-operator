@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ template "k8s-agents-operator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
   {{- include "k8s-agents-operator.labels" . | nindent 4 }}
 ---
@@ -9,6 +10,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     control-plane: controller-manager
   {{- include "k8s-agents-operator.labels" . | nindent 4 }}

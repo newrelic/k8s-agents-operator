@@ -2,6 +2,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
   labels:
   {{- include "k8s-agents-operator.labels" . | nindent 4 }}
 spec:
