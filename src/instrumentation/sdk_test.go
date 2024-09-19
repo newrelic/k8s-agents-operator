@@ -16,11 +16,10 @@ import (
 )
 
 const (
-	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
-	nodeRequireArgument     = " --require /newrelic-instrumentation/newrelicinstrumentation.js"
-	pythonPathPrefix        = "/newrelic-instrumentation"
+	javaJVMArgument     = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
+	nodeRequireArgument = " --require /newrelic-instrumentation/newrelicinstrumentation.js"
+	pythonPathPrefix    = "/newrelic-instrumentation"
 )
-
 
 func TestSDKInjection(t *testing.T) {
 	ns := corev1.Namespace{
@@ -460,6 +459,76 @@ func TestInjectJava(t *testing.T) {
 	// 		},
 	// 	},
 	// }, pod)
+}
+
+func TestInjectJavaWithNoNRAppName(t *testing.T) {
+
+	pod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"app.kubernetes.io/name": "busybox",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+			InitContainers: []corev1.Container{
+				{
+					Name:    initContainerName,
+					Image:   "img:1",
+					Command: []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
+					VolumeMounts: []corev1.VolumeMount{{
+						Name:      volumeName,
+						MountPath: "/newrelic-instrumentation",
+					}},
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name: "app",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      volumeName,
+							MountPath: "/otel-auto-instrumentation",
+						},
+					},
+					//Env: []corev1.EnvVar{
+					//	{
+					//		Name:  "NEW_RELIC_APP_NAME",
+					//		Value: "test-java-app",
+					//	},
+					//},
+				},
+			},
+		},
+	}
+
+	inst := v1alpha1.Instrumentation{
+		Spec: v1alpha1.InstrumentationSpec{
+			Java: v1alpha1.Java{
+				Image: "img:1",
+			},
+			Exporter: v1alpha1.Exporter{
+				Endpoint: "https://collector:4317",
+			},
+		},
+	}
+
+	insts := languageInstrumentations{
+		Java: &inst,
+	}
+	inj := sdkInjector{
+		logger: logr.Discard(),
+	}
+	_ = inj.inject(context.Background(), insts,
+		corev1.Namespace{},
+		pod, "java-lang-init-container")
 }
 
 func TestInjectNodeJS(t *testing.T) {
