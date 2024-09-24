@@ -60,3 +60,19 @@ securityContext:
 # -- Admission webhooks make sure only requests with correctly formatted rules will get into the Operator
 admissionWebhooks:
   create: true
+
+  certManager:
+    enabled: true
+
+  autoGenerateCert:
+    enabled: false
+    # If set to true, new webhook key/certificate is generated on helm upgrade.
+    recreate: true
+    # Cert period time in days. The default is 365 days.
+    certPeriodDays: 365
+
+  certFile: ""
+  ## Path to your own PEM-encoded private key.
+  keyFile: ""
+  ## Path to the CA cert.
+  caFile: ""

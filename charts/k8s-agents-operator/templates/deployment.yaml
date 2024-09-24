@@ -78,7 +78,7 @@ spec:
         resources: {{- toYaml .Values.controllerManager.kubeRbacProxy.resources | nindent 10 }}
       serviceAccountName: {{ template "k8s-agents-operator.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
-      {{- if or .Values.admissionWebhooks.create .Values.admissionWebhooks.secretName }}
+      {{- if or .Values.admissionWebhooks.create (include "k8s-agents-operator.certificateSecret" . ) }}
       volumes:
       - name: cert
         secret:
