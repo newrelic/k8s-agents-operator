@@ -2,27 +2,29 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ template "k8s-agents-operator.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "k8s-agents-operator.labels" . | nindent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     control-plane: controller-manager
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "k8s-agents-operator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controllerManager.replicas }}
   selector:
     matchLabels:
       control-plane: controller-manager
-    {{- include "k8s-agents-operator.labels" . | nindent 6 }}
+      {{- include "k8s-agents-operator.labels" . | nindent 6 }}
   template:
     metadata:
       labels:
         control-plane: controller-manager
-      {{- include "k8s-agents-operator.labels" . | nindent 8 }}
+        {{- include "k8s-agents-operator.labels" . | nindent 8 }}
     spec:
       containers:
       - args:
@@ -86,4 +88,4 @@ spec:
           secretName: {{ template "k8s-agents-operator.certificateSecret" . }}
       {{- end }}
       securityContext:
-{{ toYaml .Values.securityContext | indent 8 }}
+        {{- toYaml .Values.securityContext | nindent 8 }}

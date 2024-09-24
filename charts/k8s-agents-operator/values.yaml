@@ -62,10 +62,10 @@ admissionWebhooks:
   create: true
 
   certManager:
-    enabled: true
+    enabled: false
 
   autoGenerateCert:
-    enabled: false
+    enabled: true
     # If set to true, new webhook key/certificate is generated on helm upgrade.
     recreate: true
     # Cert period time in days. The default is 365 days.
