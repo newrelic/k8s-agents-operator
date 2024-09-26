@@ -16,18 +16,9 @@
 
 ### Requirements
 
-Add the `jetstack` and `k8s-agents-operator` Helm chart repositories:
+Add the `k8s-agents-operator` Helm chart repository:
 ```shell
-helm repo add jetstack https://charts.jetstack.io
 helm repo add k8s-agents-operator https://newrelic.github.io/k8s-agents-operator
-```
-
-Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm chart:
-```shell
-helm install cert-manager jetstack/cert-manager \
-  --namespace cert-manager \
-  --create-namespace \
-  --set crds.enabled=true
 ```
 
 ### Instrumentation
@@ -136,6 +127,20 @@ spec:
           - name: NEW_RELIC_APP_NAME
             value: spring-petclinic-demo
 ```
+
+### cert-manager
+
+The K8s Agents Operator supports the use of [`cert-manager`](https://github.com/cert-manager/cert-manager) if preferred.
+
+Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm chart:
+```shell
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set crds.enabled=true
+```
+
+In your `values.yaml` file, set `admissionWebhooks.autoGenerateCert.enabled: false` and `admissionWebhooks.certManager.enabled: true`. Then install the chart as normal.
 
 ## Available Chart Releases
 
