@@ -79,7 +79,7 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: {{ template "k8s-agents-operator.fullname" . }}-validating-webhook-configuration
+  name: {{ template "k8s-agents-operator.fullname" . }}-validation
   {{- if .Values.admissionWebhooks.certManager.enabled }}
   annotations:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ template "k8s-agents-operator.fullname" . }}-serving-cert
