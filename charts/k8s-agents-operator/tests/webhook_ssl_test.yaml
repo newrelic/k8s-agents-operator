@@ -89,11 +89,6 @@ tests:
         documentSelector:
           path: metadata.name
           value: my-release-k8s-agents-operator-validation
-
-#  - it: creates ssl certificate secret by default
-#    set:
-#      licenseKey: us-whatever
-#    asserts:
   - it: does not creates ssl certificate secret if cert-manager enabled and auto cert disabled
     set:
       licenseKey: us-whatever
