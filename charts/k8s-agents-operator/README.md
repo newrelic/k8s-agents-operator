@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.12.0](https://img.shields.io/badge/Version-0.12.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.12.0](https://img.shields.io/badge/AppVersion-0.12.0-informational?style=flat-square)
+![Version: 0.13.0](https://img.shields.io/badge/Version-0.13.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.13.0](https://img.shields.io/badge/AppVersion-0.13.0-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -14,18 +14,9 @@ A Helm chart for the Kubernetes Agents Operator
 
 ### Requirements
 
-Add the `jetstack` and `k8s-agents-operator` Helm chart repositories:
+Add the `k8s-agents-operator` Helm chart repository:
 ```shell
-helm repo add jetstack https://charts.jetstack.io
 helm repo add k8s-agents-operator https://newrelic.github.io/k8s-agents-operator
-```
-
-Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm chart:
-```shell
-helm install cert-manager jetstack/cert-manager \
-  --namespace cert-manager \
-  --create-namespace \
-  --set crds.enabled=true
 ```
 
 ### Instrumentation
@@ -33,7 +24,7 @@ helm install cert-manager jetstack/cert-manager \
 Install the [`k8s-agents-operator`](https://github.com/newrelic/k8s-agents-operator) Helm chart:
 ```shell
 helm upgrade --install k8s-agents-operator k8s-agents-operator/k8s-agents-operator \
-  --namespace k8s-agents-operator \
+  --namespace newrelic \
   --create-namespace \
   --values your-custom-values.yaml
 ```
@@ -135,6 +126,20 @@ spec:
             value: spring-petclinic-demo
 ```
 
+### cert-manager
+
+The K8s Agents Operator supports the use of [`cert-manager`](https://github.com/cert-manager/cert-manager) if preferred.
+
+Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm chart:
+```shell
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set crds.enabled=true
+```
+
+In your `values.yaml` file, set `admissionWebhooks.autoGenerateCert.enabled: false` and `admissionWebhooks.certManager.enabled: true`. Then install the chart as normal.
+
 ## Available Chart Releases
 
 To see the available charts:
@@ -152,7 +157,14 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| admissionWebhooks | object | `{"create":true}` | Admission webhooks make sure only requests with correctly formatted rules will get into the Operator |
+| admissionWebhooks | object | `{"autoGenerateCert":{"certPeriodDays":365,"enabled":true,"recreate":true},"caFile":"","certFile":"","certManager":{"enabled":false},"create":true,"keyFile":""}` | Admission webhooks make sure only requests with correctly formatted rules will get into the Operator |
+| admissionWebhooks.autoGenerateCert.certPeriodDays | int | `365` | Cert validity period time in days. |
+| admissionWebhooks.autoGenerateCert.enabled | bool | `true` | If true and certManager.enabled is false, Helm will automatically create a self-signed cert and secret for you. |
+| admissionWebhooks.autoGenerateCert.recreate | bool | `true` | If set to true, new webhook key/certificate is generated on helm upgrade. |
+| admissionWebhooks.caFile | string | `""` | Path to the CA cert. |
+| admissionWebhooks.certFile | string | `""` | Path to your own PEM-encoded certificate. |
+| admissionWebhooks.certManager.enabled | bool | `false` | If true and autoGenerateCert.enabled is false, cert-manager will create a self-signed cert and secret for you. |
+| admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
 | controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` |  |
 | controllerManager.kubeRbacProxy.image.tag | string | `"v0.14.0"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.cpu | string | `"500m"` |  |
@@ -168,6 +180,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.manager.serviceAccount.create | bool | `true` |  |
 | controllerManager.replicas | int | `1` |  |
 | kubernetesClusterDomain | string | `"cluster.local"` |  |
+| licenseKey | string | `""` | This set this license key to use. Can be configured also with `global.licenseKey` |
 | metricsService.ports[0].name | string | `"https"` |  |
 | metricsService.ports[0].port | int | `8443` |  |
 | metricsService.ports[0].protocol | string | `"TCP"` |  |

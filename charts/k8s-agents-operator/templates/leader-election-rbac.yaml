@@ -2,6 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}-leader-election-role
+  namespace: {{ .Release.Namespace }}
   labels:
   {{- include "k8s-agents-operator.labels" . | nindent 4 }}
 rules:
@@ -37,6 +38,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}-leader-election-rolebinding
+  namespace: {{ .Release.Namespace }}
   labels:
   {{- include "k8s-agents-operator.labels" . | nindent 4 }}
 roleRef:
