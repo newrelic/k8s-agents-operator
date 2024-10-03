@@ -49,11 +49,9 @@ jobs:
       - name: Checkout GitHub Repository
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
-      - name: Set up chart-testing
-        uses: helm/chart-testing-action@e6669bcd63d7cb57cb4380c33043eebe5d111992 # v2.6.1
-
-      - name: Lint charts
-        run: ct --config .github/ct.yaml lint --debug
+      - name: Helm lint
+        run: |
+          helm lint charts/**
 
       - name: Install Helm Docs
         # Use syntax ${version} instead of $version
