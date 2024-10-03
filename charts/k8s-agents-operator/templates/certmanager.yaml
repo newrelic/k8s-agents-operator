@@ -5,7 +5,7 @@ metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}-serving-cert
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
   dnsNames:
   - '{{ template "k8s-agents-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc'
@@ -13,7 +13,7 @@ spec:
   issuerRef:
     kind: Issuer
     name: '{{ template "k8s-agents-operator.fullname" . }}-selfsigned-issuer'
-  secretName: {{ template "k8s-agents-operator.certificateSecret" . }}
+  secretName: {{ include "k8s-agents-operator.certificateSecret.fullname" . }}
   subject:
     organizationalUnits:
     - k8s-agents-operator
@@ -24,7 +24,7 @@ metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}-selfsigned-issuer
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
   selfSigned: {}
 {{- end }}

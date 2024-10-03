@@ -5,11 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     control-plane: controller-manager
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.metricsService.type }}
   selector:
+    {{- include "newrelic.common.labels.selectorLabels" . | nindent 4 }}
     control-plane: controller-manager
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
   ports:
 	{{- .Values.metricsService.ports | toYaml | nindent 2 -}}

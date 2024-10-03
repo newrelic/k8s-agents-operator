@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}-proxy-role
   labels:
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -24,12 +24,12 @@ metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}-proxy-rolebinding
   namespace: {{ .Release.Namespace }}
   labels:
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: '{{ template "k8s-agents-operator.fullname" . }}-proxy-role'
+  name: {{ template "k8s-agents-operator.fullname" . }}-proxy-role
 subjects:
 - kind: ServiceAccount
-  name: '{{ template "k8s-agents-operator.serviceAccountName" . }}'
-  namespace: '{{ .Release.Namespace }}'
+  name: {{ include "newrelic.common.serviceAccount.name" . }}
+  namespace: {{ .Release.Namespace }}

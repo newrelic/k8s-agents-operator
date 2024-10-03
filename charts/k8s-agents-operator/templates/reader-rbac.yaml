@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: {{ template "k8s-agents-operator.fullname" . }}-metrics-reader
   labels:
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 rules:
 - nonResourceURLs:
   - /metrics
