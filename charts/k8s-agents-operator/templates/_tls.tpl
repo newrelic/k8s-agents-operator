@@ -14,7 +14,7 @@ a cert is loaded from an existing secret or is provided via `.Values`
         {{- $clientKey = index $prevSecret "data" "tls.key" }}
         {{- $caCert = index $prevSecret "data" "ca.crt" }}
         {{- if not $caCert }}
-            {{- $prevHook := (lookup "admissionregistration.k8s.io/v1" "MutatingWebhookConfiguration" .Release.Namespace (print (include "k8s-agents-operator.fullname" . ) "-mutation")) }}
+            {{- $prevHook := (lookup "admissionregistration.k8s.io/v1" "MutatingWebhookConfiguration" .Release.Namespace (print (include "newrelic.common.naming.fullname" . ) "-mutation")) }}
             {{- if not (eq (toString $prevHook) "<nil>") }}
                 {{- $caCert = (first $prevHook.webhooks).clientConfig.caBundle }}
             {{- end }}
@@ -22,10 +22,10 @@ a cert is loaded from an existing secret or is provided via `.Values`
     {{- else }}
         {{- $certValidity := int .Values.admissionWebhooks.autoGenerateCert.certPeriodDays | default 365 }}
         {{- $ca := genCA "k8s-agents-operator-operator-ca" $certValidity }}
-        {{- $domain1 := printf "%s-webhook-service.%s.svc" (include "k8s-agents-operator.fullname" .) $.Release.Namespace }}
-        {{- $domain2 := printf "%s-webhook-service.%s.svc.%s" (include "k8s-agents-operator.fullname" .) $.Release.Namespace $.Values.kubernetesClusterDomain }}
+        {{- $domain1 := printf "%s-webhook-service.%s.svc" (include "newrelic.common.naming.fullname" .) $.Release.Namespace }}
+        {{- $domain2 := printf "%s-webhook-service.%s.svc.%s" (include "newrelic.common.naming.fullname" .) $.Release.Namespace $.Values.kubernetesClusterDomain }}
         {{- $domains := list $domain1 $domain2 }}
-        {{- $cert := genSignedCert (include "k8s-agents-operator.fullname" .) nil $domains $certValidity $ca }}
+        {{- $cert := genSignedCert (include "newrelic.common.naming.fullname" .) nil $domains $certValidity $ca }}
         {{- $clientCert = b64enc $cert.Cert }}
         {{- $clientKey = b64enc $cert.Key }}
         {{- $caCert = b64enc $ca.Cert }}

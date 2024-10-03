@@ -2,17 +2,17 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: {{ template "k8s-agents-operator.fullname" . }}-serving-cert
+  name: {{ include "newrelic.common.naming.fullname" . }}-serving-cert
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
   dnsNames:
-  - '{{ template "k8s-agents-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc'
-  - '{{ template "k8s-agents-operator.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}'
+  - '{{ include "newrelic.common.naming.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc'
+  - '{{ include "newrelic.common.naming.fullname" . }}-webhook-service.{{ .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}'
   issuerRef:
     kind: Issuer
-    name: '{{ template "k8s-agents-operator.fullname" . }}-selfsigned-issuer'
+    name: {{ include "newrelic.common.naming.fullname" . }}-selfsigned-issuer
   secretName: {{ include "k8s-agents-operator.certificateSecret.fullname" . }}
   subject:
     organizationalUnits:
@@ -21,7 +21,7 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ template "k8s-agents-operator.fullname" . }}-selfsigned-issuer
+  name: {{ include "newrelic.common.naming.fullname" . }}-selfsigned-issuer
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "newrelic.common.labels" . | nindent 4 }}

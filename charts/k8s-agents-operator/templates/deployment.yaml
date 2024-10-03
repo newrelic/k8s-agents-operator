@@ -9,7 +9,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "k8s-agents-operator.fullname" . }}
+  name: {{ include "newrelic.common.naming.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     control-plane: controller-manager
