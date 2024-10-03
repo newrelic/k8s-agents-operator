@@ -39,11 +39,13 @@ const (
 	annotationInjectDotnetContainersName = "instrumentation.newrelic.com/dotnet-container-names"
 	annotationInjectPhp                  = "instrumentation.newrelic.com/inject-php"
 	annotationInjectPhpContainersName    = "instrumentation.newrelic.com/php-container-names"
-	annotationPhpExecCmd                 = "instrumentation.newrelic.com/php-exec-command"
+	annotationInjectRuby                 = "instrumentation.newrelic.com/inject-ruby"
+	annotationInjectRubyContainersName   = "instrumentation.newrelic.com/ruby-container-names"
 	annotationInjectContainerName        = "instrumentation.newrelic.com/container-name"
 	annotationInjectGo                   = "instrumentation.opentelemetry.io/inject-go"
 	annotationGoExecPath                 = "instrumentation.opentelemetry.io/otel-go-auto-target-exe"
 	annotationInjectGoContainerName      = "instrumentation.opentelemetry.io/go-container-name"
+	annotationPhpVersion                 = "instrumentation.newrelic.com/php-version"
 )
 
 // annotationValue returns the effective annotation value, based on the annotations from the pod and namespace.

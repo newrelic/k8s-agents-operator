@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.1.0](https://img.shields.io/badge/AppVersion-0.1.0-informational?style=flat-square)
+![Version: 0.12.0](https://img.shields.io/badge/Version-0.12.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.12.0](https://img.shields.io/badge/AppVersion-0.12.0-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -14,18 +14,9 @@ A Helm chart for the Kubernetes Agents Operator
 
 ### Requirements
 
-Add the `jetstack` and `k8s-agents-operator` Helm chart repositories:
+Add the `k8s-agents-operator` Helm chart repository:
 ```shell
-helm repo add jetstack https://charts.jetstack.io
 helm repo add k8s-agents-operator https://newrelic.github.io/k8s-agents-operator
-```
-
-Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm chart:
-```shell
-helm install cert-manager jetstack/cert-manager \
-  --namespace cert-manager \
-  --create-namespace \
-  --set installCRDs=true
 ```
 
 ### Instrumentation
@@ -33,7 +24,7 @@ helm install cert-manager jetstack/cert-manager \
 Install the [`k8s-agents-operator`](https://github.com/newrelic/k8s-agents-operator) Helm chart:
 ```shell
 helm upgrade --install k8s-agents-operator k8s-agents-operator/k8s-agents-operator \
-  --namespace k8s-agents-operator \
+  --namespace newrelic \
   --create-namespace \
   --values your-custom-values.yaml
 ```
@@ -47,7 +38,13 @@ kubectl create secret generic newrelic-key-secret \
   --from-literal=new_relic_license_key=<NEW RELIC INGEST LICENSE KEY>
 ```
 
-Similarly, for each namespace you need to instrument create the `Instrumentation` custom resource, specifying which APM agents you want to instrument:
+Similarly, for each namespace you need to instrument create the `Instrumentation` custom resource, specifying which APM agents you want to instrument. All available APM agent docker images and corresponding tags are listed on DockerHub:
+* [Java](https://hub.docker.com/repository/docker/newrelic/newrelic-java-init/general)
+* [Node](https://hub.docker.com/repository/docker/newrelic/newrelic-node-init/general)
+* [Python](https://hub.docker.com/repository/docker/newrelic/newrelic-python-init/general)
+* [.NET](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
+* [Ruby](https://hub.docker.com/repository/docker/newrelic/newrelic-ruby-init/general)
+
 ```yaml
 apiVersion: newrelic.com/v1alpha1
 kind: Instrumentation
@@ -58,7 +55,7 @@ metadata:
   name: newrelic-instrumentation
 spec:
   java:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-java:latest
+    image: newrelic/newrelic-java-init:latest
     # env:
     # Example New Relic agent supported environment variables
     # - name: NEW_RELIC_LABELS
@@ -71,15 +68,20 @@ spec:
     # - name: NEW_RELIC_APP_NAME
     #   value: "$(NEW_RELIC_LABELS)-$(NEW_RELIC_POD_NAME)"
   nodejs:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-nodejs:latest
+    image: newrelic/newrelic-node-init:latest
   python:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-python:latest
+    image: newrelic/newrelic-python-init:latest
   dotnet:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-dotnet-arm:latest
-  php:
-    image: ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-php:latest
+    image: newrelic/newrelic-dotnet-init:latest
+  ruby:
+    image: newrelic/newrelic-ruby-init:latest
 ```
-In the example above, we show how you can configure the agent settings globally using ENV variables.
+In the example above, we show how you can configure the agent settings globally using environment variables. See each agent's configuration documentation for available configuration options:
+* [Java](https://docs.newrelic.com/docs/apm/agents/java-agent/configuration/java-agent-configuration-config-file/)
+* [Node](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/installation-configuration/nodejs-agent-configuration/)
+* [Python](https://docs.newrelic.com/docs/apm/agents/python-agent/configuration/python-agent-configuration/)
+* [.NET](https://docs.newrelic.com/docs/apm/agents/net-agent/configuration/net-agent-configuration/)
+* [Ruby](https://docs.newrelic.com/docs/apm/agents/ruby-agent/configuration/ruby-agent-configuration/)
 
 Global agent settings can be overridden in your deployment manifest if a different configuration is required.
 
@@ -93,7 +95,7 @@ instrumentation.newrelic.com/inject-java: "true"
 instrumentation.newrelic.com/inject-nodejs: "true"
 instrumentation.newrelic.com/inject-python: "true"
 instrumentation.newrelic.com/inject-dotnet: "true"
-instrumentation.newrelic.com/inject-php: "true"
+instrumentation.newrelic.com/inject-ruby: "true"
 ```
 
 Example deployment with annotation to instrument the Java agent:
@@ -124,6 +126,20 @@ spec:
             value: spring-petclinic-demo
 ```
 
+### cert-manager
+
+The K8s Agents Operator supports the use of [`cert-manager`](https://github.com/cert-manager/cert-manager) if preferred.
+
+Install the [`cert-manager`](https://github.com/cert-manager/cert-manager) Helm chart:
+```shell
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set crds.enabled=true
+```
+
+In your `values.yaml` file, set `admissionWebhooks.autoGenerateCert.enabled: false` and `admissionWebhooks.certManager.enabled: true`. Then install the chart as normal.
+
 ## Available Chart Releases
 
 To see the available charts:
@@ -141,13 +157,21 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| admissionWebhooks | object | `{"create":true}` | Admission webhooks make sure only requests with correctly formatted rules will get into the Operator |
+| admissionWebhooks | object | `{"autoGenerateCert":{"certPeriodDays":365,"enabled":true,"recreate":true},"caFile":"","certFile":"","certManager":{"enabled":false},"create":true,"keyFile":""}` | Admission webhooks make sure only requests with correctly formatted rules will get into the Operator |
+| admissionWebhooks.autoGenerateCert.certPeriodDays | int | `365` | Cert validity period time in days. |
+| admissionWebhooks.autoGenerateCert.enabled | bool | `true` | If true and certManager.enabled is false, Helm will automatically create a self-signed cert and secret for you. |
+| admissionWebhooks.autoGenerateCert.recreate | bool | `true` | If set to true, new webhook key/certificate is generated on helm upgrade. |
+| admissionWebhooks.caFile | string | `""` | Path to the CA cert. |
+| admissionWebhooks.certFile | string | `""` | Path to your own PEM-encoded certificate. |
+| admissionWebhooks.certManager.enabled | bool | `false` | If true and autoGenerateCert.enabled is false, cert-manager will create a self-signed cert and secret for you. |
+| admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
 | controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` |  |
 | controllerManager.kubeRbacProxy.image.tag | string | `"v0.14.0"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.memory | string | `"128Mi"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.cpu | string | `"5m"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.memory | string | `"64Mi"` |  |
+| controllerManager.manager.image.pullPolicy | string | `nil` |  |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` |  |
 | controllerManager.manager.image.tag | string | `nil` |  |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
@@ -156,6 +180,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.manager.serviceAccount.create | bool | `true` |  |
 | controllerManager.replicas | int | `1` |  |
 | kubernetesClusterDomain | string | `"cluster.local"` |  |
+| licenseKey | string | `""` | This set this license key to use. Can be configured also with `global.licenseKey` |
 | metricsService.ports[0].name | string | `"https"` |  |
 | metricsService.ports[0].port | int | `8443` |  |
 | metricsService.ports[0].protocol | string | `"TCP"` |  |

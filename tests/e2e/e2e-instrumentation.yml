@@ -1,6 +1,9 @@
 apiVersion: newrelic.com/v1alpha1
 kind: Instrumentation
 metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
   name: newrelic-instrumentation
 spec:
   java:

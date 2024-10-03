@@ -86,8 +86,8 @@ func main() {
 		autoInstrumentationNodeJS string
 		autoInstrumentationPython string
 		autoInstrumentationDotNet string
+		autoInstrumentationRuby   string
 		autoInstrumentationPhp    string
-		autoInstrumentationGo     string
 		labelsFilter              []string
 		webhookPort               int
 		tlsOpt                    tlsConfig
@@ -98,12 +98,12 @@ func main() {
 	pflag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	pflag.StringVar(&autoInstrumentationJava, "auto-instrumentation-java-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-java:%s", v.AutoInstrumentationJava), "The default New Relic Java instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationNodeJS, "auto-instrumentation-nodejs-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-nodejs:%s", v.AutoInstrumentationNodeJS), "The default New Relic NodeJS instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationPython, "auto-instrumentation-python-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-python:%s", v.AutoInstrumentationPython), "The default New Relic Python instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationDotNet, "auto-instrumentation-dotnet-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-dotnet:%s", v.AutoInstrumentationDotNet), "The default New Relic DotNet instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationPhp, "auto-instrumentation-php-image", fmt.Sprintf("ghcr.io/newrelic-experimental/newrelic-agent-operator/instrumentation-php:%s", v.AutoInstrumentationDotNet), "The default New Relic Php instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationGo, "auto-instrumentation-go-image", fmt.Sprintf("ghcr.io/open-telemetry/opentelemetry-go-instrumentation/autoinstrumentation-go:%s", v.AutoInstrumentationGo), "The default Opentelemtry Go instrumentation image. This image is used when no image is specified in the CustomResource.")
+	pflag.StringVar(&autoInstrumentationJava, "auto-instrumentation-java-image", fmt.Sprintf("newrelic/newrelic-java-init:%s", v.AutoInstrumentationJava), "The default New Relic Java instrumentation image. This image is used when no image is specified in the CustomResource.")
+	pflag.StringVar(&autoInstrumentationNodeJS, "auto-instrumentation-nodejs-image", fmt.Sprintf("newrelic/newrelic-node-init:%s", v.AutoInstrumentationNodeJS), "The default New Relic NodeJS instrumentation image. This image is used when no image is specified in the CustomResource.")
+	pflag.StringVar(&autoInstrumentationPython, "auto-instrumentation-python-image", fmt.Sprintf("newrelic/newrelic-python-init:%s", v.AutoInstrumentationPython), "The default New Relic Python instrumentation image. This image is used when no image is specified in the CustomResource.")
+	pflag.StringVar(&autoInstrumentationDotNet, "auto-instrumentation-dotnet-image", fmt.Sprintf("newrelic/newrelic-dotnet-init:%s", v.AutoInstrumentationDotNet), "The default New Relic DotNet instrumentation image. This image is used when no image is specified in the CustomResource.")
+	pflag.StringVar(&autoInstrumentationRuby, "auto-instrumentation-ruby-image", fmt.Sprintf("newrelic/newrelic-ruby-init:%s", v.AutoInstrumentationRuby), "The default New Relic Ruby instrumentation image. This image is used when no image is specified in the CustomResource.")
+	pflag.StringVar(&autoInstrumentationPhp, "auto-instrumentation-php-image", fmt.Sprintf("newrelic/newrelic-php-init:%s", v.AutoInstrumentationPhp), "The default New Relic Php instrumentation image. This image is used when no image is specified in the CustomResource.")
 
 	pflag.StringArrayVar(&labelsFilter, "labels", []string{}, "Labels to filter away from propagating onto deploys")
 	pflag.IntVar(&webhookPort, "webhook-port", 9443, "The port the webhook endpoint binds to.")
@@ -120,8 +120,8 @@ func main() {
 		"auto-instrumentation-nodejs", autoInstrumentationNodeJS,
 		"auto-instrumentation-python", autoInstrumentationPython,
 		"auto-instrumentation-dotnet", autoInstrumentationDotNet,
+		"auto-instrumentation-ruby", autoInstrumentationRuby,
 		"auto-instrumentation-php", autoInstrumentationPhp,
-		"auto-instrumentation-go", autoInstrumentationGo,
 		"build-date", v.BuildDate,
 		"go-version", v.Go,
 		"go-arch", runtime.GOARCH,
@@ -145,8 +145,8 @@ func main() {
 		config.WithAutoInstrumentationNodeJSImage(autoInstrumentationNodeJS),
 		config.WithAutoInstrumentationPythonImage(autoInstrumentationPython),
 		config.WithAutoInstrumentationDotNetImage(autoInstrumentationDotNet),
+		config.WithAutoInstrumentationRubyImage(autoInstrumentationRuby),
 		config.WithAutoInstrumentationPhpImage(autoInstrumentationPhp),
-		config.WithAutoInstrumentationGoImage(autoInstrumentationGo),
 		config.WithAutoDetect(ad),
 		config.WithLabelFilters(labelsFilter),
 	)
@@ -207,8 +207,8 @@ func main() {
 					v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS: autoInstrumentationNodeJS,
 					v1alpha1.AnnotationDefaultAutoInstrumentationPython: autoInstrumentationPython,
 					v1alpha1.AnnotationDefaultAutoInstrumentationDotNet: autoInstrumentationDotNet,
+					v1alpha1.AnnotationDefaultAutoInstrumentationRuby:   autoInstrumentationRuby,
 					v1alpha1.AnnotationDefaultAutoInstrumentationPhp:    autoInstrumentationPhp,
-					v1alpha1.AnnotationDefaultAutoInstrumentationGo:     autoInstrumentationGo,
 				},
 			},
 		}).SetupWebhookWithManager(mgr); err != nil {
@@ -261,6 +261,7 @@ func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config, v v
 			DefaultAutoInstPython: cfg.AutoInstrumentationPythonImage(),
 			DefaultAutoInstDotNet: cfg.AutoInstrumentationDotNetImage(),
 			DefaultAutoInstPhp:    cfg.AutoInstrumentationPhpImage(),
+			DefaultAutoInstRuby:   cfg.AutoInstrumentationRubyImage(),
 			DefaultAutoInstGo:     cfg.AutoInstrumentationGoImage(),
 			Client:                mgr.GetClient(),
 		}

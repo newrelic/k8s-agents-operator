@@ -1,5 +1,9 @@
-# -- Ingest license key to use
-# licenseKey:
+# Default values for k8s-agents-operator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- This set this license key to use. Can be configured also with `global.licenseKey`
+licenseKey: ""
 
 controllerManager:
   replicas: 1
@@ -19,7 +23,8 @@ controllerManager:
   manager:
     image:
       repository: newrelic/k8s-agents-operator
-      tag: 
+      tag:
+      pullPolicy:
     resources:
       requests:
         cpu: 100m
@@ -59,3 +64,30 @@ securityContext:
 # -- Admission webhooks make sure only requests with correctly formatted rules will get into the Operator
 admissionWebhooks:
   create: true
+
+  ## TLS Certificate Option 1: Use Helm to automatically generate self-signed certificate.
+  ## certManager must be disabled and autoGenerateCert must be enabled.
+  autoGenerateCert:
+    # -- If true and certManager.enabled is false, Helm will automatically create a self-signed cert and secret for you.
+    enabled: true
+    # -- If set to true, new webhook key/certificate is generated on helm upgrade.
+    recreate: true
+    # -- Cert validity period time in days.
+    certPeriodDays: 365
+
+  ## TLS Certificate Option 2: Use certManager to generate self-signed certificate.
+  certManager:
+    # -- If true and autoGenerateCert.enabled is false, cert-manager will create a self-signed cert and secret for you.
+    enabled: false
+
+  ## TLS Certificate Option 3: Use your own self-signed certificate.
+  ## certManager and autoGenerateCert must be disabled and certFile, keyFile, and caFile must be set.
+  ## The chart reads the contents of the file paths with the helm .Files.Get function.
+  ## Refer to this doc https://helm.sh/docs/chart_template_guide/accessing_files/ to understand
+  ## limitations of file paths accessible to the chart.
+  # -- Path to your own PEM-encoded certificate.
+  certFile: ""
+  # -- Path to your own PEM-encoded private key.
+  keyFile: ""
+  # -- Path to the CA cert.
+  caFile: ""

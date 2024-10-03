@@ -1,30 +1,30 @@
-This project is currently in experimental phases and is provided AS-IS WITHOUT WARRANTY OR DEDICATED SUPPORT.
+This project is currently in preview.
 Issues and contributions should be reported to the project's GitHub.
 {{- if (include "k8s-agents-operator.areValuesValid" .) }}
 =====================================
 
-                             ********               
-                         ****************           
-                     **********    **********,      
-                    &&&****            ****/(((     
-                    &&&&&&&              ((((((     
-                     &&&&&&&&&&          ((((((     
-                         &&&&&&&&        ((((((     
-                            &&&&&        ((((((     
-                            &&&&&      ((((((((     
-                            &&&&& .((((((((((       
-                            &&&&&((((((((           
-                              &&&(((,               
+                             ********
+                         ****************
+                     **********    **********,
+                    &&&****            ****/(((
+                    &&&&&&&              ((((((
+                     &&&&&&&&&&          ((((((
+                         &&&&&&&&        ((((((
+                            &&&&&        ((((((
+                            &&&&&      ((((((((
+                            &&&&& .((((((((((
+                            &&&&&((((((((
+                              &&&(((,
 
 Your deployment of the New Relic Agent Operator is complete.
-You can check on the progress of this by running the following command:                                                                                                        
-                                                                                                   
+You can check on the progress of this by running the following command:
+
 kubectl get deployments -o wide -w --namespace {{ .Release.Namespace }} {{ template "k8s-agents-operator.fullname" . }}
 
-WARNING: This deployment will be incomplete until configure your Instrumentation custom resource definition.
+WARNING: This deployment will be incomplete until you configure your Instrumentation custom resource definition.
 =====================================
 
-Please visit https://github.com/newrelic-experimental/k8s-agents-operator for instructions on how to create & configure the
+Please visit https://github.com/newrelic/k8s-agents-operator for instructions on how to create & configure the
 Instrumentation custom resource definition required by the Operator.
 {{- else }}
 

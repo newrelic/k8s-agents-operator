@@ -71,6 +71,10 @@ type InstrumentationSpec struct {
 	// +optional
 	Php Php `json:"php,omitempty"`
 
+	// Ruby defines configuration for ruby auto-instrumentation.
+	// +optional
+	Ruby Ruby `json:"ruby,omitempty"`
+
 	// Go defines configuration for Go auto-instrumentation.
 	// When using Go auto-instrumentation you must provide a value for the OTEL_GO_AUTO_TARGET_EXE env var via the
 	// Instrumentation env vars or via the instrumentation.opentelemetry.io/otel-go-auto-target-exe pod annotation.
@@ -166,6 +170,17 @@ type Php struct {
 	Image string `json:"image,omitempty"`
 
 	// Env defines Php specific env vars.
+	// If the former var had been defined, then the other vars would be ignored.
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+}
+
+type Ruby struct {
+	// Image is a container image with Ruby agent and auto-instrumentation.
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// Env defines ruby specific env vars.
 	// If the former var had been defined, then the other vars would be ignored.
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`

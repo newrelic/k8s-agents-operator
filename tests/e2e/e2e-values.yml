@@ -1,0 +1,6 @@
+controllerManager:
+  manager:
+    image:
+      repository: e2e/k8s-agents-operator
+      tag: e2e
+      pullPolicy: Never
