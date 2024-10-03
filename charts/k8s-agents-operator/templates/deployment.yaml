@@ -80,12 +80,12 @@ spec:
         resources: {{- toYaml .Values.controllerManager.kubeRbacProxy.resources | nindent 10 }}
       serviceAccountName: {{ include "newrelic.common.serviceAccount.name" . }}
       terminationGracePeriodSeconds: 10
-      {{- if or .Values.admissionWebhooks.create (include "k8s-agents-operator.certificateSecret.fullname" . ) }}
+      {{- if or .Values.admissionWebhooks.create (include "k8s-agents-operator.certificateSecret.name" . ) }}
       volumes:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: {{ include "k8s-agents-operator.certificateSecret.fullname" . }}
+          secretName: {{ include "k8s-agents-operator.certificateSecret.name" . }}
       {{- end }}
       securityContext:
         {{- toYaml .Values.securityContext | nindent 8 }}

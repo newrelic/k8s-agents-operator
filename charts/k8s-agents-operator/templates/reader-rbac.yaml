@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "newrelic.common.naming.fullname" . }}-metrics-reader
+  name: {{ include "k8s-agents-operator.rbac.reader.role.name" . }}
   labels:
     {{- include "newrelic.common.labels" . | nindent 4 }}
 rules:

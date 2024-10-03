@@ -8,7 +8,7 @@ a cert is loaded from an existing secret or is provided via `.Values`
 {{- $clientCert := "" }}
 {{- $clientKey := "" }}
 {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
-    {{- $prevSecret := (lookup "v1" "Secret" .Release.Namespace (include "k8s-agents-operator.certificateSecret.fullname" . )) }}
+    {{- $prevSecret := (lookup "v1" "Secret" .Release.Namespace (include "k8s-agents-operator.certificateSecret.name" . )) }}
     {{- if and (not .Values.admissionWebhooks.autoGenerateCert.recreate) $prevSecret }}
         {{- $clientCert = index $prevSecret "data" "tls.crt" }}
         {{- $clientKey = index $prevSecret "data" "tls.key" }}
@@ -22,8 +22,8 @@ a cert is loaded from an existing secret or is provided via `.Values`
     {{- else }}
         {{- $certValidity := int .Values.admissionWebhooks.autoGenerateCert.certPeriodDays | default 365 }}
         {{- $ca := genCA "k8s-agents-operator-operator-ca" $certValidity }}
-        {{- $domain1 := printf "%s-webhook-service.%s.svc" (include "newrelic.common.naming.fullname" .) $.Release.Namespace }}
-        {{- $domain2 := printf "%s-webhook-service.%s.svc.%s" (include "newrelic.common.naming.fullname" .) $.Release.Namespace $.Values.kubernetesClusterDomain }}
+        {{- $domain1 := printf "%s.%s.svc" (include "k8s-agents-operator.webhook.service.name" .) $.Release.Namespace }}
+        {{- $domain2 := printf "%s.%s.svc.%s" (include "k8s-agents-operator.webhook.service.name" .) $.Release.Namespace $.Values.kubernetesClusterDomain }}
         {{- $domains := list $domain1 $domain2 }}
         {{- $cert := genSignedCert (include "newrelic.common.naming.fullname" .) nil $domains $certValidity $ca }}
         {{- $clientCert = b64enc $cert.Cert }}

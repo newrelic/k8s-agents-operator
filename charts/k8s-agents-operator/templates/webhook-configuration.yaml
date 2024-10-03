@@ -4,7 +4,7 @@ apiVersion: v1
 kind: Secret
 type: kubernetes.io/tls
 metadata:
-  name: {{ include "k8s-agents-operator.certificateSecret.fullname" . }}
+  name: {{ include "k8s-agents-operator.certificateSecret.name" . }}
   annotations:
     "helm.sh/hook": "pre-install,pre-upgrade"
     "helm.sh/hook-delete-policy": "before-hook-creation"
@@ -21,10 +21,10 @@ data:
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: {{ include "newrelic.common.naming.fullname" . }}-mutation
+  name: {{ include "k8s-agents-operator.webhook.mutating.name" . }}
   {{- if .Values.admissionWebhooks.certManager.enabled }}
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "newrelic.common.naming.fullname" . }}-serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "k8s-agents-operator.cert-manager.certificate.name" . }}
   {{- end }}
   labels:
     {{- include "newrelic.common.labels" . | nindent 4 }}
@@ -36,7 +36,7 @@ webhooks:
     caBundle: {{ $tls.caCert }}
     {{- end }}
     service:
-      name: {{ include "newrelic.common.naming.fullname" . }}-webhook-service
+      name: {{ include "k8s-agents-operator.webhook.service.name" . }}
       namespace: {{ .Release.Namespace }}
       path: /mutate-newrelic-com-v1alpha1-instrumentation
   failurePolicy: Fail
@@ -59,7 +59,7 @@ webhooks:
     caBundle: {{ $tls.caCert }}
     {{- end }}
     service:
-      name: {{ include "newrelic.common.naming.fullname" . }}-webhook-service
+      name: {{ include "k8s-agents-operator.webhook.service.name" . }}
       namespace: {{ .Release.Namespace }}
       path: /mutate-v1-pod
   failurePolicy: Ignore
@@ -79,10 +79,10 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: {{ include "newrelic.common.naming.fullname" . }}-validation
+  name: {{ include "k8s-agents-operator.webhook.validating.name" . }}
   {{- if .Values.admissionWebhooks.certManager.enabled }}
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "newrelic.common.naming.fullname" . }}-serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "k8s-agents-operator.cert-manager.certificate.name" . }}
   {{- end }}
   labels:
     {{- include "newrelic.common.labels" . | nindent 4 }}
@@ -94,7 +94,7 @@ webhooks:
     caBundle: {{ $tls.caCert }}
     {{- end }}
     service:
-      name: {{ include "newrelic.common.naming.fullname" . }}-webhook-service
+      name: {{ include "k8s-agents-operator.webhook.service.name" . }}
       namespace: {{ .Release.Namespace }}
       path: /validate-newrelic-com-v1alpha1-instrumentation
   failurePolicy: Fail
@@ -117,7 +117,7 @@ webhooks:
     caBundle: {{ $tls.caCert }}
     {{- end }}
     service:
-      name: {{ include "newrelic.common.naming.fullname" . }}-webhook-service
+      name: {{ include "k8s-agents-operator.webhook.service.name" . }}
       namespace: {{ .Release.Namespace }}
       path: /validate-newrelic-com-v1alpha1-instrumentation
   failurePolicy: Ignore
