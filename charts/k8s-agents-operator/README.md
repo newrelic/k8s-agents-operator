@@ -153,6 +153,12 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 * <https://github.com/newrelic/k8s-agents-operator>
 
+## Requirements
+
+| Repository | Name | Version |
+|------------|------|---------|
+| https://helm-charts.newrelic.com | common-library | 1.1.1 |
+
 ## Values
 
 | Key | Type | Default | Description |
