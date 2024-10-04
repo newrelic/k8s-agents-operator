@@ -91,6 +91,7 @@ function create_cluster() {
     echo "🔄 Adding Helm repositories"
     helm repo add newrelic https://helm-charts.newrelic.com > /dev/null
     helm repo update > /dev/null
+    helm dependency update ../../charts/k8s-agents-operator > /dev/null
 
     echo "🔄 Installing operator"
     helm upgrade --install k8s-agents-operator ../../charts/k8s-agents-operator \
