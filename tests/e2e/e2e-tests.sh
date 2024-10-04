@@ -89,14 +89,8 @@ function create_cluster() {
     minikube image load e2e/k8s-agents-operator:e2e --profile ${CLUSTER_NAME} > /dev/null
 
     echo "🔄 Adding Helm repositories"
-    helm repo add jetstack https://charts.jetstack.io
+    helm repo add newrelic https://helm-charts.newrelic.com > /dev/null
     helm repo update > /dev/null
-
-    echo "🔄 Installing cert-manager"
-    helm install cert-manager jetstack/cert-manager \
-      --namespace cert-manager \
-      --create-namespace \
-      --set crds.enabled=true
 
     echo "🔄 Installing operator"
     helm upgrade --install k8s-agents-operator ../../charts/k8s-agents-operator \
