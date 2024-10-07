@@ -302,10 +302,20 @@ func (i *sdkInjector) injectNewrelicConfig(ctx context.Context, newrelic v1alpha
 	resourceMap := i.createResourceMap(ctx, newrelic, ns, pod, index)
 	idx := getIndexOfEnv(container.Env, constants.EnvNewRelicAppName)
 	if idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  constants.EnvNewRelicAppName,
-			Value: chooseServiceName(pod, resourceMap, index),
-		})
+		// If the pod label "app.kubernetes.io/name is set, prefer that
+		// and set the EnvNewRelicAppName to that value
+		nameLabel, ok := pod.Labels["app.kubernetes.io/name"]
+		if ok {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  constants.EnvNewRelicAppName,
+				Value: nameLabel,
+			})
+		} else {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  constants.EnvNewRelicAppName,
+				Value: chooseServiceName(pod, resourceMap, index),
+			})
+		}
 	}
 	idx = getIndexOfEnv(container.Env, constants.EnvNewRelicLicenseKey)
 	if idx == -1 {
