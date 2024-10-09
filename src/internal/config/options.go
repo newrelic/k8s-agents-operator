@@ -31,21 +31,14 @@ import (
 type Option func(c *options)
 
 type options struct {
-	autoDetect                     autodetect.AutoDetect
-	version                        version.Version
-	logger                         logr.Logger
-	autoInstrumentationDotNetImage string
-	autoInstrumentationGoImage     string
-	autoInstrumentationJavaImage   string
-	autoInstrumentationPythonImage string
-	autoInstrumentationNodeJSImage string
-	autoInstrumentationPhpImage    string
-	autoInstrumentationRubyImage   string
-	onOpenShiftRoutesChange        changeHandler
-	labelsFilter                   []string
-	openshiftRoutes                openshiftRoutesStore
-	autoDetectFrequency            time.Duration
-	autoscalingVersion             autodetect.AutoscalingVersion
+	autoDetect              autodetect.AutoDetect
+	version                 version.Version
+	logger                  logr.Logger
+	onOpenShiftRoutesChange changeHandler
+	labelsFilter            []string
+	openshiftRoutes         openshiftRoutesStore
+	autoDetectFrequency     time.Duration
+	autoscalingVersion      autodetect.AutoscalingVersion
 }
 
 func WithAutoDetect(a autodetect.AutoDetect) Option {
@@ -79,48 +72,6 @@ func WithPlatform(ora autodetect.OpenShiftRoutesAvailability) Option {
 func WithVersion(v version.Version) Option {
 	return func(o *options) {
 		o.version = v
-	}
-}
-
-func WithAutoInstrumentationJavaImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationJavaImage = s
-	}
-}
-
-func WithAutoInstrumentationNodeJSImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationNodeJSImage = s
-	}
-}
-
-func WithAutoInstrumentationPythonImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationPythonImage = s
-	}
-}
-
-func WithAutoInstrumentationDotNetImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationDotNetImage = s
-	}
-}
-
-func WithAutoInstrumentationPhpImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationPhpImage = s
-	}
-}
-
-func WithAutoInstrumentationRubyImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationRubyImage = s
-	}
-}
-
-func WithAutoInstrumentationGoImage(s string) Option {
-	return func(o *options) {
-		o.autoInstrumentationGoImage = s
 	}
 }
 

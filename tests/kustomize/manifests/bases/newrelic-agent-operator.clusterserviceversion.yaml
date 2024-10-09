@@ -1,4 +1,4 @@
-apiVersion: operators.coreos.com/v1alpha1
+apiVersion: operators.coreos.com/v1alpha2
 kind: ClusterServiceVersion
 metadata:
   annotations:
@@ -18,7 +18,7 @@ spec:
       - kind: Pod
         name: ""
         version: v1
-      version: v1alpha1
+      version: v1alpha2
   description: The New Relic agent operator is an admission controller API that enables
     the instrumentation of application workloads (including Java, NodeJS, Go, DotNet,
     PHP, and Python) using a custom resource definition.

@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1alpha2
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,44 +47,24 @@ type InstrumentationSpec struct {
 	// +optional
 	Sampler `json:"sampler,omitempty"`
 
-	// Env defines common env vars. There are four layers for env vars' definitions and
-	// the precedence order is: `original container env vars` > `language specific env vars` > `common env vars` > `instrument spec configs' vars`.
-	// If the former var had been defined, then the other vars would be ignored.
+	// PodLabelSelector defines to which pods the config should be applied.
 	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
+	PodLabelSelector metav1.LabelSelector `json:"podLabelSelector"`
 
-	// Java defines configuration for java auto-instrumentation.
+	// PodLabelSelector defines to which pods the config should be applied.
 	// +optional
-	Java Java `json:"java,omitempty"`
+	NamespaceLabelSelector metav1.LabelSelector `json:"namespaceLabelSelector"`
 
-	// NodeJS defines configuration for nodejs auto-instrumentation.
+	// LicenseKeySecret defines where to take the licenseKeySecret.
+	// it should be present in the operator namespace.
 	// +optional
-	NodeJS NodeJS `json:"nodejs,omitempty"`
+	LicenseKeySecret string `json:"licenseKeySecret,omitempty"`
 
-	// Python defines configuration for python auto-instrumentation.
-	// +optional
-	Python Python `json:"python,omitempty"`
-
-	// DotNet defines configuration for dotnet auto-instrumentation.
-	// +optional
-	DotNet DotNet `json:"dotnet,omitempty"`
-
-	// Php defines configuration for php auto-instrumentation.
-	// +optional
-	Php Php `json:"php,omitempty"`
-
-	// Ruby defines configuration for ruby auto-instrumentation.
-	// +optional
-	Ruby Ruby `json:"ruby,omitempty"`
-
-	// Go defines configuration for Go auto-instrumentation.
-	// When using Go auto-instrumentation you must provide a value for the OTEL_GO_AUTO_TARGET_EXE env var via the
-	// Instrumentation env vars or via the instrumentation.opentelemetry.io/otel-go-auto-target-exe pod annotation.
-	// Failure to set this value causes instrumentation injection to abort, leaving the original pod unchanged.
-	// +optional
-	Go Go `json:"go,omitempty"`
+	// Agent defines configuration for agent instrumentation.
+	Agent Agent `json:"agent,omitempty"`
 }
 
+// Resource is the attributes that are added to the resource
 type Resource struct {
 	// Attributes defines attributes that are added to the resource.
 	// For example environment: dev
@@ -92,6 +74,11 @@ type Resource struct {
 	// AddK8sUIDAttributes defines whether K8s UID attributes should be collected (e.g. k8s.deployment.uid).
 	// +optional
 	AddK8sUIDAttributes bool `json:"addK8sUIDAttributes,omitempty"`
+}
+
+// IsEmpty is used to check if the resource is empty
+func (r Resource) IsEmpty() bool {
+	return !r.AddK8sUIDAttributes && len(r.Attributes) == 0
 }
 
 // Exporter defines OTLP exporter configuration.
@@ -117,82 +104,17 @@ type Sampler struct {
 	Argument string `json:"argument,omitempty"`
 }
 
-// Java defines Java agent and instrumentation configuration.
-type Java struct {
-	// Image is a container image with javaagent auto-instrumentation JAR.
-	// +optional
-	Image string `json:"image,omitempty"`
+// Agent is the configuration for the agent
+type Agent struct {
+	// Language is the language that will be instrumented.
+	Language string `json:"language,omitempty"`
 
-	// Env defines java specific env vars.
-	// If the former var had been defined, then the other vars would be ignored.
-	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
-}
-
-// NodeJS defines NodeJS agent and instrumentation configuration.
-type NodeJS struct {
-	// Image is a container image with NodeJS agent and auto-instrumentation.
-	// +optional
-	Image string `json:"image,omitempty"`
-
-	// Env defines nodejs specific env vars.
-	// If the former var had been defined, then the other vars would be ignored.
-	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
-}
-
-// Python defines Python agent and instrumentation configuration.
-type Python struct {
-	// Image is a container image with Python agent and auto-instrumentation.
-	// +optional
-	Image string `json:"image,omitempty"`
-
-	// Env defines python specific env vars.
-	// If the former var had been defined, then the other vars would be ignored.
-	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
-}
-
-type DotNet struct {
-	// Image is a container image with DotNet agent and auto-instrumentation.
-	// +optional
-	Image string `json:"image,omitempty"`
-
-	// Env defines DotNet specific env vars.
-	// If the former var had been defined, then the other vars would be ignored.
-	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
-}
-
-type Php struct {
-	// Image is a container image with Php agent and auto-instrumentation.
-	// +optional
-	Image string `json:"image,omitempty"`
-
-	// Env defines Php specific env vars.
-	// If the former var had been defined, then the other vars would be ignored.
-	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
-}
-
-type Ruby struct {
-	// Image is a container image with Ruby agent and auto-instrumentation.
-	// +optional
-	Image string `json:"image,omitempty"`
-
-	// Env defines ruby specific env vars.
-	// If the former var had been defined, then the other vars would be ignored.
-	// +optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
-}
-
-type Go struct {
 	// Image is a container image with Go SDK and auto-instrumentation.
-	// +optional
 	Image string `json:"image,omitempty"`
 
 	// VolumeSizeLimit defines size limit for volume used for auto-instrumentation.
 	// The default size is 200Mi.
+	// +optional
 	VolumeSizeLimit *resource.Quantity `json:"volumeLimitSize,omitempty"`
 
 	// Env defines Go specific env vars. There are four layers for env vars' definitions and
@@ -204,6 +126,21 @@ type Go struct {
 	// Resources describes the compute resource requirements.
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resourceRequirements,omitempty"`
+}
+
+// IsEmpty is used to check if the agent is empty, excluding `.Language`
+func (a *Agent) IsEmpty() bool {
+	return a.Image == "" &&
+		len(a.Env) == 0 &&
+		a.VolumeSizeLimit == nil &&
+		len(a.Resources.Limits) == 0 &&
+		len(a.Resources.Requests) == 0 &&
+		len(a.Resources.Claims) == 0
+}
+
+// IsEqual is used to compare if an agent is equal to another, excluding `.Language`
+func (a *Agent) IsEqual(b Agent) bool {
+	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) && reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) && reflect.DeepEqual(a.Resources, b.Resources)
 }
 
 // InstrumentationStatus defines the observed state of Instrumentation

@@ -9,6 +9,7 @@ metadata:
   namespace: system
 spec:
   selfSigned: {}
+
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate

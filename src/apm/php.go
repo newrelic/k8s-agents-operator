@@ -16,61 +16,119 @@ limitations under the License.
 package apm
 
 import (
-	"fmt"
+	"context"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 const (
-	envPhpsymbolicOption      = "NR_INSTALL_USE_CP_NOT_LN"
-	phpSymbolicOptionArgument = "1"
-	envPhpSilentOption        = "NR_INSTALL_SILENT"
-	phpSilentOptionArgument   = "1"
-	phpInitContainerName      = initContainerName + "-php"
-	phpVolumeName             = volumeName + "-php"
-	phpInstallArgument        = "/newrelic-instrumentation/newrelic-install install && sed -i -e \"s/PHP Application/$NEW_RELIC_APP_NAME/g; s/REPLACE_WITH_REAL_KEY/$NEW_RELIC_LICENSE_KEY/g\" /usr/local/etc/php/conf.d/newrelic.ini"
+	annotationPhpVersion = "instrumentation.newrelic.com/php-version"
+	envIniScanDirKey     = "PHP_INI_SCAN_DIR"
+	envIniScanDirVal     = "/newrelic-instrumentation/php-agent/ini"
+	phpInitContainerName = initContainerName + "-php"
 )
 
-func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod, error) {
+var _ Injector = (*PhpInjector)(nil)
+
+func init() {
+	DefaultInjectorRegistry.MustRegister(&PhpInjector{})
+}
+
+// Deprecated: phpApiMap is deprecated.  Do not use annotations.
+var phpApiMap = map[string]string{
+	"7.2": "20170718",
+	"7.3": "20180731",
+	"7.4": "20190902",
+	"8.0": "20200930",
+	"8.1": "20210902",
+	"8.2": "20220829",
+	"8.3": "20230831",
+}
+
+type PhpInjector struct {
+	baseInjector
+}
+
+func (i *PhpInjector) Language() string {
+	return "php"
+}
+
+func (i *PhpInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language != i.Language() {
+		return false
+	}
+	if len(pod.Spec.Containers) == 0 {
+		return false
+	}
+	return true
+}
+
+// Inject is used to inject the PHP agent.
+// @todo: Currently it uses annotations, which should be removed.  This should either use a specific image for each php version or the k8s-agents-operator needs to add support for a language version
+func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	if !i.acceptable(inst, pod) {
+		return pod, nil
+	}
+	if err := i.validate(inst); err != nil {
+		return pod, err
+	}
+
+	firstContainer := 0
+
+	// exit early if we're missing mandatory annotations
+	// Deprecated: phpVer is deprecated.  Do not use annotations.
+	phpVer, ok := pod.Annotations[annotationPhpVersion]
+	if !ok {
+		return pod, errors.New("missing php version annotation")
+	}
+
+	// Deprecated: apiNum is deprecated.  Do not use annotations.
+	apiNum, ok := phpApiMap[phpVer]
+	if !ok {
+		return pod, errors.New("invalid php version")
+	}
+
 	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[index]
+	container := &pod.Spec.Containers[firstContainer]
 
 	// inject PHP instrumentation spec env vars.
-	for _, env := range phpSpec.Env {
+	for _, env := range inst.Spec.Agent.Env {
 		idx := getIndexOfEnv(container.Env, env.Name)
 		if idx == -1 {
 			container.Env = append(container.Env, env)
 		}
 	}
 
-	const (
-		phpConcatEnvValues = false
-		concatEnvValues    = true
-	)
+	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true)
 
-	setPhpEnvVar(container, envPhpsymbolicOption, phpSymbolicOptionArgument, phpConcatEnvValues)
-
-	setPhpEnvVar(container, envPhpSilentOption, phpSilentOptionArgument, phpConcatEnvValues)
-
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-		Name:      volumeName,
-		MountPath: "/newrelic-instrumentation",
-	})
+	if isContainerVolumeMissing(container, volumeName) {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: "/newrelic-instrumentation",
+		})
+	}
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod) {
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			}})
+	if isInitContainerMissing(pod, nodejsInitContainerName) {
+		if isPodVolumeMissing(pod, volumeName) {
+			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				}})
+		}
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-			Name:    initContainerName,
-			Image:   phpSpec.Image,
-			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+			Name:    phpInitContainerName,
+			Image:   inst.Spec.Agent.Image,
+			Command: []string{"/bin/sh"},
+			Args: []string{
+				"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh " + apiNum + " && /newrelic-instrumentation/nr_env_to_ini.sh",
+			},
+			Env: container.Env,
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
@@ -78,31 +136,7 @@ func InjectPhpagent(phpSpec v1alpha1.Php, pod corev1.Pod, index int) (corev1.Pod
 		})
 	}
 
-	// Continue with the function regardless of whether annotationPhpExecCmd is present or not
-	execCmd, ok := pod.Annotations[annotationPhpExecCmd]
-	if ok {
-		// Add phpInstallArgument to the command field.
-		container.Command = append(container.Command, "/bin/sh", "-c", phpInstallArgument+" && "+execCmd)
-	} else {
-		container.Command = append(container.Command, "/bin/sh", "-c", phpInstallArgument)
-	}
+	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
 
 	return pod, nil
-}
-
-// setDotNetEnvVar function sets env var to the container if not exist already.
-// value of concatValues should be set to true if the env var supports multiple values separated by :.
-// If it is set to false, the original container's env var value has priority.
-func setPhpEnvVar(container *corev1.Container, envVarName string, envVarValue string, concatValues bool) {
-	idx := getIndexOfEnv(container.Env, envVarName)
-	if idx < 0 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  envVarName,
-			Value: envVarValue,
-		})
-		return
-	}
-	if concatValues {
-		container.Env[idx].Value = fmt.Sprintf("%s:%s", container.Env[idx].Value, envVarValue)
-	}
 }

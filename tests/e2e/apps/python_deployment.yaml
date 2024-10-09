@@ -12,8 +12,7 @@ spec:
     metadata:
       labels:
         app: pythonapp
-      annotations:
-        instrumentation.newrelic.com/inject-python: "true"
+        app.newrelic.instrumentation: newrelic-python-agent
     spec:
       containers:
         - name: pythonapp

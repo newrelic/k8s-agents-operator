@@ -16,23 +16,55 @@ limitations under the License.
 package apm
 
 import (
+	"context"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 const (
 	envPythonPath           = "PYTHONPATH"
 	pythonPathPrefix        = "/newrelic-instrumentation"
-	pythonVolumeName        = volumeName + "-python"
 	pythonInitContainerName = initContainerName + "-python"
 )
 
-func InjectPythonSDK(pythonSpec v1alpha1.Python, pod corev1.Pod, index int) (corev1.Pod, error) {
+var _ Injector = (*GoInjector)(nil)
+
+func init() {
+	DefaultInjectorRegistry.MustRegister(&PythonInjector{})
+}
+
+type PythonInjector struct {
+	baseInjector
+}
+
+func (i *PythonInjector) Language() string {
+	return "python"
+}
+
+func (i *PythonInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language != i.Language() {
+		return false
+	}
+	if len(pod.Spec.Containers) == 0 {
+		return false
+	}
+	return true
+}
+
+func (i *PythonInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	if !i.acceptable(inst, pod) {
+		return pod, nil
+	}
+	if err := i.validate(inst); err != nil {
+		return pod, err
+	}
+
+	firstContainer := 0
 	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[index]
+	container := &pod.Spec.Containers[firstContainer]
 
 	err := validateContainerEnv(container.Env, envPythonPath)
 	if err != nil {
@@ -40,7 +72,7 @@ func InjectPythonSDK(pythonSpec v1alpha1.Python, pod corev1.Pod, index int) (cor
 	}
 
 	// inject Python instrumentation spec env vars.
-	for _, env := range pythonSpec.Env {
+	for _, env := range inst.Spec.Agent.Env {
 		idx := getIndexOfEnv(container.Env, env.Name)
 		if idx == -1 {
 			container.Env = append(container.Env, env)
@@ -57,22 +89,26 @@ func InjectPythonSDK(pythonSpec v1alpha1.Python, pod corev1.Pod, index int) (cor
 		container.Env[idx].Value = fmt.Sprintf("%s:%s", pythonPathPrefix, container.Env[idx].Value)
 	}
 
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-		Name:      volumeName,
-		MountPath: "/newrelic-instrumentation",
-	})
+	if isContainerVolumeMissing(container, volumeName) {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: "/newrelic-instrumentation",
+		})
+	}
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod) {
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			}})
+	if isInitContainerMissing(pod, pythonInitContainerName) {
+		if isPodVolumeMissing(pod, volumeName) {
+			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				}})
+		}
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-			Name:    initContainerName,
-			Image:   pythonSpec.Image,
+			Name:    pythonInitContainerName,
+			Image:   inst.Spec.Agent.Image,
 			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
@@ -80,5 +116,8 @@ func InjectPythonSDK(pythonSpec v1alpha1.Python, pod corev1.Pod, index int) (cor
 			}},
 		})
 	}
+
+	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+
 	return pod, nil
 }

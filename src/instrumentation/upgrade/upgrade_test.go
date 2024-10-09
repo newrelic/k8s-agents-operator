@@ -21,13 +21,12 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 func TestUpgrade(t *testing.T) {
@@ -39,64 +38,41 @@ func TestUpgrade(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	inst := &v1alpha1.Instrumentation{
+	inst := &v1alpha2.Instrumentation{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "newrelic-instrumentation",
 			Namespace: nsName,
-			Annotations: map[string]string{
-				v1alpha1.AnnotationDefaultAutoInstrumentationJava:   "java:1",
-				v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS: "nodejs:1",
-				v1alpha1.AnnotationDefaultAutoInstrumentationPython: "python:1",
-				v1alpha1.AnnotationDefaultAutoInstrumentationDotNet: "dotnet:1",
-				v1alpha1.AnnotationDefaultAutoInstrumentationPhp:    "php:1",
-				v1alpha1.AnnotationDefaultAutoInstrumentationRuby:    "ruby:1",
-				v1alpha1.AnnotationDefaultAutoInstrumentationGo:     "go:1",
-			},
 		},
 	}
 	inst.Default()
-	assert.Equal(t, "java:1", inst.Spec.Java.Image)
-	assert.Equal(t, "nodejs:1", inst.Spec.NodeJS.Image)
-	assert.Equal(t, "python:1", inst.Spec.Python.Image)
-	assert.Equal(t, "dotnet:1", inst.Spec.DotNet.Image)
-	assert.Equal(t, "php:1", inst.Spec.Php.Image)
-	assert.Equal(t, "ruby:1", inst.Spec.Ruby.Image)
-	assert.Equal(t, "go:1", inst.Spec.Go.Image)
 	err = k8sClient.Create(context.Background(), inst)
 	require.NoError(t, err)
 
 	up := &InstrumentationUpgrade{
-		Logger:                logr.Discard(),
-		DefaultAutoInstJava:   "java:2",
-		DefaultAutoInstNodeJS: "nodejs:2",
-		DefaultAutoInstPython: "python:2",
-		DefaultAutoInstDotNet: "dotnet:2",
-		DefaultAutoInstPhp:    "php:2",
-		DefaultAutoInstRuby:   "ruby:2",
-		DefaultAutoInstGo:     "go:2",
-		Client:                k8sClient,
+		Logger: logr.Discard(),
+		Client: k8sClient,
 	}
 	err = up.ManagedInstances(context.Background())
 	require.NoError(t, err)
 
-	updated := v1alpha1.Instrumentation{}
+	updated := v1alpha2.Instrumentation{}
 	err = k8sClient.Get(context.Background(), types.NamespacedName{
 		Namespace: nsName,
 		Name:      "newrelic-instrumentation",
 	}, &updated)
 	require.NoError(t, err)
-	// assert.Equal(t, "java:2", updated.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava])
+	// assert.Equal(t, "java:2", updated.Annotations[v1alpha2.AnnotationDefaultAutoInstrumentationJava])
 	// assert.Equal(t, "java:2", updated.Spec.Java.Image)
-	// assert.Equal(t, "nodejs:2", updated.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS])
+	// assert.Equal(t, "nodejs:2", updated.Annotations[v1alpha2.AnnotationDefaultAutoInstrumentationNodeJS])
 	// assert.Equal(t, "nodejs:2", updated.Spec.NodeJS.Image)
-	// assert.Equal(t, "python:2", updated.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython])
+	// assert.Equal(t, "python:2", updated.Annotations[v1alpha2.AnnotationDefaultAutoInstrumentationPython])
 	// assert.Equal(t, "python:2", updated.Spec.Python.Image)
-	// assert.Equal(t, "dotnet:2", updated.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet])
+	// assert.Equal(t, "dotnet:2", updated.Annotations[v1alpha2.AnnotationDefaultAutoInstrumentationDotNet])
 	// assert.Equal(t, "dotnet:2", updated.Spec.DotNet.Image)
-	// assert.Equal(t, "php:2", updated.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPhp])
+	// assert.Equal(t, "php:2", updated.Annotations[v1alpha2.AnnotationDefaultAutoInstrumentationPhp])
 	// assert.Equal(t, "php:2", updated.Spec.Php.Image)
-	// assert.Equal(t, "ruby:2", updated.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby])
+	// assert.Equal(t, "ruby:2", updated.Annotations[v1alpha2.AnnotationDefaultAutoInstrumentationRuby])
 	// assert.Equal(t, "ruby:2", updated.Spec.Ruby.Image)
-	// assert.Equal(t, "go:2", updated.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo])
+	// assert.Equal(t, "go:2", updated.Annotations[v1alpha2.AnnotationDefaultAutoInstrumentationGo])
 	// assert.Equal(t, "go:2", updated.Spec.Go.Image)
 }

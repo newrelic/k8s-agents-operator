@@ -15,37 +15,3 @@ limitations under the License.
 */
 
 package version
-
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-)
-
-func TestAutoInstrumentationJavaFallbackVersion(t *testing.T) {
-	assert.Equal(t, "0.0.0", AutoInstrumentationJava())
-}
-
-func TestAutoInstrumentationNodeJSFallbackVersion(t *testing.T) {
-	assert.Equal(t, "0.0.0", AutoInstrumentationNodeJS())
-}
-
-func TestAutoInstrumentationPythonFallbackVersion(t *testing.T) {
-	assert.Equal(t, "0.0.0", AutoInstrumentationPython())
-}
-
-func TestAutoInstrumentationDotNetFallbackVersion(t *testing.T) {
-	assert.Equal(t, "0.0.0", AutoInstrumentationDotNet())
-}
-
-func TestAutoInstrumentationPhpFallbackVersion(t *testing.T) {
-	assert.Equal(t, "0.0.0.0", AutoInstrumentationPhp())
-}
-
-func TestAutoInstrumentationRubyFallbackVersion(t *testing.T) {
-	assert.Equal(t, "0.0.0", AutoInstrumentationRuby())
-}
-
-func TestAutoInstrumentationGoFallbackVersion(t *testing.T) {
-	assert.Equal(t, "0.0.0", AutoInstrumentationGo())
-}

@@ -1,0 +1,68 @@
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-dotnet
+spec:
+  agent:
+    language: dotnet
+    image: newrelic/newrelic-dotnet-init:latest
+
+---
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-go
+spec:
+  agent:
+    language: go
+    image: newrelic/newrelic-go-init:latest
+
+---
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-java
+spec:
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:latest
+
+---
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-nodejs
+spec:
+  nodejs:
+    language: nodejs
+    image: newrelic/newrelic-node-init:latest
+
+---
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-php
+spec:
+  agent:
+    language: php
+    image: newrelic/newrelic-php-init:latest
+
+---
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-python
+spec:
+  agent:
+    language: python
+    image: newrelic/newrelic-python-init:latest
+
+---
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-ruby
+spec:
+  ruby:
+    language: ruby
+    image: newrelic/newrelic-ruby-init:latest
