@@ -127,7 +127,7 @@ function create_cluster() {
     kubectl apply --namespace e2e-namespace --filename apps/
 
     echo "🔄 Waiting for apps to settle"
-    for label in dotnetapp javaapp nodejsapp pythonapp rubyapp; do
+    for label in dotnetapp javaapp nodejsapp phpapp pythonapp rubyapp; do
       kubectl wait --timeout=120s --for=jsonpath='{.status.phase}'=Running --namespace e2e-namespace -l="app=$label" pod
     done
 }

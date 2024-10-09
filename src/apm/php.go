@@ -18,14 +18,13 @@ package apm
 import (
 	"context"
 	"errors"
-
+	"fmt"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 const (
-	annotationPhpVersion = "instrumentation.newrelic.com/php-version"
 	envIniScanDirKey     = "PHP_INI_SCAN_DIR"
 	envIniScanDirVal     = "/newrelic-instrumentation/php-agent/ini"
 	phpInitContainerName = initContainerName + "-php"
@@ -34,10 +33,12 @@ const (
 var _ Injector = (*PhpInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&PhpInjector{})
+	// @todo: enable this when it's ready
+	// DefaultInjectorRegistry.MustRegister(&PhpInjector{})
 }
 
-// Deprecated: phpApiMap is deprecated.  Do not use annotations.
+const phpSupportedVersions = "7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3"
+
 var phpApiMap = map[string]string{
 	"7.2": "20170718",
 	"7.3": "20180731",
@@ -60,14 +61,23 @@ func (i *PhpInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) 
 	if inst.Spec.Agent.Language != i.Language() {
 		return false
 	}
+	if _, ok := phpApiMap[inst.Spec.Agent.LanguageVersion]; !ok {
+		return false
+	}
 	if len(pod.Spec.Containers) == 0 {
 		return false
 	}
 	return true
 }
 
+func (i *PhpInjector) ValidateAgent(ctx context.Context, agent v1alpha2.Agent) error {
+	if _, ok := phpApiMap[agent.LanguageVersion]; !ok {
+		return fmt.Errorf("php agent does not support %s version, only %s versions are supported", agent.LanguageVersion, phpSupportedVersions)
+	}
+	return nil
+}
+
 // Inject is used to inject the PHP agent.
-// @todo: Currently it uses annotations, which should be removed.  This should either use a specific image for each php version or the k8s-agents-operator needs to add support for a language version
 func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
@@ -78,17 +88,9 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 
 	firstContainer := 0
 
-	// exit early if we're missing mandatory annotations
-	// Deprecated: phpVer is deprecated.  Do not use annotations.
-	phpVer, ok := pod.Annotations[annotationPhpVersion]
+	apiNum, ok := phpApiMap[inst.Spec.Agent.LanguageVersion]
 	if !ok {
-		return pod, errors.New("missing php version annotation")
-	}
-
-	// Deprecated: apiNum is deprecated.  Do not use annotations.
-	apiNum, ok := phpApiMap[phpVer]
-	if !ok {
-		return pod, errors.New("invalid php version")
+		return pod, errors.New("missing php language version in spec")
 	}
 
 	// caller checks if there is at least one container.

@@ -23,10 +23,24 @@ type InstrumentationValidator struct {
 
 func (r *InstrumentationValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	r.Logger.V(1).Info("validate_create", "name", obj.(*v1alpha2.Instrumentation).Name)
-	acceptableLangs := r.InjectorRegistery.GetInjectors().Names()
-	agentLang := obj.(*v1alpha2.Instrumentation).Spec.Agent.Language
+	injectors := r.InjectorRegistery.GetInjectors()
+	acceptableLangs := injectors.Names()
+	inst := obj.(*v1alpha2.Instrumentation)
+	agentLang := inst.Spec.Agent.Language
 	if !slices.Contains(acceptableLangs, agentLang) {
 		return fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
+	}
+	for _, injector := range injectors {
+		if agentLang != injector.Language() {
+			continue
+		}
+		injectionValidator, ok := injector.(apm.AgentValidator)
+		if !ok {
+			continue
+		}
+		if err := injectionValidator.ValidateAgent(ctx, inst.Spec.Agent); err != nil {
+			return err
+		}
 	}
 	return obj.(*v1alpha2.Instrumentation).ValidateCreate()
 }

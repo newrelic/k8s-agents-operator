@@ -37,7 +37,8 @@ const (
 var _ Injector = (*GoInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&GoInjector{})
+	// @todo: enable this when it's ready
+	// DefaultInjectorRegistry.MustRegister(&GoInjector{})
 }
 
 type GoInjector struct {

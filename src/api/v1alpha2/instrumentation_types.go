@@ -109,6 +109,10 @@ type Agent struct {
 	// Language is the language that will be instrumented.
 	Language string `json:"language,omitempty"`
 
+	// LanguageVersion is the version of the language that will be instrumented.
+	// +optional
+	LanguageVersion string `json:"languageVersion,omitempty"`
+
 	// Image is a container image with Go SDK and auto-instrumentation.
 	Image string `json:"image,omitempty"`
 
