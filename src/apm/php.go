@@ -33,8 +33,7 @@ const (
 var _ Injector = (*PhpInjector)(nil)
 
 func init() {
-	// @todo: enable this when it's ready
-	// DefaultInjectorRegistry.MustRegister(&PhpInjector{})
+	DefaultInjectorRegistry.MustRegister(&PhpInjector{})
 }
 
 const phpSupportedVersions = "7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3"
