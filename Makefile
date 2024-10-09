@@ -53,15 +53,17 @@ $(LOCALBIN):
 $(TMP_DIR):
 	mkdir $(TMP_DIR)
 
+##@ Targets
+
 .PHONY: help
 help:  ## Show help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-17s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } END{printf "\n"}' $(MAKEFILE_LIST)
 
 .PHONY: all
-all: clean format modules test build
+all: clean format modules test build ## clean, format, modules, test, build
 
 .PHONY: clean
-clean:
+clean: ## cleanup temp files
 	rm -rf $(BIN_DIR) $(TMP_DIR)
 
 .PHONY: modules
@@ -81,17 +83,19 @@ coverprofile: $(TMP_DIR)/cover.out ## Generate coverage report
 	go tool cover -func=$(TMP_DIR)/cover.out
 
 .PHONY: go-test
-go-test: $(SETUP_ENVTEST) ## Run Go tests
+go-test: $(SETUP_ENVTEST) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION
 	@chmod -R 755 $(TMP_DIR)/k8s
 	KUBEBUILDER_ASSETS="$(shell $(TMP_DIR)/setup-envtest use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(TMP_DIR) -p path)" \
 		go test -v -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
 
-all-go-tests:
+.PHONY: all-go-tests
+all-go-tests: ## Run go tests with all k8s versions specified by $ALL_SETUP_ENVTEST_K8S_VERSIONS
 	@for k8s_version in $(ALL_SETUP_ENVTEST_K8S_VERSIONS); do \
 	  env SETUP_ENVTEST_K8S_VERSION=$$k8s_version $(MAKE) -f $(MAKEFILE_LIST) go-test; \
 	done
 
-e2e-tests:
+.PHONY: e2e-tests
+e2e-tests: ## Run e2e tests with k8s version specified by $E2E_K8S_VERSION
 	@for cmd in docker minikube helm kubectl yq; do \
 	  if ! command -v $$cmd > /dev/null; then \
 	    echo "$$cmd required" >&2; \
@@ -100,7 +104,8 @@ e2e-tests:
 	done
 	cd tests/e2e && ./e2e-tests.sh --k8s_version $(E2E_K8S_VERSION) --license_key $(LICENSE_KEY) --run_tests
 
-all-e2e-tests:
+.PHONY: all-e2e-tests
+all-e2e-tests: ## Run e2e tests with all k8s versions specified by $ALL_E2E_K8S_VERSIONS
 	@for k8s_version in $(ALL_E2E_K8S_VERSIONS); do \
 	  env E2E_K8S_VERSION=$$k8s_version $(MAKE) -f $(MAKEFILE_LIST) e2e-tests; \
 	done
@@ -117,7 +122,7 @@ run-helm-unittest: $(CT) ## Run helm unit tests based on changes
 	done;
 
 .PHONY: test
-test: go-test # run-helm-unittest ## Run all tests
+test: go-test # run-helm-unittest ## Run go tests (just an alias)
 
 ##@ Linting
 
