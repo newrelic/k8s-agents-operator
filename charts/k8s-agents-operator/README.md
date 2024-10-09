@@ -39,6 +39,7 @@ For each `Instrumentation` custom resource created, specifying which APM agent y
 * [.NET](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
 * [Java](https://hub.docker.com/repository/docker/newrelic/newrelic-java-init/general)
 * [Node](https://hub.docker.com/repository/docker/newrelic/newrelic-node-init/general)
+* [PHP](https://hub.docker.com/repository/docker/newrelic/newrelic-php-init/general)
 * [Python](https://hub.docker.com/repository/docker/newrelic/newrelic-python-init/general)
 * [Ruby](https://hub.docker.com/repository/docker/newrelic/newrelic-ruby-init/general)
 
@@ -98,6 +99,22 @@ spec:
   agent:
     language: python
     image: newrelic/newrelic-python-init:latest
+    # env: ...
+```
+
+For PHP
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-php
+  namespace: newrelic
+spec:
+  agent:
+    language: php
+    languageVersion: '8.3'
+    image: newrelic/newrelic-php-init:latest
     # env: ...
 ```
 
@@ -190,6 +207,7 @@ spec:
 In the example above, we show how you can configure the agent settings globally using environment variables. See each agent's configuration documentation for available configuration options:
 * [Java](https://docs.newrelic.com/docs/apm/agents/java-agent/configuration/java-agent-configuration-config-file/)
 * [Node](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/installation-configuration/nodejs-agent-configuration/)
+* [PHP](https://docs.newrelic.com/docs/apm/agents/php-agent/configuration/php-agent-configuration/)
 * [Python](https://docs.newrelic.com/docs/apm/agents/python-agent/configuration/python-agent-configuration/)
 * [.NET](https://docs.newrelic.com/docs/apm/agents/net-agent/configuration/net-agent-configuration/)
 * [Ruby](https://docs.newrelic.com/docs/apm/agents/ruby-agent/configuration/ruby-agent-configuration/)
