@@ -11,6 +11,6 @@
 /src/apm/golang*.go @newrelic/go
 /src/apm/java*.go @newrelic/java
 /src/apm/nodejs*.go @newrelic/node
-/src/apm/php*.go @newrelic/php-agent
+/src/apm/php*.go @newrelic/phpc 
 /src/apm/python*.go @newrelic/python
 /src/apm/ruby*.go @newrelic/ruby
