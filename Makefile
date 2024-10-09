@@ -35,6 +35,7 @@ HELM                     ?= $(LOCALBIN)/helm
 HELM_VERSION             ?= v3.16.1
 HELM_DOCS                ?= $(LOCALBIN)/helm-docs
 HELM_DOCS_VERSION        ?= v1.14.2
+HELM_DOCS_VERSION_ST     ?= $(subst v,,$(HELM_DOCS_VERSION))
 CT                       ?= $(LOCALBIN)/ct
 CT_VERSION               ?= v3.11.0
 HELM_UNITTEST            ?= $(LOCALBIN)/helm-unittest
@@ -49,7 +50,6 @@ $(LOCALBIN):
 # Temp location to install dependencies
 $(TMP_DIR):
 	mkdir $(TMP_DIR)
-
 
 .PHONY: help
 help:  ## Show help
@@ -160,14 +160,14 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 	test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: helm
-helm: $(HELM) ## Download helm
+helm: $(HELM) ## Download helmo
 $(HELM): $(LOCALBIN)
 	test -s $(HELM) || GOBIN=$(LOCALBIN) go install helm.sh/helm/v3/cmd/helm@$(HELM_VERSION)
 
 .PHONY: helm-docs
 helm-docs: $(HELM_DOCS) ## Download helm-docs
 $(HELM_DOCS): $(LOCALBIN)
-	test -s $(HELM_DOCS) || GOBIN=$(LOCALBIN) go install github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
+	test -s $(HELM_DOCS) || GOBIN=$(LOCALBIN) go install -ldflags "-X 'main.version=$(HELM_DOCS_VERSION_ST)'" github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
 
 .PHONY: helm-unittest
 helm-unittest: $(HELM_UNITTEST) ## Download helm-unittest
@@ -193,7 +193,7 @@ $(SETUP_ENVTEST): $(TMP_DIR)
 
 .PHONY: gen-helm-docs
 gen-helm-docs: helm-docs ## Generate Helm Docs from templates
-	cd ./charts && $(HELM_DOCS)
+	$(HELM_DOCS)
 
 .PHONY: generate
 generate: controller-gen ## Generate stuff
