@@ -5,12 +5,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 func TestPhpInjector_Language(t *testing.T) {
@@ -58,16 +56,14 @@ func TestPhpInjector_Inject(t *testing.T) {
 				{Name: "test"},
 			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
-			inst:           v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "php"}}},
+			inst:           v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "php", LanguageVersion: "8.3"}}},
 		},
 		{
 			name: "a container, instrumentation",
 			pod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"}},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "test"}}},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "test"}}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"}},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: "test",
@@ -90,7 +86,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				},
 			},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "php"}, LicenseKeySecret: "newrelic-key-secret"}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "php", LanguageVersion: "8.3"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
 	}
 	for _, test := range tests {
