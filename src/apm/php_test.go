@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 func TestPhpInjector_Language(t *testing.T) {
