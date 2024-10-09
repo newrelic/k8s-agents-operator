@@ -106,6 +106,7 @@ function create_cluster() {
       --set licenseKey=${LICENSE_KEY}
 
     echo "🔄 Waiting for operator to settle"
+    sleep 15
     kubectl wait --timeout=30s --for=jsonpath='{.status.phase}'=Running -n k8s-agents-operator -l="app.kubernetes.io/instance=k8s-agents-operator" pod
     sleep 15
 
