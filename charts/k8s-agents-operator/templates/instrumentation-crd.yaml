@@ -171,6 +171,10 @@ spec:
                   language:
                     description: Language is the language that will be instrumented.
                     type: string
+                  languageVersion:
+                    description: LanguageVersion is the version of the language that
+                      will be instrumented.
+                    type: string
                   resourceRequirements:
                     description: Resources describes the compute resource requirements.
                     properties:

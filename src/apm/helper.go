@@ -61,6 +61,10 @@ type Injector interface {
 	ConfigureLogger(logger logr.Logger)
 }
 
+type AgentValidator interface {
+	ValidateAgent(ctx context.Context, agent v1alpha2.Agent) error
+}
+
 type Injectors []Injector
 
 func (i Injectors) Names() []string {

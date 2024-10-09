@@ -1,0 +1,17 @@
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation-php
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["newrelic-php-agent"]
+  agent:
+    language: dotnet
+    languageVersion: '8.3'
+    image: newrelic/newrelic-php-init:latest
