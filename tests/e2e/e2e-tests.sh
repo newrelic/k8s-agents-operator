@@ -82,7 +82,7 @@ function create_cluster() {
     echo "🔄 Building Docker image"
     cd ../..
     export DOCKER_BUILDKIT=1
-    doc ker build --tag e2e/k8s-agents-operator:e2e  . --quiet > /dev/null
+    docker build --tag e2e/k8s-agents-operator:e2e  . --quiet > /dev/null
     cd tests/e2e
 
     echo "🔄 Loading image into cluster"

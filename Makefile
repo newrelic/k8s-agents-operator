@@ -5,6 +5,7 @@ TMP_DIR = $(shell pwd)/tmp
 
 LICENSE_KEY     ?= fake-abc123
 E2E_K8S_VERSION ?= v1.31.1
+ALL_E2E_K8S_VERSIONS ?= v1.31.1 v1.30.5 v1.29.9 v1.28.14 v1.27.16 v1.26.15
 
 .DEFAULT_GOAL := help
 
@@ -19,8 +20,9 @@ TEST_PACKAGES = ./src/internal/config \
 
 # Kubebuilder variables
 SETUP_ENVTEST             = $(TMP_DIR)/setup-envtest
-SETUP_ENVTEST_VERSION     ?= release-0.18
+SETUP_ENVTEST_VERSION     ?= release-0.19
 SETUP_ENVTEST_K8S_VERSION ?= 1.29.0
+ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.30.0 1.29.3 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
 
 ## Tool Versions
 KUSTOMIZE                ?= $(LOCALBIN)/kustomize
@@ -84,6 +86,11 @@ go-test: $(SETUP_ENVTEST) ## Run Go tests
 	KUBEBUILDER_ASSETS="$(shell $(TMP_DIR)/setup-envtest use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(TMP_DIR) -p path)" \
 		go test -v -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
 
+all-go-tests:
+	@for k8s_version in $(ALL_SETUP_ENVTEST_K8S_VERSIONS); do \
+	  env SETUP_ENVTEST_K8S_VERSION=$$k8s_version $(MAKE) -f $(MAKEFILE_LIST) go-test; \
+	done
+
 e2e-tests:
 	@for cmd in docker minikube helm kubectl yq; do \
 	  if ! command -v $$cmd > /dev/null; then \
@@ -92,6 +99,11 @@ e2e-tests:
 	  fi; \
 	done
 	cd tests/e2e && ./e2e-tests.sh --k8s_version $(E2E_K8S_VERSION) --license_key $(LICENSE_KEY) --run_tests
+
+all-e2e-tests:
+	@for k8s_version in $(ALL_E2E_K8S_VERSIONS); do \
+	  env E2E_K8S_VERSION=$$k8s_version $(MAKE) -f $(MAKEFILE_LIST) e2e-tests; \
+	done
 
 .PHONY: run-helm-unittest
 run-helm-unittest: $(CT) ## Run helm unit tests based on changes
