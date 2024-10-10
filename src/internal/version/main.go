@@ -23,108 +23,31 @@ import (
 )
 
 var (
-	version                   string
-	buildDate                 string
-	autoInstrumentationJava   string
-	autoInstrumentationNodeJS string
-	autoInstrumentationPython string
-	autoInstrumentationDotNet string
-	autoInstrumentationPhp    string
-	autoInstrumentationRuby   string
-	autoInstrumentationGo     string
+	version   string
+	buildDate string
 )
 
 // Version holds this Operator's version as well as the version of some of the components it uses.
 type Version struct {
-	Operator                  string `json:"k8s-agents-operator"`
-	BuildDate                 string `json:"build-date"`
-	Go                        string `json:"go-version"`
-	AutoInstrumentationJava   string `json:"newrelic-instrumentation-java"`
-	AutoInstrumentationNodeJS string `json:"newrelic-instrumentation-nodejs"`
-	AutoInstrumentationPython string `json:"newrelic-instrumentation-python"`
-	AutoInstrumentationDotNet string `json:"newrelic-instrumentation-dotnet"`
-	AutoInstrumentationPhp    string `json:"newrelic-instrumentation-php"`
-	AutoInstrumentationRuby   string `json:"newrelic-instrumentation-ruby"`
-	AutoInstrumentationGo     string `json:"autoinstrumentation-go"`
+	Operator  string `json:"k8s-agents-operator"`
+	BuildDate string `json:"build-date"`
+	Go        string `json:"go-version"`
 }
 
 // Get returns the Version object with the relevant information.
 func Get() Version {
 	return Version{
-		Operator:                  version,
-		BuildDate:                 buildDate,
-		Go:                        runtime.Version(),
-		AutoInstrumentationJava:   AutoInstrumentationJava(),
-		AutoInstrumentationNodeJS: AutoInstrumentationNodeJS(),
-		AutoInstrumentationPython: AutoInstrumentationPython(),
-		AutoInstrumentationDotNet: AutoInstrumentationDotNet(),
-		AutoInstrumentationPhp:    AutoInstrumentationPhp(),
-		AutoInstrumentationRuby:   AutoInstrumentationRuby(),
-		AutoInstrumentationGo:     AutoInstrumentationGo(),
+		Operator:  version,
+		BuildDate: buildDate,
+		Go:        runtime.Version(),
 	}
 }
 
 func (v Version) String() string {
 	return fmt.Sprintf(
-		"Version(Operator='%v', BuildDate='%v', Go='%v', AutoInstrumentationJava='%v', AutoInstrumentationNodeJS='%v', AutoInstrumentationPython='%v', AutoInstrumentationDotNet='%v', AutoInstrumentationPhp='%v',  AutoInstrumentationRuby='%v', AutoInstrumentationGo='%v')",
+		"Version(Operator='%v', BuildDate='%v', Go='%v')",
 		v.Operator,
 		v.BuildDate,
 		v.Go,
-		v.AutoInstrumentationJava,
-		v.AutoInstrumentationNodeJS,
-		v.AutoInstrumentationPython,
-		v.AutoInstrumentationDotNet,
-		v.AutoInstrumentationPhp,
-		v.AutoInstrumentationRuby,
-		v.AutoInstrumentationGo,
 	)
-}
-
-func AutoInstrumentationJava() string {
-	if len(autoInstrumentationJava) > 0 {
-		return autoInstrumentationJava
-	}
-	return "0.0.0"
-}
-
-func AutoInstrumentationNodeJS() string {
-	if len(autoInstrumentationNodeJS) > 0 {
-		return autoInstrumentationNodeJS
-	}
-	return "0.0.0"
-}
-
-func AutoInstrumentationPython() string {
-	if len(autoInstrumentationPython) > 0 {
-		return autoInstrumentationPython
-	}
-	return "0.0.0"
-}
-
-func AutoInstrumentationDotNet() string {
-	if len(autoInstrumentationDotNet) > 0 {
-		return autoInstrumentationDotNet
-	}
-	return "0.0.0"
-}
-
-func AutoInstrumentationPhp() string {
-	if len(autoInstrumentationPhp) > 0 {
-		return autoInstrumentationPhp
-	}
-	return "0.0.0.0"
-}
-
-func AutoInstrumentationRuby() string {
-	if len(autoInstrumentationRuby) > 0 {
-		return autoInstrumentationRuby
-	}
-	return "0.0.0"
-}
-
-func AutoInstrumentationGo() string {
-	if len(autoInstrumentationGo) > 0 {
-		return autoInstrumentationGo
-	}
-	return "0.0.0"
 }

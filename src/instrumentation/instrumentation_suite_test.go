@@ -7,33 +7,27 @@ import (
 	"testing"
 
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
-var (
-	k8sClient  client.Client
-	testEnv    *envtest.Environment
-	testScheme = scheme.Scheme
-	err        error
-	cfg        *rest.Config
-)
+var k8sClient client.Client
 
 func TestMain(m *testing.M) {
-	testEnv = &envtest.Environment{
+	testEnv := &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "tests", "kustomize", "crd", "bases")},
 	}
 
-	cfg, err = testEnv.Start()
+	cfg, err := testEnv.Start()
 	if err != nil {
 		fmt.Printf("failed to start testEnv: %v", err)
 		os.Exit(1)
 	}
 
-	if err = v1alpha1.AddToScheme(testScheme); err != nil {
+	testScheme := scheme.Scheme
+	if err = v1alpha2.AddToScheme(testScheme); err != nil {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
 	}

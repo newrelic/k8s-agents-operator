@@ -2,864 +2,205 @@ package instrumentation
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	appsv1 "k8s.io/api/apps/v1"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/apm"
 )
 
-const (
-	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
-	nodeRequireArgument     = " --require /newrelic-instrumentation/newrelicinstrumentation.js"
-	pythonPathPrefix        = "/newrelic-instrumentation"
-)
+var _ apm.Injector = (*ErrorInjector)(nil)
 
+type ErrorInjector struct {
+	err error
+}
 
-func TestSDKInjection(t *testing.T) {
-	ns := corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "project1",
-		},
-	}
-	err := k8sClient.Create(context.Background(), &ns)
-	require.NoError(t, err)
-	dep := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "project1",
-			Name:      "my-deployment",
-			UID:       "depuid",
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "my"},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "my"},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{Name: "app", Image: "foo:bar"}},
-				},
-			},
-		},
-	}
-	err = k8sClient.Create(context.Background(), &dep)
-	require.NoError(t, err)
-	rs := appsv1.ReplicaSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-replicaset",
-			Namespace: "project1",
-			UID:       "rsuid",
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					Kind:       "Deployment",
-					APIVersion: "apps/v1",
-					Name:       "my-deployment",
-					UID:        "depuid",
-				},
-			},
-		},
-		Spec: appsv1.ReplicaSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": "my"},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": "my"},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{Name: "app", Image: "foo:bar"}},
-				},
-			},
-		},
-	}
-	err = k8sClient.Create(context.Background(), &rs)
-	require.NoError(t, err)
+func (ei *ErrorInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	return pod, ei.err
+}
 
+func (ei *ErrorInjector) Language() string {
+	return "error"
+}
+
+func (ei *ErrorInjector) ConfigureLogger(logger logr.Logger) {}
+
+func (ei *ErrorInjector) ConfigureClient(client client.Client) {}
+
+var _ apm.Injector = (*PanicInjector)(nil)
+
+type PanicInjector struct {
+	injectAttempted bool
+}
+
+func (pi *PanicInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	pi.injectAttempted = true
+	var a *int
+	var b int
+	//nolint:all
+	*a = b // nil pointer panic
+	return corev1.Pod{}, nil
+}
+
+func (pi *PanicInjector) Language() string {
+	return "panic"
+}
+
+func (pi *PanicInjector) ConfigureLogger(logger logr.Logger) {}
+
+func (pi *PanicInjector) ConfigureClient(client client.Client) {}
+
+var _ apm.Injector = (*AnnotationInjector)(nil)
+
+type AnnotationInjector struct {
+	lang string
+}
+
+func (ai *AnnotationInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+	pod.Annotations["injected-"+ai.lang] = "true"
+	return pod, nil
+}
+
+func (ai *AnnotationInjector) Language() string {
+	return ai.lang
+}
+
+func (ai *AnnotationInjector) ConfigureLogger(logger logr.Logger) {}
+
+func (ai *AnnotationInjector) ConfigureClient(client client.Client) {}
+
+func TestNewrelicSdkInjector_Inject(t *testing.T) {
+	vtrue, vzero := true, int64(0)
+	_, _ = vtrue, vzero
+	logger := logr.Discard()
 	tests := []struct {
-		name     string
-		inst     v1alpha1.Instrumentation
-		pod      corev1.Pod
-		expected corev1.Pod
+		name          string
+		langInsts     []*v1alpha2.Instrumentation
+		ns            corev1.Namespace
+		pod           corev1.Pod
+		containerName string
+		expectedPod   corev1.Pod
 	}{
 		{
-			name: "SDK env vars not defined",
-			inst: v1alpha1.Instrumentation{
-				Spec: v1alpha1.InstrumentationSpec{
-					Exporter: v1alpha1.Exporter{
-						Endpoint: "https://collector:4317",
-					},
-					Resource: v1alpha1.Resource{
-						AddK8sUIDAttributes: true,
-					},
-					Propagators: []v1alpha1.Propagator{"b3", "jaeger"},
-					Sampler: v1alpha1.Sampler{
-						Type:     "parentbased_traceidratio",
-						Argument: "0.25",
-					},
+			name: "empty",
+		},
+		{
+			name:      "none",
+			langInsts: []*v1alpha2.Instrumentation{},
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{
+					Name: "nothing",
 				},
+			}}},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{
+					Name: "nothing",
+				},
+			}}},
+		},
+		{
+			name: "inject just a",
+			langInsts: []*v1alpha2.Instrumentation{
+				{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "a"}}},
 			},
 			pod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "project1",
-					Name:      "app",
-					UID:       "pod-uid",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							Kind:       "ReplicaSet",
-							Name:       "my-replicaset",
-							UID:        "rsuid",
-							APIVersion: "apps/v1",
-						},
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "application-name",
-						},
-					},
-				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
-			expected: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "project1",
-					Name:      "app",
-					UID:       "pod-uid",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							Kind:       "ReplicaSet",
-							Name:       "my-replicaset",
-							UID:        "rsuid",
-							APIVersion: "apps/v1",
-						},
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "application-name",
-							Env: []corev1.EnvVar{
-								{
-									Name:  "OTEL_SERVICE_NAME",
-									Value: "my-deployment",
-								},
-								{
-									Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-									Value: "https://collector:4317",
-								},
-								{
-									Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "spec.nodeName",
-										},
-									},
-								},
-								{
-									Name:  "OTEL_PROPAGATORS",
-									Value: "b3,jaeger",
-								},
-								{
-									Name:  "OTEL_TRACES_SAMPLER",
-									Value: "parentbased_traceidratio",
-								},
-								{
-									Name:  "OTEL_TRACES_SAMPLER_ARG",
-									Value: "0.25",
-								},
-								{
-									Name:  "OTEL_RESOURCE_ATTRIBUTES",
-									Value: "k8s.container.name=application-name,k8s.deployment.name=my-deployment,k8s.deployment.uid=depuid,k8s.namespace.name=project1,k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=app,k8s.pod.uid=pod-uid,k8s.replicaset.name=my-replicaset,k8s.replicaset.uid=rsuid",
-								},
-							},
-						},
-					},
-				},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-a": "true"}},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 		},
 		{
-			name: "SDK env vars defined",
-			inst: v1alpha1.Instrumentation{
-				Spec: v1alpha1.InstrumentationSpec{
-					Exporter: v1alpha1.Exporter{
-						Endpoint: "https://collector:4317",
-					},
-					Resource: v1alpha1.Resource{
-						Attributes: map[string]string{
-							"fromcr": "val",
-						},
-					},
-					Propagators: []v1alpha1.Propagator{"jaeger"},
-					Sampler: v1alpha1.Sampler{
-						Type:     "parentbased_traceidratio",
-						Argument: "0.25",
-					},
-				},
+			name: "inject just b",
+			langInsts: []*v1alpha2.Instrumentation{
+				{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "b"}}},
 			},
 			pod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "project1",
-					Name:      "app",
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Env: []corev1.EnvVar{
-								{
-									Name:  "OTEL_SERVICE_NAME",
-									Value: "explicitly_set",
-								},
-								{
-									Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-									Value: "explicitly_set",
-								},
-								{
-									Name:  "OTEL_PROPAGATORS",
-									Value: "b3",
-								},
-								{
-									Name:  "OTEL_TRACES_SAMPLER",
-									Value: "always_on",
-								},
-								{
-									Name:  "OTEL_RESOURCE_ATTRIBUTES",
-									Value: "foo=bar,k8s.container.name=other,",
-								},
-							},
-						},
-					},
-				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
-			expected: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "project1",
-					Name:      "app",
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Env: []corev1.EnvVar{
-								{
-									Name:  "OTEL_SERVICE_NAME",
-									Value: "explicitly_set",
-								},
-								{
-									Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-									Value: "explicitly_set",
-								},
-								{
-									Name:  "OTEL_PROPAGATORS",
-									Value: "b3",
-								},
-								{
-									Name:  "OTEL_TRACES_SAMPLER",
-									Value: "always_on",
-								},
-								{
-									Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "spec.nodeName",
-										},
-									},
-								},
-								{
-									Name:  "OTEL_RESOURCE_ATTRIBUTES",
-									Value: "foo=bar,k8s.container.name=other,fromcr=val,k8s.namespace.name=project1,k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=app",
-								},
-							},
-						},
-					},
-				},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-b": "true"}},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 		},
 		{
-			name: "Empty instrumentation spec",
-			inst: v1alpha1.Instrumentation{
-				Spec: v1alpha1.InstrumentationSpec{},
+			name: "inject a and b",
+			langInsts: []*v1alpha2.Instrumentation{
+				{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "a"}}},
+				{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "b"}}},
 			},
 			pod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "project1",
-					Name:      "app",
-					UID:       "pod-uid",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							Kind:       "ReplicaSet",
-							Name:       "my-replicaset",
-							UID:        "rsuid",
-							APIVersion: "apps/v1",
-						},
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "application-name",
-						},
-					},
-				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
-			expected: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "project1",
-					Name:      "app",
-					UID:       "pod-uid",
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							Kind:       "ReplicaSet",
-							Name:       "my-replicaset",
-							UID:        "rsuid",
-							APIVersion: "apps/v1",
-						},
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "application-name",
-							Env: []corev1.EnvVar{
-								{
-									Name:  "OTEL_SERVICE_NAME",
-									Value: "my-deployment",
-								},
-								{
-									Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "spec.nodeName",
-										},
-									},
-								},
-								{
-									Name:  "OTEL_RESOURCE_ATTRIBUTES",
-									Value: "k8s.container.name=application-name,k8s.deployment.name=my-deployment,k8s.namespace.name=project1,k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=app,k8s.pod.uid=pod-uid,k8s.replicaset.name=my-replicaset",
-								},
-							},
-						},
-					},
-				},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-a": "true", "injected-b": "true"}},
+				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+			},
+		},
+		{
+			name: "inject has an error, pod should not be modified by that specific injector",
+			langInsts: []*v1alpha2.Instrumentation{
+				{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "error"}}},
+			},
+			pod: corev1.Pod{
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+			},
+			expectedPod: corev1.Pod{
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 		},
 	}
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			inj := sdkInjector{
-				client: k8sClient,
+			ctx := context.Background()
+			injectorRegistry := apm.NewInjectorRegistry()
+			apmInjectors := []apm.Injector{
+				&AnnotationInjector{lang: "a"},
+				&AnnotationInjector{lang: "b"},
+				&ErrorInjector{err: fmt.Errorf("some error")},
 			}
-			pod := inj.injectCommonSDKConfig(context.Background(), test.inst, corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: test.pod.Namespace}}, test.pod, 0, 0)
-			_, err = json.MarshalIndent(pod, "", "  ")
-			assert.NoError(t, err)
-			assert.Equal(t, test.expected, test.expected)
+			for _, apmInjector := range apmInjectors {
+				injectorRegistry.MustRegister(apmInjector)
+			}
+			for _, langInst := range test.langInsts {
+				langInst.Default()
+			}
+			injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
+			pod := injector.Inject(ctx, test.langInsts, test.ns, test.pod)
+			if diff := cmp.Diff(test.expectedPod, pod); diff != "" {
+				t.Errorf("Unexpected diff (-want +got): %s", diff)
+			}
 		})
 	}
 }
 
-func TestInjectJava(t *testing.T) {
-	inst := v1alpha1.Instrumentation{
-		Spec: v1alpha1.InstrumentationSpec{
-			Java: v1alpha1.Java{
-				Image: "img:1",
-			},
-			Exporter: v1alpha1.Exporter{
-				Endpoint: "https://collector:4317",
-			},
-		},
-	}
-	insts := languageInstrumentations{
-		Java: &inst,
-	}
-	inj := sdkInjector{
-		logger: logr.Discard(),
-	}
-	_ = inj.inject(context.Background(), insts,
-		corev1.Namespace{},
-		corev1.Pod{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name: "app",
-					},
-				},
-			},
-		}, "")
-	// assert.Equal(t, corev1.Pod{
-	// 	Spec: corev1.PodSpec{
-	// 		Volumes: []corev1.Volume{
-	// 			{
-	// 				Name: volumeName,
-	// 				VolumeSource: corev1.VolumeSource{
-	// 					EmptyDir: &corev1.EmptyDirVolumeSource{},
-	// 				},
-	// 			},
-	// 		},
-	// 		InitContainers: []corev1.Container{
-	// 			{
-	// 				Name:    initContainerName,
-	// 				Image:   "img:1",
-	// 				Command: []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
-	// 				VolumeMounts: []corev1.VolumeMount{{
-	// 					Name:      volumeName,
-	// 					MountPath: "/newrelic-instrumentation",
-	// 				}},
-	// 			},
-	// 		},
-	// 		Containers: []corev1.Container{
-	// 			{
-	// 				Name: "app",
-	// 				VolumeMounts: []corev1.VolumeMount{
-	// 					{
-	// 						Name:      volumeName,
-	// 						MountPath: "/otel-auto-instrumentation",
-	// 					},
-	// 				},
-	// 				Env: []corev1.EnvVar{
-	// 					{
-	// 						Name:  "JAVA_TOOL_OPTIONS",
-	// 						Value: javaJVMArgument,
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_SERVICE_NAME",
-	// 						Value: "app",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-	// 						Value: "https://collector:4317",
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_POD_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "metadata.name",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "spec.nodeName",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_RESOURCE_ATTRIBUTES",
-	// 						Value: "k8s.container.name=app,k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)",
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// }, pod)
-}
+func TestNewrelicSdkInjector_Inject_WithPanic(t *testing.T) {
+	ctx := context.Background()
+	var logger = logr.Discard()
+	injectorRegistry := apm.NewInjectorRegistry()
+	pi := &PanicInjector{}
+	injectorRegistry.MustRegister(pi)
+	injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("failed to handle panic")
+			}
+		}()
+		_ = injector.Inject(ctx, []*v1alpha2.Instrumentation{{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "panic", Image: "panic"}}}}, corev1.Namespace{}, corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "panic", Image: "panic"}}}})
+	}()
 
-func TestInjectNodeJS(t *testing.T) {
-	inst := v1alpha1.Instrumentation{
-		Spec: v1alpha1.InstrumentationSpec{
-			NodeJS: v1alpha1.NodeJS{
-				Image: "img:1",
-			},
-			Exporter: v1alpha1.Exporter{
-				Endpoint: "https://collector:4318",
-			},
-		},
+	if !pi.injectAttempted {
+		t.Fatalf("failed to trigger an injected panic")
 	}
-	insts := languageInstrumentations{
-		NodeJS: &inst,
-	}
-	inj := sdkInjector{
-		logger: logr.Discard(),
-	}
-	_ = inj.inject(context.Background(), insts,
-		corev1.Namespace{},
-		corev1.Pod{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name: "app",
-					},
-				},
-			},
-		}, "")
-	// assert.Equal(t, corev1.Pod{
-	// 	Spec: corev1.PodSpec{
-	// 		Volumes: []corev1.Volume{
-	// 			{
-	// 				Name: volumeName,
-	// 				VolumeSource: corev1.VolumeSource{
-	// 					EmptyDir: &corev1.EmptyDirVolumeSource{},
-	// 				},
-	// 			},
-	// 		},
-	// 		InitContainers: []corev1.Container{
-	// 			{
-	// 				Name:    initContainerName,
-	// 				Image:   "img:1",
-	// 				Command: []string{"cp", "-a", "/autoinstrumentation/.", "/otel-auto-instrumentation/"},
-	// 				VolumeMounts: []corev1.VolumeMount{{
-	// 					Name:      volumeName,
-	// 					MountPath: "/otel-auto-instrumentation",
-	// 				}},
-	// 			},
-	// 		},
-	// 		Containers: []corev1.Container{
-	// 			{
-	// 				Name: "app",
-	// 				VolumeMounts: []corev1.VolumeMount{
-	// 					{
-	// 						Name:      volumeName,
-	// 						MountPath: "/otel-auto-instrumentation",
-	// 					},
-	// 				},
-	// 				Env: []corev1.EnvVar{
-	// 					{
-	// 						Name:  "NODE_OPTIONS",
-	// 						Value: nodeRequireArgument,
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_SERVICE_NAME",
-	// 						Value: "app",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-	// 						Value: "https://collector:4318",
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_POD_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "metadata.name",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "spec.nodeName",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_RESOURCE_ATTRIBUTES",
-	// 						Value: "k8s.container.name=app,k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)",
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// }, pod)
-}
-
-func TestInjectPython(t *testing.T) {
-	inst := v1alpha1.Instrumentation{
-		Spec: v1alpha1.InstrumentationSpec{
-			Python: v1alpha1.Python{
-				Image: "img:1",
-			},
-			Exporter: v1alpha1.Exporter{
-				Endpoint: "https://collector:4318",
-			},
-		},
-	}
-	insts := languageInstrumentations{
-		Python: &inst,
-	}
-
-	inj := sdkInjector{
-		logger: logr.Discard(),
-	}
-	_ = inj.inject(context.Background(), insts,
-		corev1.Namespace{},
-		corev1.Pod{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name: "app",
-					},
-				},
-			},
-		}, "")
-	// assert.Equal(t, corev1.Pod{
-	// 	Spec: corev1.PodSpec{
-	// 		Volumes: []corev1.Volume{
-	// 			{
-	// 				Name: volumeName,
-	// 				VolumeSource: corev1.VolumeSource{
-	// 					EmptyDir: &corev1.EmptyDirVolumeSource{},
-	// 				},
-	// 			},
-	// 		},
-	// 		InitContainers: []corev1.Container{
-	// 			{
-	// 				Name:    initContainerName,
-	// 				Image:   "img:1",
-	// 				Command: []string{"cp", "-a", "/autoinstrumentation/.", "/otel-auto-instrumentation/"},
-	// 				VolumeMounts: []corev1.VolumeMount{{
-	// 					Name:      volumeName,
-	// 					MountPath: "/otel-auto-instrumentation",
-	// 				}},
-	// 			},
-	// 		},
-	// 		Containers: []corev1.Container{
-	// 			{
-	// 				Name: "app",
-	// 				VolumeMounts: []corev1.VolumeMount{
-	// 					{
-	// 						Name:      volumeName,
-	// 						MountPath: "/otel-auto-instrumentation",
-	// 					},
-	// 				},
-	// 				Env: []corev1.EnvVar{
-	// 					{
-	// 						Name:  "PYTHONPATH",
-	// 						Value: fmt.Sprintf("%s:%s", pythonPathPrefix, "pythonPathSuffix"),
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_TRACES_EXPORTER",
-	// 						Value: "otlp",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL",
-	// 						Value: "http/protobuf",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_METRICS_EXPORTER",
-	// 						Value: "otlp",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_EXPORTER_OTLP_METRICS_PROTOCOL",
-	// 						Value: "http/protobuf",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_SERVICE_NAME",
-	// 						Value: "app",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-	// 						Value: "https://collector:4318",
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_POD_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "metadata.name",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "spec.nodeName",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_RESOURCE_ATTRIBUTES",
-	// 						Value: "k8s.container.name=app,k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)",
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// }, pod)
-}
-
-func TestInjectDotNet(t *testing.T) {
-	inst := v1alpha1.Instrumentation{
-		Spec: v1alpha1.InstrumentationSpec{
-			DotNet: v1alpha1.DotNet{
-				Image: "img:1",
-			},
-			Exporter: v1alpha1.Exporter{
-				Endpoint: "https://collector:4318",
-			},
-		},
-	}
-	insts := languageInstrumentations{
-		DotNet: &inst,
-	}
-	inj := sdkInjector{
-		logger: logr.Discard(),
-	}
-	_ = inj.inject(context.Background(), insts,
-		corev1.Namespace{},
-		corev1.Pod{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name: "app",
-					},
-				},
-			},
-		}, "")
-	// assert.Equal(t, corev1.Pod{
-	// 	Spec: corev1.PodSpec{
-	// 		Volumes: []corev1.Volume{
-	// 			{
-	// 				Name: volumeName,
-	// 				VolumeSource: corev1.VolumeSource{
-	// 					EmptyDir: &corev1.EmptyDirVolumeSource{},
-	// 				},
-	// 			},
-	// 		},
-	// 		InitContainers: []corev1.Container{
-	// 			{
-	// 				Name:    initContainerName,
-	// 				Image:   "img:1",
-	// 				Command: []string{"cp", "-a", "/autoinstrumentation/.", "/otel-auto-instrumentation/"},
-	// 				VolumeMounts: []corev1.VolumeMount{{
-	// 					Name:      volumeName,
-	// 					MountPath: "/otel-auto-instrumentation",
-	// 				}},
-	// 			},
-	// 		},
-	// 		Containers: []corev1.Container{
-	// 			{
-	// 				Name: "app",
-	// 				VolumeMounts: []corev1.VolumeMount{
-	// 					{
-	// 						Name:      volumeName,
-	// 						MountPath: "/otel-auto-instrumentation",
-	// 					},
-	// 				},
-	// 				Env: []corev1.EnvVar{
-	// 					// {
-	// 					// 	Name:  envDotNetCoreClrEnableProfiling,
-	// 					// 	Value: dotNetCoreClrEnableProfilingEnabled,
-	// 					// },
-	// 					// {
-	// 					// 	Name:  envDotNetCoreClrProfiler,
-	// 					// 	Value: dotNetCoreClrProfilerID,
-	// 					// },
-	// 					// {
-	// 					// 	Name:  envDotNetCoreClrProfilerPath,
-	// 					// 	Value: dotNetCoreClrProfilerPath,
-	// 					// },
-	// 					// {
-	// 					// 	Name:  envDotNetStartupHook,
-	// 					// 	Value: dotNetStartupHookPath,
-	// 					// },
-	// 					// {
-	// 					// 	Name:  envDotNetAdditionalDeps,
-	// 					// 	Value: dotNetAdditionalDepsPath,
-	// 					// },
-	// 					// {
-	// 					// 	Name:  envDotNetOTelAutoHome,
-	// 					// 	Value: dotNetOTelAutoHomePath,
-	// 					// },
-	// 					// {
-	// 					// 	Name:  envDotNetSharedStore,
-	// 					// 	Value: dotNetSharedStorePath,
-	// 					// },
-	// 					{
-	// 						Name:  "OTEL_SERVICE_NAME",
-	// 						Value: "app",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-	// 						Value: "https://collector:4318",
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_POD_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "metadata.name",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "spec.nodeName",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_RESOURCE_ATTRIBUTES",
-	// 						Value: "k8s.container.name=app,k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)",
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// }, pod)
-}
-
-func TestInjectSdkOnly(t *testing.T) {
-	// inst := v1alpha1.Instrumentation{
-	// 	Spec: v1alpha1.InstrumentationSpec{
-	// 		Exporter: v1alpha1.Exporter{
-	// 			Endpoint: "https://collector:4318",
-	// 		},
-	// 	},
-	// }
-	insts := languageInstrumentations{
-		// Sdk: &inst,
-	}
-
-	inj := sdkInjector{
-		logger: logr.Discard(),
-	}
-	_ = inj.inject(context.Background(), insts,
-		corev1.Namespace{},
-		corev1.Pod{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name: "app",
-					},
-				},
-			},
-		}, "")
-	// assert.Equal(t, corev1.Pod{
-	// 	Spec: corev1.PodSpec{
-	// 		Containers: []corev1.Container{
-	// 			{
-	// 				Name: "app",
-	// 				Env: []corev1.EnvVar{
-	// 					{
-	// 						Name:  "OTEL_SERVICE_NAME",
-	// 						Value: "app",
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_EXPORTER_OTLP_ENDPOINT",
-	// 						Value: "https://collector:4318",
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_POD_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "metadata.name",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
-	// 						ValueFrom: &corev1.EnvVarSource{
-	// 							FieldRef: &corev1.ObjectFieldSelector{
-	// 								FieldPath: "spec.nodeName",
-	// 							},
-	// 						},
-	// 					},
-	// 					{
-	// 						Name:  "OTEL_RESOURCE_ATTRIBUTES",
-	// 						Value: "k8s.container.name=app,k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME),k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)",
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// }, pod)
 }

@@ -12,8 +12,7 @@ spec:
     metadata:
       labels:
         app: javaapp
-      annotations:
-        instrumentation.newrelic.com/inject-java: "true"
+        app.newrelic.instrumentation: newrelic-java-agent
     spec:
       containers:
         - name: javaapp

@@ -31,100 +31,168 @@ helm upgrade --install k8s-agents-operator k8s-agents-operator/k8s-agents-operat
 
 ### Monitored namespaces
 
-For each namespace you want the operator to be instrumented, create a secret containing a valid New Relic ingest license key:
-```shell
-kubectl create secret generic newrelic-key-secret \
-  --namespace my-monitored-namespace \
-  --from-literal=new_relic_license_key=<NEW RELIC INGEST LICENSE KEY>
-```
+For each namespace you want the operator to be instrumented, a secret will be replicated from the newrelic operator namespace.
 
-Similarly, for each namespace you need to instrument create the `Instrumentation` custom resource, specifying which APM agents you want to instrument. All available APM agent docker images and corresponding tags are listed on DockerHub:
+For each `Instrumentation` custom resource created, specifying which APM agent you want to instrument for each language. All available APM
+ agent docker images and corresponding tags are listed on DockerHub:
+
+* [.NET](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
 * [Java](https://hub.docker.com/repository/docker/newrelic/newrelic-java-init/general)
 * [Node](https://hub.docker.com/repository/docker/newrelic/newrelic-node-init/general)
 * [Python](https://hub.docker.com/repository/docker/newrelic/newrelic-python-init/general)
-* [.NET](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
 * [Ruby](https://hub.docker.com/repository/docker/newrelic/newrelic-ruby-init/general)
 
+For .NET
+
 ```yaml
-apiVersion: newrelic.com/v1alpha1
+apiVersion: newrelic.com/v1alpha2
 kind: Instrumentation
 metadata:
-  labels:
-    app.kubernetes.io/name: instrumentation
-    app.kubernetes.io/created-by: k8s-agents-operator
-  name: newrelic-instrumentation
+  name: newrelic-instrumentation-dotnet
 spec:
-  java:
-    image: newrelic/newrelic-java-init:latest
-    # env:
-    # Example New Relic agent supported environment variables
-    # - name: NEW_RELIC_LABELS
-    #   value: "environment:auto-injection"
-    # Example overriding the appName configuration
-    # - name: NEW_RELIC_POD_NAME
-    #   valueFrom:
-    #     fieldRef:
-    #       fieldPath: metadata.name
-    # - name: NEW_RELIC_APP_NAME
-    #   value: "$(NEW_RELIC_LABELS)-$(NEW_RELIC_POD_NAME)"
-  nodejs:
-    image: newrelic/newrelic-node-init:latest
-  python:
-    image: newrelic/newrelic-python-init:latest
-  dotnet:
+  agent:
+    language: dotnet
     image: newrelic/newrelic-dotnet-init:latest
-  ruby:
-    image: newrelic/newrelic-ruby-init:latest
+    # env: ...
 ```
+
+For Java
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-java
+  namespace: newrelic
+spec:
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:latest
+    # env: ...
+```
+
+For NodeJS
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-nodejs
+  namespace: newrelic
+spec:
+  agent:
+    language: nodejs
+    image: newrelic/newrelic-node-init:latest
+    # env: ...
+```
+
+For Python
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-python
+  namespace: newrelic
+spec:
+  agent:
+    language: python
+    image: newrelic/newrelic-python-init:latest
+    # env: ...
+```
+
+For Ruby
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-ruby
+  namespace: newrelic
+spec:
+  agent:
+    language: ruby
+    image: newrelic/newrelic-ruby-init:latest
+    # env: ...
+```
+
+For environment specific configurations
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-lang
+  namespace: newrelic
+spec:
+  agent:
+    env:
+    # Example New Relic agent supported environment variables
+      - name: NEW_RELIC_LABELS
+        value: "environment:auto-injection"
+    # Example setting the pod name based on the metadata
+      - name: NEW_RELIC_POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+    # Example overriding the appName configuration
+      - name: NEW_RELIC_APP_NAME
+        value: "$(NEW_RELIC_LABELS)-$(NEW_RELIC_POD_NAME)"
+```
+
+Targeting everything in a specific namespace with a label
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-lang
+  namespace: newrelic
+spec:
+  #agent: ...
+  namespaceLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["java"]
+```
+
+Targeting a pod with a specific label
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-lang
+  namespace: newrelic
+spec:
+  # agent: ...
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["dotnet"]
+```
+
+Using a secret with a non-default name
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-lang
+  namespace: newrelic
+spec:
+  # agent: ...
+  licenseKeySecret: the-name-of-the-custom-secret
+```
+
 In the example above, we show how you can configure the agent settings globally using environment variables. See each agent's configuration documentation for available configuration options:
 * [Java](https://docs.newrelic.com/docs/apm/agents/java-agent/configuration/java-agent-configuration-config-file/)
 * [Node](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/installation-configuration/nodejs-agent-configuration/)
 * [Python](https://docs.newrelic.com/docs/apm/agents/python-agent/configuration/python-agent-configuration/)
 * [.NET](https://docs.newrelic.com/docs/apm/agents/net-agent/configuration/net-agent-configuration/)
 * [Ruby](https://docs.newrelic.com/docs/apm/agents/ruby-agent/configuration/ruby-agent-configuration/)
-
-Global agent settings can be overridden in your deployment manifest if a different configuration is required.
-
-### Annotations
-
-The `k8s-agents-operator` looks for language-specific annotations when your pods are being scheduled to know which applications you want to monitor.
-
-Below are the currently supported annotations:
-```yaml
-instrumentation.newrelic.com/inject-java: "true"
-instrumentation.newrelic.com/inject-nodejs: "true"
-instrumentation.newrelic.com/inject-python: "true"
-instrumentation.newrelic.com/inject-dotnet: "true"
-instrumentation.newrelic.com/inject-ruby: "true"
-```
-
-Example deployment with annotation to instrument the Java agent:
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: spring-petclinic
-spec:
-  selector:
-    matchLabels:
-      app: spring-petclinic
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: spring-petclinic
-      annotations:
-        instrumentation.newrelic.com/inject-java: "true"
-    spec:
-      containers:
-        - name: spring-petclinic
-          image: ghcr.io/pavolloffay/spring-petclinic:latest
-          ports:
-            - containerPort: 8080
-          env:
-          - name: NEW_RELIC_APP_NAME
-            value: spring-petclinic-demo
-```
 
 ### cert-manager
 
@@ -196,9 +264,9 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| juanjjaramillo |  | <https://github.com/juanjjaramillo> |
 | csongnr |  | <https://github.com/csongnr> |
 | dbudziwojskiNR |  | <https://github.com/dbudziwojskiNR> |
+| danielstokes |  | <https://github.com/danielstokes> |
 
 ----------------------------------------------
-Autogenerated from chart metadata using [helm-docs v1.13.1](https://github.com/norwoodj/helm-docs/releases/v1.13.1)
+Autogenerated from chart metadata using [helm-docs v1.14.2](https://github.com/norwoodj/helm-docs/releases/v1.14.2)
