@@ -41,7 +41,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	v1alpha1 "github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/apm"
 	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
 	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/instrumentation/upgrade"
@@ -64,7 +65,7 @@ type tlsConfig struct {
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha2.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -79,18 +80,12 @@ func main() {
 
 	// add flags related to this operator
 	var (
-		metricsAddr               string
-		probeAddr                 string
-		enableLeaderElection      bool
-		autoInstrumentationJava   string
-		autoInstrumentationNodeJS string
-		autoInstrumentationPython string
-		autoInstrumentationDotNet string
-		autoInstrumentationRuby   string
-		autoInstrumentationPhp    string
-		labelsFilter              []string
-		webhookPort               int
-		tlsOpt                    tlsConfig
+		metricsAddr          string
+		probeAddr            string
+		enableLeaderElection bool
+		labelsFilter         []string
+		webhookPort          int
+		tlsOpt               tlsConfig
 	)
 
 	pflag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -98,12 +93,6 @@ func main() {
 	pflag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	pflag.StringVar(&autoInstrumentationJava, "auto-instrumentation-java-image", fmt.Sprintf("newrelic/newrelic-java-init:%s", v.AutoInstrumentationJava), "The default New Relic Java instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationNodeJS, "auto-instrumentation-nodejs-image", fmt.Sprintf("newrelic/newrelic-node-init:%s", v.AutoInstrumentationNodeJS), "The default New Relic NodeJS instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationPython, "auto-instrumentation-python-image", fmt.Sprintf("newrelic/newrelic-python-init:%s", v.AutoInstrumentationPython), "The default New Relic Python instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationDotNet, "auto-instrumentation-dotnet-image", fmt.Sprintf("newrelic/newrelic-dotnet-init:%s", v.AutoInstrumentationDotNet), "The default New Relic DotNet instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationRuby, "auto-instrumentation-ruby-image", fmt.Sprintf("newrelic/newrelic-ruby-init:%s", v.AutoInstrumentationRuby), "The default New Relic Ruby instrumentation image. This image is used when no image is specified in the CustomResource.")
-	pflag.StringVar(&autoInstrumentationPhp, "auto-instrumentation-php-image", fmt.Sprintf("newrelic/newrelic-php-init:%s", v.AutoInstrumentationPhp), "The default New Relic Php instrumentation image. This image is used when no image is specified in the CustomResource.")
 
 	pflag.StringArrayVar(&labelsFilter, "labels", []string{}, "Labels to filter away from propagating onto deploys")
 	pflag.IntVar(&webhookPort, "webhook-port", 9443, "The port the webhook endpoint binds to.")
@@ -114,20 +103,23 @@ func main() {
 	logger := zap.New(zap.UseFlagOptions(&opts))
 	ctrl.SetLogger(logger)
 
+	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	if operatorNamespace == "" {
+		setupLog.Info("env var OPERATOR_NAMESPACE is required")
+		os.Exit(1)
+	}
+
 	logger.Info("Starting the Kubernetes Agents Operator",
 		"k8s-agents-operator", v.Operator,
-		"auto-instrumentation-java", autoInstrumentationJava,
-		"auto-instrumentation-nodejs", autoInstrumentationNodeJS,
-		"auto-instrumentation-python", autoInstrumentationPython,
-		"auto-instrumentation-dotnet", autoInstrumentationDotNet,
-		"auto-instrumentation-ruby", autoInstrumentationRuby,
-		"auto-instrumentation-php", autoInstrumentationPhp,
+		"running-namespace", operatorNamespace,
 		"build-date", v.BuildDate,
 		"go-version", v.Go,
 		"go-arch", runtime.GOARCH,
 		"go-os", runtime.GOOS,
 		"labels-filter", labelsFilter,
 	)
+
+	logger.Info("Working!")
 
 	restConfig := ctrl.GetConfigOrDie()
 
@@ -141,12 +133,6 @@ func main() {
 	cfg := config.New(
 		config.WithLogger(ctrl.Log.WithName("config")),
 		config.WithVersion(v),
-		config.WithAutoInstrumentationJavaImage(autoInstrumentationJava),
-		config.WithAutoInstrumentationNodeJSImage(autoInstrumentationNodeJS),
-		config.WithAutoInstrumentationPythonImage(autoInstrumentationPython),
-		config.WithAutoInstrumentationDotNetImage(autoInstrumentationDotNet),
-		config.WithAutoInstrumentationRubyImage(autoInstrumentationRuby),
-		config.WithAutoInstrumentationPhpImage(autoInstrumentationPhp),
 		config.WithAutoDetect(ad),
 		config.WithLabelFilters(labelsFilter),
 	)
@@ -193,34 +179,50 @@ func main() {
 	}
 
 	ctx := ctrl.SetupSignalHandler()
-	err = addDependencies(ctx, mgr, cfg, v)
+	err = addDependencies(ctx, mgr, cfg)
 	if err != nil {
 		setupLog.Error(err, "failed to add/run bootstrap dependencies to the controller manager")
 		os.Exit(1)
 	}
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&v1alpha1.Instrumentation{
+		//configure injectors that we accept.  go, dotnet, etc..
+		injectorRegistry := apm.DefaultInjectorRegistry
+
+		instDefaulter := &instrumentation.InstrumentationDefaulter{
+			Logger: logger.WithName("instrumentation-defaulter"),
+		}
+		instValidator := &instrumentation.InstrumentationValidator{
+			Logger:            logger.WithName("instrumentation-validator"),
+			InjectorRegistery: injectorRegistry,
+		}
+		if err = (&v1alpha2.Instrumentation{
 			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					v1alpha1.AnnotationDefaultAutoInstrumentationJava:   autoInstrumentationJava,
-					v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS: autoInstrumentationNodeJS,
-					v1alpha1.AnnotationDefaultAutoInstrumentationPython: autoInstrumentationPython,
-					v1alpha1.AnnotationDefaultAutoInstrumentationDotNet: autoInstrumentationDotNet,
-					v1alpha1.AnnotationDefaultAutoInstrumentationRuby:   autoInstrumentationRuby,
-					v1alpha1.AnnotationDefaultAutoInstrumentationPhp:    autoInstrumentationPhp,
-				},
+				Annotations: map[string]string{},
 			},
-		}).SetupWebhookWithManager(mgr); err != nil {
+		}).SetupWebhookWithManager(mgr, instDefaulter, instValidator); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
 
+		client := mgr.GetClient()
+		injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
+		secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
+		instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
 		mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{
-			Handler: webhookhandler.NewWebhookHandler(cfg, ctrl.Log.WithName("pod-webhook"), mgr.GetClient(),
+			Handler: webhookhandler.NewWebhookHandler(
+				cfg, ctrl.Log.WithName("pod-webhook"), mgr.GetClient(),
 				[]webhookhandler.PodMutator{
-					instrumentation.NewMutator(logger, mgr.GetClient()),
-				}),
+					instrumentation.NewMutator(
+						logger,
+						client,
+						injector,
+						secretReplicator,
+						instrumentationLocator,
+						operatorNamespace,
+					),
+				},
+			),
 		})
 	} else {
 		ctrl.Log.Info("Webhooks are disabled, operator is running an unsupported mode", "ENABLE_WEBHOOKS", "false")
@@ -243,7 +245,7 @@ func main() {
 	}
 }
 
-func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config, v version.Version) error {
+func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config) error {
 	// run the auto-detect mechanism for the configuration
 	err := mgr.Add(manager.RunnableFunc(func(_ context.Context) error {
 		return cfg.StartAutoDetect()
@@ -255,15 +257,8 @@ func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config, v v
 	// adds the upgrade mechanism to be executed once the manager is ready
 	err = mgr.Add(manager.RunnableFunc(func(c context.Context) error {
 		u := &instrumentationupgrade.InstrumentationUpgrade{
-			Logger:                ctrl.Log.WithName("instrumentation-upgrade"),
-			DefaultAutoInstJava:   cfg.AutoInstrumentationJavaImage(),
-			DefaultAutoInstNodeJS: cfg.AutoInstrumentationNodeJSImage(),
-			DefaultAutoInstPython: cfg.AutoInstrumentationPythonImage(),
-			DefaultAutoInstDotNet: cfg.AutoInstrumentationDotNetImage(),
-			DefaultAutoInstPhp:    cfg.AutoInstrumentationPhpImage(),
-			DefaultAutoInstRuby:   cfg.AutoInstrumentationRubyImage(),
-			DefaultAutoInstGo:     cfg.AutoInstrumentationGoImage(),
-			Client:                mgr.GetClient(),
+			Logger: ctrl.Log.WithName("instrumentation-upgrade"),
+			Client: mgr.GetClient(),
 		}
 		return u.ManagedInstances(c)
 	}))

@@ -1,0 +1,9 @@
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: matching-whole-cluster
+spec:
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:latest
+  licenseKeySecret: "newrelic-key-secret"

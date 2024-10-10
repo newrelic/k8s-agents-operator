@@ -106,33 +106,41 @@ function create_cluster() {
       --set licenseKey=${LICENSE_KEY}
 
     echo "🔄 Waiting for operator to settle"
-    sleep 30
+    sleep 15
+    kubectl wait --timeout=30s --for=jsonpath='{.status.phase}'=Running -n k8s-agents-operator -l="app.kubernetes.io/instance=k8s-agents-operator" pod
+    sleep 15
 
     echo "🔄 Creating E2E namespace"
     kubectl create namespace e2e-namespace
 
-    echo "🔄 Installing secret"
-    kubectl create secret generic newrelic-key-secret \
-      --namespace e2e-namespace \
-      --from-literal=new_relic_license_key=${LICENSE_KEY}
+    #echo "🔄 Installing secret"
+    #kubectl create secret generic newrelic-key-secret \
+    #  --namespace k8s-agents-operator \
+    #  --from-literal=new_relic_license_key=${LICENSE_KEY}
 
     echo "🔄 Installing instrumentation"
-    kubectl apply --namespace e2e-namespace --filename e2e-instrumentation.yml
+    for i in $(find . -maxdepth 1 -type f -name 'e2e-instrumentation-*.yml'); do
+      kubectl apply --namespace k8s-agents-operator --filename $i
+    done
 
     echo "🔄 Installing apps"
     kubectl apply --namespace e2e-namespace --filename apps/
+
+    echo "🔄 Waiting for apps to settle"
+    for label in dotnetapp javaapp nodejsapp pythonapp rubyapp; do
+      kubectl wait --timeout=120s --for=jsonpath='{.status.phase}'=Running --namespace e2e-namespace -l="app=$label" pod
+    done
 }
 
 function run_tests() {
-    echo "🔄 Waiting for apps to settle"
-    sleep 60
-
     echo "🔄 Starting E2E tests"
     initContainers=$(kubectl get pods --namespace e2e-namespace --output yaml | yq '.items[].spec.initContainers[].name' | wc -l)
-    if [[ ${initContainers} -lt 4 ]]; then
-      echo "Error: not all apps were instrumented. Expected 4, got ${initContainers}"
+    local expected=$(ls apps | wc -l)
+    if [[ ${initContainers} -lt $expected ]]; then
+      echo "❌ Error: not all apps were instrumented. Expected $expected, got ${initContainers}"
       exit 1
     fi
+    echo "✅ Success: all apps were instrumented"
 }
 
 function teardown() {

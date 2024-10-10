@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -49,6 +49,8 @@ var (
 	err        error
 	cfg        *rest.Config
 )
+
+var _ = k8sClient
 
 func TestMain(m *testing.M) {
 	ctx, cancel = context.WithCancel(context.TODO())
@@ -66,7 +68,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	if err = v1alpha1.AddToScheme(testScheme); err != nil {
+	if err = v1alpha2.AddToScheme(testScheme); err != nil {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
 	}

@@ -30,7 +30,8 @@ linters:
     - errcheck
     - errorlint
     - exhaustive
-    - exportloopref
+    #- exportloopref Since Go1.22 (loopvar) this linter is no longer relevant.
+    - copyloopvar
     - gocyclo
     - goprintffuncname
     - gosimple

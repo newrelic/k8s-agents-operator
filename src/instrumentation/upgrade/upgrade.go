@@ -24,19 +24,12 @@ import (
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 type InstrumentationUpgrade struct {
-	Client                client.Client
-	Logger                logr.Logger
-	DefaultAutoInstJava   string
-	DefaultAutoInstNodeJS string
-	DefaultAutoInstPython string
-	DefaultAutoInstDotNet string
-	DefaultAutoInstPhp    string
-	DefaultAutoInstRuby   string
-	DefaultAutoInstGo     string
+	Client client.Client
+	Logger logr.Logger
 }
 
 //+kubebuilder:rbac:groups=newrelic.com,resources=instrumentations,verbs=get;list;watch;update;patch
@@ -50,7 +43,7 @@ func (u *InstrumentationUpgrade) ManagedInstances(ctx context.Context) error {
 			"app.kubernetes.io/managed-by": "k8s-agents-operator",
 		}),
 	}
-	list := &v1alpha1.InstrumentationList{}
+	list := &v1alpha2.InstrumentationList{}
 	if err := u.Client.List(ctx, list, opts...); err != nil {
 		return fmt.Errorf("failed to list: %w", err)
 	}
@@ -73,62 +66,6 @@ func (u *InstrumentationUpgrade) ManagedInstances(ctx context.Context) error {
 	return nil
 }
 
-func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1alpha1.Instrumentation) v1alpha1.Instrumentation {
-	autoInstJava := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava]
-	if autoInstJava != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Java.Image == autoInstJava {
-			inst.Spec.Java.Image = u.DefaultAutoInstJava
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationJava] = u.DefaultAutoInstJava
-		}
-	}
-	autoInstNodeJS := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS]
-	if autoInstNodeJS != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.NodeJS.Image == autoInstNodeJS {
-			inst.Spec.NodeJS.Image = u.DefaultAutoInstNodeJS
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationNodeJS] = u.DefaultAutoInstNodeJS
-		}
-	}
-	autoInstPython := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython]
-	if autoInstPython != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Python.Image == autoInstPython {
-			inst.Spec.Python.Image = u.DefaultAutoInstPython
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPython] = u.DefaultAutoInstPython
-		}
-	}
-	autoInstDotnet := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet]
-	if autoInstDotnet != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.DotNet.Image == autoInstDotnet {
-			inst.Spec.DotNet.Image = u.DefaultAutoInstDotNet
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationDotNet] = u.DefaultAutoInstDotNet
-		}
-	}
-	autoInstPhp := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPhp]
-	if autoInstPhp != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Php.Image == autoInstPhp {
-			inst.Spec.Php.Image = u.DefaultAutoInstPhp
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationPhp] = u.DefaultAutoInstPhp
-		}
-	}
-	autoInstRuby := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby]
-	if autoInstRuby != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Ruby.Image == autoInstRuby {
-			inst.Spec.Ruby.Image = u.DefaultAutoInstRuby
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationRuby] = u.DefaultAutoInstRuby
-		}
-	}
-	autoInstGo := inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo]
-	if autoInstGo != "" {
-		// upgrade the image only if the image matches the annotation
-		if inst.Spec.Go.Image == autoInstGo {
-			inst.Spec.Go.Image = u.DefaultAutoInstGo
-			inst.Annotations[v1alpha1.AnnotationDefaultAutoInstrumentationGo] = u.DefaultAutoInstGo
-		}
-	}
+func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1alpha2.Instrumentation) v1alpha2.Instrumentation {
 	return inst
 }
