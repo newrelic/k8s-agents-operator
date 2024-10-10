@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "k8s-agents-operator.fullname" . }}-manager-role
+  name: {{ include "k8s-agents-operator.rbac.manager.role.name" . }}
   labels:
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - ""
@@ -74,15 +74,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ template "k8s-agents-operator.fullname" . }}-manager-rolebinding
+  name: {{ include "k8s-agents-operator.rbac.manager.roleBinding.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: '{{ template "k8s-agents-operator.fullname" . }}-manager-role'
+  name: {{ include "k8s-agents-operator.rbac.manager.role.name" . }}
 subjects:
 - kind: ServiceAccount
-  name: '{{ template "k8s-agents-operator.serviceAccountName" . }}'
-  namespace: '{{ .Release.Namespace }}'
+  name: {{ include "newrelic.common.serviceAccount.name" . }}
+  namespace: {{ .Release.Namespace }}

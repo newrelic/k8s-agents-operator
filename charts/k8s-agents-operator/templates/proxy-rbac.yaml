@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "k8s-agents-operator.fullname" . }}-proxy-role
+  name: {{ include "k8s-agents-operator.rbac.proxy.role.name" . }}
   labels:
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -21,15 +21,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ template "k8s-agents-operator.fullname" . }}-proxy-rolebinding
+  name: {{ include "k8s-agents-operator.rbac.proxy.roleBinding.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-  {{- include "k8s-agents-operator.labels" . | nindent 4 }}
+    {{- include "newrelic.common.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: '{{ template "k8s-agents-operator.fullname" . }}-proxy-role'
+  name: {{ include "k8s-agents-operator.rbac.proxy.role.name" . }}
 subjects:
 - kind: ServiceAccount
-  name: '{{ template "k8s-agents-operator.serviceAccountName" . }}'
-  namespace: '{{ .Release.Namespace }}'
+  name: {{ include "newrelic.common.serviceAccount.name" . }}
+  namespace: {{ .Release.Namespace }}
