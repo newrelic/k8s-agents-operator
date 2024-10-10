@@ -16,21 +16,54 @@ limitations under the License.
 package apm
 
 import (
+	"context"
+
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha1"
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 const (
 	envRubyOpt            = "RUBYOPT"
 	rubyOptRequire        = "-r /newrelic-instrumentation/lib/boot/strap"
-	rubyVolumeName        = volumeName + "-ruby"
 	rubyInitContainerName = initContainerName + "-ruby"
 )
 
-func InjectRubySDK(rubySpec v1alpha1.Ruby, pod corev1.Pod, index int) (corev1.Pod, error) {
+var _ Injector = (*RubyInjector)(nil)
+
+func init() {
+	DefaultInjectorRegistry.MustRegister(&RubyInjector{})
+}
+
+type RubyInjector struct {
+	baseInjector
+}
+
+func (i *RubyInjector) Language() string {
+	return "ruby"
+}
+
+func (i *RubyInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language != i.Language() {
+		return false
+	}
+	if len(pod.Spec.Containers) == 0 {
+		return false
+	}
+	return true
+}
+
+func (i *RubyInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	if !i.acceptable(inst, pod) {
+		return pod, nil
+	}
+	if err := i.validate(inst); err != nil {
+		return pod, err
+	}
+
+	firstContainer := 0
 	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[index]
+	container := &pod.Spec.Containers[firstContainer]
 
 	err := validateContainerEnv(container.Env, envRubyOpt)
 	if err != nil {
@@ -38,7 +71,7 @@ func InjectRubySDK(rubySpec v1alpha1.Ruby, pod corev1.Pod, index int) (corev1.Po
 	}
 
 	// inject Ruby instrumentation spec env vars.
-	for _, env := range rubySpec.Env {
+	for _, env := range inst.Spec.Agent.Env {
 		idx := getIndexOfEnv(container.Env, env.Name)
 		if idx == -1 {
 			container.Env = append(container.Env, env)
@@ -55,22 +88,26 @@ func InjectRubySDK(rubySpec v1alpha1.Ruby, pod corev1.Pod, index int) (corev1.Po
 		container.Env[idx].Value = container.Env[idx].Value + envRubyOpt
 	}
 
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-		Name:      volumeName,
-		MountPath: "/newrelic-instrumentation",
-	})
+	if isContainerVolumeMissing(container, volumeName) {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: "/newrelic-instrumentation",
+		})
+	}
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod) {
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			}})
+	if isInitContainerMissing(pod, rubyInitContainerName) {
+		if isPodVolumeMissing(pod, volumeName) {
+			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				}})
+		}
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-			Name:    initContainerName,
-			Image:   rubySpec.Image,
+			Name:    rubyInitContainerName,
+			Image:   inst.Spec.Agent.Image,
 			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
@@ -78,5 +115,8 @@ func InjectRubySDK(rubySpec v1alpha1.Ruby, pod corev1.Pod, index int) (corev1.Po
 			}},
 		})
 	}
+
+	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+
 	return pod, nil
 }

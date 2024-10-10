@@ -12,8 +12,7 @@ spec:
     metadata:
       labels:
         app: nodejsapp
-      annotations:
-        instrumentation.newrelic.com/inject-nodejs: "true"
+        app.newrelic.instrumentation: newrelic-nodejs-agent
     spec:
       containers:
         - name: nodejsapp

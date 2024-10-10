@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: not-matching
+spec:
+  containers:
+    - image: busybox
+      name: a
+      command:
+        - sleep
+        - "9999"

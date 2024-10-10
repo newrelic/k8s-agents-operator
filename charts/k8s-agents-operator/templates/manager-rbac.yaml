@@ -12,6 +12,17 @@ rules:
   verbs:
   - create
   - patch
+- apiGroups: [ "" ]
+  resources: ["secrets"]
+  verbs:
+    - get
+    - list
+    - create
+    - delete
+    - deletecollection
+    - patch
+    - update
+    - watch
 - apiGroups:
   - ""
   resources:

@@ -11,14 +11,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-newrelic-com-v1alpha1-instrumentation
+      path: /mutate-newrelic-com-v1alpha2-instrumentation
   failurePolicy: Fail
-  name: instrumentation.kb.io
+  name: minstrumentation.kb.io
   rules:
   - apiGroups:
     - newrelic.com
     apiVersions:
-    - v1alpha1
+    - v1alpha2
     operations:
     - CREATE
     - UPDATE
@@ -45,6 +45,7 @@ webhooks:
     resources:
     - pods
   sideEffects: None
+
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -58,14 +59,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-newrelic-com-v1alpha1-instrumentation
+      path: /validate-newrelic-com-v1alpha2-instrumentation
   failurePolicy: Fail
   name: vinstrumentationcreateupdate.kb.io
   rules:
   - apiGroups:
     - newrelic.com
     apiVersions:
-    - v1alpha1
+    - v1alpha2
     operations:
     - CREATE
     - UPDATE
@@ -78,14 +79,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-newrelic-com-v1alpha1-instrumentation
+      path: /validate-newrelic-com-v1alpha2-instrumentation
   failurePolicy: Ignore
   name: vinstrumentationdelete.kb.io
   rules:
   - apiGroups:
     - newrelic.com
     apiVersions:
-    - v1alpha1
+    - v1alpha2
     operations:
     - DELETE
     resources:

@@ -33,20 +33,13 @@ const (
 
 // Config holds the static configuration for this operator.
 type Config struct {
-	autoDetect                     autodetect.AutoDetect
-	logger                         logr.Logger
-	autoInstrumentationPythonImage string
-	autoInstrumentationDotNetImage string
-	autoInstrumentationNodeJSImage string
-	autoInstrumentationJavaImage   string
-	autoInstrumentationGoImage     string
-	autoInstrumentationPhpImage    string
-	autoInstrumentationRubyImage   string
-	onOpenShiftRoutesChange        changeHandler
-	labelsFilter                   []string
-	openshiftRoutes                openshiftRoutesStore
-	autoDetectFrequency            time.Duration
-	autoscalingVersion             autodetect.AutoscalingVersion
+	autoDetect              autodetect.AutoDetect
+	logger                  logr.Logger
+	onOpenShiftRoutesChange changeHandler
+	labelsFilter            []string
+	openshiftRoutes         openshiftRoutesStore
+	autoDetectFrequency     time.Duration
+	autoscalingVersion      autodetect.AutoscalingVersion
 }
 
 // New constructs a new configuration based on the given options.
@@ -65,20 +58,13 @@ func New(opts ...Option) Config {
 	}
 
 	return Config{
-		autoDetect:                     o.autoDetect,
-		autoDetectFrequency:            o.autoDetectFrequency,
-		logger:                         o.logger,
-		openshiftRoutes:                o.openshiftRoutes,
-		onOpenShiftRoutesChange:        o.onOpenShiftRoutesChange,
-		autoInstrumentationJavaImage:   o.autoInstrumentationJavaImage,
-		autoInstrumentationNodeJSImage: o.autoInstrumentationNodeJSImage,
-		autoInstrumentationPythonImage: o.autoInstrumentationPythonImage,
-		autoInstrumentationDotNetImage: o.autoInstrumentationDotNetImage,
-		autoInstrumentationPhpImage:    o.autoInstrumentationPhpImage,
-		autoInstrumentationRubyImage:   o.autoInstrumentationRubyImage,
-		autoInstrumentationGoImage:     o.autoInstrumentationGoImage,
-		labelsFilter:                   o.labelsFilter,
-		autoscalingVersion:             o.autoscalingVersion,
+		autoDetect:              o.autoDetect,
+		autoDetectFrequency:     o.autoDetectFrequency,
+		logger:                  o.logger,
+		openshiftRoutes:         o.openshiftRoutes,
+		onOpenShiftRoutesChange: o.onOpenShiftRoutesChange,
+		labelsFilter:            o.labelsFilter,
+		autoscalingVersion:      o.autoscalingVersion,
 	}
 }
 
@@ -137,41 +123,6 @@ func (c *Config) OpenShiftRoutes() autodetect.OpenShiftRoutesAvailability {
 // AutoscalingVersion represents the preferred version of autoscaling.
 func (c *Config) AutoscalingVersion() autodetect.AutoscalingVersion {
 	return c.autoscalingVersion
-}
-
-// AutoInstrumentationJavaImage returns New Relic Java auto-instrumentation container image.
-func (c *Config) AutoInstrumentationJavaImage() string {
-	return c.autoInstrumentationJavaImage
-}
-
-// AutoInstrumentationNodeJSImage returns New Relic NodeJS auto-instrumentation container image.
-func (c *Config) AutoInstrumentationNodeJSImage() string {
-	return c.autoInstrumentationNodeJSImage
-}
-
-// AutoInstrumentationPythonImage returns New Relic Python auto-instrumentation container image.
-func (c *Config) AutoInstrumentationPythonImage() string {
-	return c.autoInstrumentationPythonImage
-}
-
-// AutoInstrumentationDotNetImage returns New Relic DotNet auto-instrumentation container image.
-func (c *Config) AutoInstrumentationDotNetImage() string {
-	return c.autoInstrumentationDotNetImage
-}
-
-// AutoInstrumentationDotNetImage returns New Relic DotNet auto-instrumentation container image.
-func (c *Config) AutoInstrumentationPhpImage() string {
-	return c.autoInstrumentationPhpImage
-}
-
-// AutoInstrumentationRubyImage returns New Relic Ruby auto-instrumentation container image.
-func (c *Config) AutoInstrumentationRubyImage() string {
-	return c.autoInstrumentationRubyImage
-}
-
-// AutoInstrumentationGoImage returns Opentelemtrey Go auto-instrumentation container image.
-func (c *Config) AutoInstrumentationGoImage() string {
-	return c.autoInstrumentationGoImage
 }
 
 // LabelsFilter Returns the filters converted to regex strings used to filter out unwanted labels from propagations.

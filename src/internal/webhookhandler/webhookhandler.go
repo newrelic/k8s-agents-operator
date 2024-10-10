@@ -39,7 +39,7 @@ import (
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-var _ WebhookHandler = (*podSidecarInjector)(nil)
+var _ WebhookHandler = (*podMutationHandler)(nil)
 
 // WebhookHandler is a webhook handler that analyzes new pods and injects appropriate sidecars into it.
 type WebhookHandler interface {
@@ -48,7 +48,7 @@ type WebhookHandler interface {
 }
 
 // the implementation.
-type podSidecarInjector struct {
+type podMutationHandler struct {
 	client      client.Client
 	decoder     *admission.Decoder
 	logger      logr.Logger
@@ -63,7 +63,7 @@ type PodMutator interface {
 
 // NewWebhookHandler creates a new WebhookHandler.
 func NewWebhookHandler(cfg config.Config, logger logr.Logger, cl client.Client, podMutators []PodMutator) WebhookHandler {
-	return &podSidecarInjector{
+	return &podMutationHandler{
 		config:      cfg,
 		logger:      logger,
 		client:      cl,
@@ -71,7 +71,7 @@ func NewWebhookHandler(cfg config.Config, logger logr.Logger, cl client.Client, 
 	}
 }
 
-func (p *podSidecarInjector) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (p *podMutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := corev1.Pod{}
 	err := p.decoder.Decode(req, &pod)
 	if err != nil {
@@ -95,6 +95,7 @@ func (p *podSidecarInjector) Handle(ctx context.Context, req admission.Request) 
 	for _, m := range p.podMutators {
 		pod, err = m.Mutate(ctx, ns, pod)
 		if err != nil {
+			//@todo: actually print the error message
 			res := admission.Errored(http.StatusInternalServerError, err)
 			res.Allowed = true
 			return res
@@ -110,7 +111,7 @@ func (p *podSidecarInjector) Handle(ctx context.Context, req admission.Request) 
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPod)
 }
 
-func (p *podSidecarInjector) InjectDecoder(d *admission.Decoder) error {
+func (p *podMutationHandler) InjectDecoder(d *admission.Decoder) error {
 	p.decoder = d
 	return nil
 }

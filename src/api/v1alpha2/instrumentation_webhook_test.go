@@ -1,29 +1,11 @@
-package v1alpha1
+package v1alpha2
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/stretchr/testify/require"
 )
-
-func TestInstrumentationDefaultingWebhook(t *testing.T) {
-	inst := &Instrumentation{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				AnnotationDefaultAutoInstrumentationJava:   "java-img:1",
-				AnnotationDefaultAutoInstrumentationNodeJS: "nodejs-img:1",
-				AnnotationDefaultAutoInstrumentationPython: "python-img:1",
-				AnnotationDefaultAutoInstrumentationDotNet: "dotnet-img:1",
-			},
-		},
-	}
-	inst.Default()
-	assert.Equal(t, "java-img:1", inst.Spec.Java.Image)
-	assert.Equal(t, "nodejs-img:1", inst.Spec.NodeJS.Image)
-	assert.Equal(t, "python-img:1", inst.Spec.Python.Image)
-	assert.Equal(t, "dotnet-img:1", inst.Spec.DotNet.Image)
-}
 
 func TestInstrumentationValidatingWebhook(t *testing.T) {
 	tests := []struct {
@@ -39,6 +21,7 @@ func TestInstrumentationValidatingWebhook(t *testing.T) {
 						Type:     ParentBasedTraceIDRatio,
 						Argument: "0.99",
 					},
+					Agent: Agent{Language: "java", Image: "java"},
 				},
 			},
 		},
@@ -49,12 +32,17 @@ func TestInstrumentationValidatingWebhook(t *testing.T) {
 					Sampler: Sampler{
 						Type: ParentBasedTraceIDRatio,
 					},
+					Agent: Agent{Language: "java", Image: "java"},
 				},
 			},
 		},
 	}
 	for _, test := range tests {
+		test.inst.Default()
+		err := test.inst.ValidateCreate()
+		require.NoError(t, err)
 		t.Run(test.name, func(t *testing.T) {
+			test.inst.Default()
 			if test.err == "" {
 				assert.Nil(t, test.inst.ValidateCreate())
 				assert.Nil(t, test.inst.ValidateUpdate(nil))
