@@ -15,6 +15,24 @@ This project auto-instruments containerized workloads in Kubernetes with New Rel
 
 For instructions on how to install the Helm chart, read the [chart's README](./charts/k8s-agents-operator/README.md)
 
+## Development
+
+We use Minikube and Tilt to spawn a local environment that it will reload after any changes inside the charts or the integration code.
+
+Make sure you have these tools or install them:
+
+* [Install minikube](https://minikube.sigs.k8s.io/docs/start/)
+* [Install Tilt](https://docs.tilt.dev/install.html)
+* [Install Helm](https://helm.sh/docs/intro/install/)
+
+Start the local environment:
+
+```bash
+ctlptl create registry ctlptl-registry --port=5005
+ctlptl create cluster minikube --registry=ctlptl-registry
+tilt up
+```
+
 ## Support
 
 New Relic hosts and moderates an online forum where you can interact with New Relic employees as well as other customers to get help and share best practices. Like all official New Relic open source projects, there's a related Community topic in the New Relic Explorers Hub. You can find this project's topic/threads here:
