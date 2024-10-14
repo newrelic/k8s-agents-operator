@@ -14,7 +14,7 @@ import (
 )
 
 func TestPhpInjector_Language(t *testing.T) {
-	require.Equal(t, "php", (&PhpInjector{}).Language())
+	require.Equal(t, "php", (&PhpInjector{acceptVersion: acceptVersion("php")}).Language())
 }
 
 func TestPhpInjector_Inject(t *testing.T) {
@@ -58,7 +58,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 				{Name: "test"},
 			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
-			inst:           v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "php"}}},
+			inst:           v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "php-8.3"}}},
 		},
 		{
 			name: "a container, instrumentation",
@@ -90,13 +90,13 @@ func TestPhpInjector_Inject(t *testing.T) {
 					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				},
 			},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "php"}, LicenseKeySecret: "newrelic-key-secret"}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "php-8.3"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			i := &PhpInjector{}
+			i := &PhpInjector{acceptVersion: acceptVersion("php-8.3")}
 			actualPod, err := i.Inject(ctx, test.inst, test.ns, test.pod)
 			errStr := ""
 			if err != nil {

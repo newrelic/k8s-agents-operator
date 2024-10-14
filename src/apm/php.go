@@ -18,6 +18,7 @@ package apm
 import (
 	"context"
 	"errors"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -25,7 +26,6 @@ import (
 )
 
 const (
-	annotationPhpVersion = "instrumentation.newrelic.com/php-version"
 	envIniScanDirKey     = "PHP_INI_SCAN_DIR"
 	envIniScanDirVal     = "/newrelic-instrumentation/php-agent/ini"
 	phpInitContainerName = initContainerName + "-php"
@@ -34,10 +34,11 @@ const (
 var _ Injector = (*PhpInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&PhpInjector{})
+	for _, v := range phpAcceptVersions {
+		DefaultInjectorRegistry.MustRegister(&PhpInjector{acceptVersion: v})
+	}
 }
 
-// Deprecated: phpApiMap is deprecated.  Do not use annotations.
 var phpApiMap = map[string]string{
 	"7.2": "20170718",
 	"7.3": "20180731",
@@ -48,16 +49,26 @@ var phpApiMap = map[string]string{
 	"8.3": "20230831",
 }
 
-type PhpInjector struct {
-	baseInjector
+var phpAcceptVersions = []acceptVersion{php72, php73, php74, php80, php81, php82, php83}
+
+const (
+	php72 acceptVersion = "php-7.2"
+	php73 acceptVersion = "php-7.3"
+	php74 acceptVersion = "php-7.4"
+	php80 acceptVersion = "php-8.0"
+	php81 acceptVersion = "php-8.1"
+	php82 acceptVersion = "php-8.2"
+	php83 acceptVersion = "php-8.3"
+)
+
+type acceptVersion string
+
+func (al acceptVersion) Language() string {
+	return string(al)
 }
 
-func (i *PhpInjector) Language() string {
-	return "php"
-}
-
-func (i *PhpInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != i.Language() {
+func (al acceptVersion) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language != string(al) {
 		return false
 	}
 	if len(pod.Spec.Containers) == 0 {
@@ -66,8 +77,12 @@ func (i *PhpInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) 
 	return true
 }
 
+type PhpInjector struct {
+	baseInjector
+	acceptVersion
+}
+
 // Inject is used to inject the PHP agent.
-// @todo: Currently it uses annotations, which should be removed.  This should either use a specific image for each php version or the k8s-agents-operator needs to add support for a language version
 func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
@@ -78,14 +93,14 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 
 	firstContainer := 0
 
-	// exit early if we're missing mandatory annotations
-	// Deprecated: phpVer is deprecated.  Do not use annotations.
-	phpVer, ok := pod.Annotations[annotationPhpVersion]
-	if !ok {
-		return pod, errors.New("missing php version annotation")
+	// <lang:php>-<version:[0-9].[0-9]>
+	lang := strings.SplitN(i.Language(), "-", 2)
+	if len(lang) != 2 {
+		// should never happen
+		return pod, errors.New("missing php version")
 	}
+	phpVer := lang[1]
 
-	// Deprecated: apiNum is deprecated.  Do not use annotations.
 	apiNum, ok := phpApiMap[phpVer]
 	if !ok {
 		return pod, errors.New("invalid php version")
