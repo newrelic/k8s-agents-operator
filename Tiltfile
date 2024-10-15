@@ -27,23 +27,6 @@ flags_helm = ['--create-namespace','--version=>=0.0.0-beta','--set=super-agent-d
 
 
 #### Installs charts
-helm_repo(
-  'jetstack',
-  'https://charts.jetstack.io',
-  resource_name='jetstack-helm-repo',
-)
-
-helm_resource(
-  'cert-manager',
-  'jetstack/cert-manager',
-  namespace='cert-manager',
-  release_name='cert-manager',
-  update_dependencies=False,
-  flags=['--create-namespace', '--set=crds.enabled=true'],
-  resource_deps=['jetstack-helm-repo']
-)
-
-
 helm_resource(
   'operator',
   chart,
@@ -54,7 +37,7 @@ helm_resource(
   flags=flags_helm,
   image_deps=['tilt.local/operator-dev'],
   image_keys=[('controllerManager.manager.image.repository', 'controllerManager.manager.image.tag')],
-  resource_deps=['cert-manager']
+  resource_deps=[]
 )
 
 update_settings(k8s_upsert_timeout_secs=150)
