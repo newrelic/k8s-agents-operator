@@ -136,7 +136,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 				}})
 		}
 
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
+		initContainer := corev1.Container{
 			Name:    phpInitContainerName,
 			Image:   inst.Spec.Agent.Image,
 			Command: []string{"/bin/sh"},
@@ -148,10 +148,12 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
-		})
+		}
+		initContainer = i.injectNewrelicLicenseKeyIntoContainer(initContainer, inst.Spec.LicenseKeySecret)
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	}
 
-	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
 
 	return pod, nil
 }
