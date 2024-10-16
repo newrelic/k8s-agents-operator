@@ -117,7 +117,8 @@ func (i *PythonInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		})
 	}
 
-	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
+	pod.Spec.Containers[firstContainer] = i.injectNewrelicLicenseKeyIntoContainer(*container, inst.Spec.LicenseKeySecret)
 
 	return pod, nil
 }

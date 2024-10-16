@@ -70,9 +70,9 @@ func TestRubyInjector_Inject(t *testing.T) {
 					Env: []corev1.EnvVar{
 						{Name: "RUBYOPT", Value: "-r /newrelic-instrumentation/lib/boot/strap"},
 						{Name: "NEW_RELIC_APP_NAME", Value: "test"},
-						{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 						{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+						{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 					},
 					VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
 				}},
