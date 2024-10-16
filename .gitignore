@@ -2,3 +2,6 @@ bin/
 tmp/
 
 config
+
+# Downloaded chart dependencies
+**/charts/*.tgz
