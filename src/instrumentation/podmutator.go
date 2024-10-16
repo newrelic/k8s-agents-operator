@@ -18,6 +18,7 @@ package instrumentation
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +37,7 @@ var (
 	_ InstrumentationLocator    = (*NewrelicInstrumentationLocator)(nil)
 	_ SdkInjector               = (*NewrelicSdkInjector)(nil)
 	_ SecretReplicator          = (*NewrelicSecretReplicator)(nil)
+	_ ConfigMapReplicator       = (*NewrelicConfigMapReplicator)(nil)
 )
 
 var (
@@ -48,6 +50,7 @@ type instPodMutator struct {
 	client                 client.Client
 	sdkInjector            SdkInjector
 	secretReplicator       SecretReplicator
+	configMapReplicator    ConfigMapReplicator
 	instrumentationLocator InstrumentationLocator
 	operatorNamespace      string
 }
@@ -58,6 +61,7 @@ func NewMutator(
 	client client.Client,
 	sdkInjector SdkInjector,
 	secretReplicator SecretReplicator,
+	configMapReplicator ConfigMapReplicator,
 	instrumentationLocator InstrumentationLocator,
 	operatorNamespace string,
 ) *instPodMutator {
@@ -66,6 +70,7 @@ func NewMutator(
 		client:                 client,
 		sdkInjector:            sdkInjector,
 		secretReplicator:       secretReplicator,
+		configMapReplicator:    configMapReplicator,
 		instrumentationLocator: instrumentationLocator,
 		operatorNamespace:      operatorNamespace,
 	}
@@ -96,18 +101,119 @@ func (pm *instPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod c
 		return pod, err
 	}
 
-	if licenseKeySecret, err := GetSecretNameFromInstrumentations(instCandidates); err != nil {
+	licenseKeySecret, err := GetSecretNameFromInstrumentations(instCandidates)
+	if err != nil {
 		logger.Error(err, "failed to identify the correct secret.  all matching instrumentation's must use the same secret")
 		return pod, nil
-	} else {
-		err = pm.secretReplicator.ReplicateSecret(ctx, ns, pod, pm.operatorNamespace, licenseKeySecret)
-		if err != nil {
-			logger.Error(err, "failed to replicate secret")
-			return pod, nil
+	}
+
+	if err = pm.secretReplicator.ReplicateSecret(ctx, ns, pod, pm.operatorNamespace, licenseKeySecret); err != nil {
+		logger.Error(err, "failed to replicate secret")
+		return pod, nil
+	}
+
+	if err := ValidateAgentEnvInInstrumentations(instrumentations); err != nil {
+		logger.Error(err, "failed to validate instrumentations")
+		return pod, err
+	}
+
+	uniqueSecretNames := map[string]struct{}{}
+	uniqueConfigMapNames := map[string]struct{}{}
+	for _, instrumentation := range instrumentations {
+		uniqueSecretList := CollectSecretsFromInstrumentation(*instrumentation)
+		for _, secretName := range uniqueSecretList {
+			uniqueSecretNames[secretName] = struct{}{}
+		}
+		uniqueConfigMapList := CollectConfigMapsFromInstrumentation(*instrumentation)
+		for _, configMapName := range uniqueConfigMapList {
+			uniqueConfigMapNames[configMapName] = struct{}{}
+		}
+	}
+	uniqueSecretList := make([]string, 0, len(uniqueSecretNames))
+	for secretName := range uniqueSecretNames {
+		uniqueSecretList = append(uniqueSecretList, secretName)
+	}
+	uniqueConfigMapList := make([]string, 0, len(uniqueConfigMapNames))
+	for configMapName := range uniqueConfigMapNames {
+		uniqueConfigMapList = append(uniqueConfigMapList, configMapName)
+	}
+	//@todo: remove interface conversion once the tests support this
+	if secretsReplicator, ok := pm.secretReplicator.(SecretsReplicator); ok {
+		if err = secretsReplicator.ReplicateSecrets(ctx, ns, pod, pm.operatorNamespace, uniqueSecretList); err != nil {
+			logger.Error(err, "failed to replicate secrets")
+			return pod, err
+		}
+	}
+	//@todo: remove interface conversion once the tests support this
+	if configMapsReplicator, ok := pm.configMapReplicator.(ConfigMapsReplicator); ok {
+		if err = configMapsReplicator.ReplicateConfigMaps(ctx, ns, pod, pm.operatorNamespace, uniqueConfigMapList); err != nil {
+			logger.Error(err, "failed to replicate config maps")
+			return pod, err
 		}
 	}
 
 	return pm.sdkInjector.Inject(ctx, instrumentations, ns, pod), nil
+}
+
+// ValidateAgentEnvInInstrumentations is used to ensure that no duplicate env keys are duplicated
+func ValidateAgentEnvInInstrumentations(instrumentations []*v1alpha2.Instrumentation) error {
+	uniqueNames := map[string]int{}
+	for _, instrumentation := range instrumentations {
+		for _, entry := range instrumentation.Spec.Agent.Env {
+			uniqueNames[entry.Name]++
+		}
+	}
+	var errs []error
+	for name, count := range uniqueNames {
+		if count > 1 {
+			errs = append(errs, fmt.Errorf("env variable %q is duplicated", name))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// CollectConfigMapsFromInstrumentation to find all the unique configmap names from the agent.env
+func CollectConfigMapsFromInstrumentation(instrumentation v1alpha2.Instrumentation) []string {
+	uniqueNames := map[string]struct{}{}
+	for _, entry := range instrumentation.Spec.Agent.Env {
+		if entry.ValueFrom == nil {
+			continue
+		}
+		if entry.ValueFrom.ConfigMapKeyRef == nil {
+			continue
+		}
+		if entry.ValueFrom.ConfigMapKeyRef.Name == "" {
+			continue
+		}
+		uniqueNames[entry.ValueFrom.ConfigMapKeyRef.Name] = struct{}{}
+	}
+	names := make([]string, 0, len(uniqueNames))
+	for name := range uniqueNames {
+		names = append(names, name)
+	}
+	return names
+}
+
+// CollectConfigMapsFromInstrumentation to find all the unique secret names from the agent.env
+func CollectSecretsFromInstrumentation(instrumentation v1alpha2.Instrumentation) []string {
+	uniqueNames := map[string]struct{}{}
+	for _, entry := range instrumentation.Spec.Agent.Env {
+		if entry.ValueFrom == nil {
+			continue
+		}
+		if entry.ValueFrom.SecretKeyRef == nil {
+			continue
+		}
+		if entry.ValueFrom.SecretKeyRef.Name == "" {
+			continue
+		}
+		uniqueNames[entry.ValueFrom.SecretKeyRef.Name] = struct{}{}
+	}
+	names := make([]string, 0, len(uniqueNames))
+	for name := range uniqueNames {
+		names = append(names, name)
+	}
+	return names
 }
 
 // GetLanguageInstrumentations is used to collect all instrumentations and validate that only a single instrumentation
@@ -233,6 +339,21 @@ type SecretReplicator interface {
 	ReplicateSecret(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretName string) error
 }
 
+// SecretReplicator is used to copy secrets from one namespace to another
+type SecretsReplicator interface {
+	ReplicateSecrets(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error
+}
+
+// ConfigMapReplicator is used to copy configmaps from one namespace to another
+type ConfigMapReplicator interface {
+	ReplicateConfigMap(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapName string) error
+}
+
+// ConfigMapReplicator is used to copy configmaps from one namespace to another
+type ConfigMapsReplicator interface {
+	ReplicateConfigMaps(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapNames []string) error
+}
+
 // NewrelicSecretReplicator is the base struct used for copying the secrets
 type NewrelicSecretReplicator struct {
 	client client.Client
@@ -242,6 +363,15 @@ type NewrelicSecretReplicator struct {
 // NewNewrelicSecretReplicator is the constructor for copying secrets
 func NewNewrelicSecretReplicator(logger logr.Logger, client client.Client) *NewrelicSecretReplicator {
 	return &NewrelicSecretReplicator{client: client, logger: logger}
+}
+
+func (sr *NewrelicSecretReplicator) ReplicateSecrets(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error {
+	for _, secretName := range secretNames {
+		if err := sr.ReplicateSecret(ctx, ns, pod, operatorNamespace, secretName); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ReplicateSecret is used to copy the secret from the operator namespace to the pod namespace if the secret doesn't already exist
@@ -280,6 +410,66 @@ func (sr *NewrelicSecretReplicator) ReplicateSecret(ctx context.Context, ns core
 	}
 	if err = sr.client.Create(ctx, &newSecret); err != nil {
 		logger.Error(err, "failed to create a new secret")
+		return err
+	}
+
+	return nil
+}
+
+type NewrelicConfigMapReplicator struct {
+	client client.Client
+	logger logr.Logger
+}
+
+// NewNewrelicConfigMapReplicator is the constructor for copying configmaps
+func NewNewrelicConfigMapReplicator(logger logr.Logger, client client.Client) *NewrelicConfigMapReplicator {
+	return &NewrelicConfigMapReplicator{client: client, logger: logger}
+}
+
+func (cr *NewrelicConfigMapReplicator) ReplicateConfigMaps(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapNames []string) error {
+	for _, configMapName := range configMapNames {
+		if err := cr.ReplicateConfigMap(ctx, ns, pod, operatorNamespace, configMapName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (cr *NewrelicConfigMapReplicator) ReplicateConfigMap(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapName string) error {
+	logger := cr.logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
+
+	var configMap corev1.ConfigMap
+
+	if configMapName == "" {
+		return fmt.Errorf("config map name required")
+	}
+
+	err := cr.client.Get(ctx, client.ObjectKey{Namespace: ns.Name, Name: configMapName}, &configMap)
+	if err == nil {
+		logger.Info("config map already exists")
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		logger.Error(err, "failed to check for existing config map in pod namespace")
+		return err
+	}
+	logger.Info("replicating config map to pod namespace")
+
+	if err = cr.client.Get(ctx, client.ObjectKey{Namespace: operatorNamespace, Name: configMapName}, &configMap); err != nil {
+		logger.Error(err, "failed to retrieve the config map from operator namespace")
+		return err
+	}
+
+	newConfigMap := corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: ns.Name,
+		},
+		Data: configMap.Data,
+	}
+	if err = cr.client.Create(ctx, &newConfigMap); err != nil {
+		logger.Error(err, "failed to create a new config map")
 		return err
 	}
 
