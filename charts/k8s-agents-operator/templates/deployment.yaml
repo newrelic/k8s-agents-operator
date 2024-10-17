@@ -24,8 +24,17 @@ spec:
     metadata:
       labels:
         control-plane: controller-manager
-        {{- include "newrelic.common.labels" . | nindent 8 }}
+        {{- include "newrelic.common.labels.podLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "newrelic.common.serviceAccount.name" . }}
+      {{- with include "newrelic.common.priorityClassName" . }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with include "newrelic.common.dnsConfig" . }}
+      dnsConfig:
+        {{- . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 10
       containers:
       - args:
         - --metrics-addr=127.0.0.1:8080
@@ -82,8 +91,6 @@ spec:
           name: https
           protocol: TCP
         resources: {{- toYaml .Values.controllerManager.kubeRbacProxy.resources | nindent 10 }}
-      serviceAccountName: {{ include "newrelic.common.serviceAccount.name" . }}
-      terminationGracePeriodSeconds: 10
       {{- if or .Values.admissionWebhooks.create (include "k8s-agents-operator.certificateSecret.name" . ) }}
       volumes:
       - name: cert

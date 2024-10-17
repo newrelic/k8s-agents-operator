@@ -5,6 +5,17 @@
 # -- This set this license key to use. Can be configured also with `global.licenseKey`
 licenseKey: ""
 
+# -- Additional labels for chart pods
+podLabels: {}
+# -- Additional labels for chart objects
+labels: {}
+
+# -- Sets pod's priorityClassName. Can be configured also with `global.priorityClassName`
+priorityClassName: ""
+
+# -- Sets pod's dnsConfig. Can be configured also with `global.dnsConfig`
+dnsConfig: {}
+
 controllerManager:
   replicas: 1
 
