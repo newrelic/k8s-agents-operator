@@ -208,6 +208,7 @@ func main() {
 		client := mgr.GetClient()
 		injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
 		secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
+		configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(logger, client)
 		instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
 		mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{
 			Handler: webhookhandler.NewWebhookHandler(
@@ -218,6 +219,7 @@ func main() {
 						client,
 						injector,
 						secretReplicator,
+						configMapReplicator,
 						instrumentationLocator,
 						operatorNamespace,
 					),
