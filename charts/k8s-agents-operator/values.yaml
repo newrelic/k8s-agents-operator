@@ -50,7 +50,7 @@ controllerManager:
         cpu: 100m
         memory: 64Mi
     # -- Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext`
-    containerSecurityContext: { }
+    containerSecurityContext: {}
     # -- Source: https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
     # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
     leaderElection:
