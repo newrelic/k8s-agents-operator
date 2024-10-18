@@ -239,28 +239,40 @@ If you want to see a list of all available charts and releases, check [index.yam
 | admissionWebhooks.certFile | string | `""` | Path to your own PEM-encoded certificate. |
 | admissionWebhooks.certManager.enabled | bool | `false` | If true and autoGenerateCert.enabled is false, cert-manager will create a self-signed cert and secret for you. |
 | admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
+| affinity | object | `{}` | Sets all pods' affinities. Can be configured also with `global.affinity` |
+| containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
+| controllerManager.kubeRbacProxy.containerSecurityContext | object | `{}` | Sets security context (at container level) for kubeRbacProxy. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
 | controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` |  |
 | controllerManager.kubeRbacProxy.image.tag | string | `"v0.14.0"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.memory | string | `"128Mi"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.cpu | string | `"5m"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.memory | string | `"64Mi"` |  |
+| controllerManager.manager.containerSecurityContext | object | `{}` | Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
 | controllerManager.manager.image.pullPolicy | string | `nil` |  |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` |  |
 | controllerManager.manager.image.tag | string | `nil` |  |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
-| controllerManager.manager.serviceAccount.create | bool | `true` |  |
 | controllerManager.replicas | int | `1` |  |
+| dnsConfig | object | `{}` | Sets pod's dnsConfig. Can be configured also with `global.dnsConfig` |
 | kubernetesClusterDomain | string | `"cluster.local"` |  |
+| labels | object | `{}` | Additional labels for chart objects |
 | licenseKey | string | `""` | This set this license key to use. Can be configured also with `global.licenseKey` |
 | metricsService.ports[0].name | string | `"https"` |  |
 | metricsService.ports[0].port | int | `8443` |  |
 | metricsService.ports[0].protocol | string | `"TCP"` |  |
 | metricsService.ports[0].targetPort | string | `"https"` |  |
 | metricsService.type | string | `"ClusterIP"` |  |
-| securityContext | object | `{"fsGroup":65532,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}` | SecurityContext holds pod-level security attributes and common container settings |
+| nodeSelector | object | `{}` | Sets all pods' node selector. Can be configured also with `global.nodeSelector` |
+| podAnnotations | object | `{}` | Annotations to be added to the deployment. |
+| podLabels | object | `{}` | Additional labels for chart pods |
+| podSecurityContext | object | `{"fsGroup":65532,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}` | SecurityContext holds pod-level security attributes and common container settings |
+| priorityClassName | string | `""` | Sets pod's priorityClassName. Can be configured also with `global.priorityClassName` |
+| serviceAccount | object | See `values.yaml` | Settings controlling ServiceAccount creation |
+| serviceAccount.create | bool | `true` | Specifies whether a ServiceAccount should be created |
+| tolerations | list | `[]` | Sets all pods' tolerations to node taints. Can be configured also with `global.tolerations` |
 | webhookService.ports[0].port | int | `443` |  |
 | webhookService.ports[0].protocol | string | `"TCP"` |  |
 | webhookService.ports[0].targetPort | int | `9443` |  |
