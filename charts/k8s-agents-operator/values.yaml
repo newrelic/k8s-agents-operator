@@ -9,6 +9,8 @@ licenseKey: ""
 podLabels: {}
 # -- Additional labels for chart objects
 labels: {}
+# -- Annotations to be added to the deployment.
+podAnnotations: {}
 
 # -- Sets pod's priorityClassName. Can be configured also with `global.priorityClassName`
 priorityClassName: ""
@@ -16,8 +18,43 @@ priorityClassName: ""
 # -- Sets pod's dnsConfig. Can be configured also with `global.dnsConfig`
 dnsConfig: {}
 
+# -- Sets all pods' node selector. Can be configured also with `global.nodeSelector`
+nodeSelector: {}
+# -- Sets all pods' tolerations to node taints. Can be configured also with `global.tolerations`
+tolerations: []
+# -- Sets all pods' affinities. Can be configured also with `global.affinity`
+affinity: {}
+# -- Sets all security contexts (at pod level).
+# -- Source: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+# -- SecurityContext holds pod-level security attributes and common container settings
+podSecurityContext:
+  runAsGroup: 65532
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+# -- Sets all security context (at container level). Can be configured also with `global.securityContext.container`
+containerSecurityContext: {}
+
+kubernetesClusterDomain: cluster.local
+
 controllerManager:
   replicas: 1
+
+  manager:
+    image:
+      repository: newrelic/k8s-agents-operator
+      tag:
+      pullPolicy:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 64Mi
+    # -- Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext`
+    containerSecurityContext: { }
+    # -- Source: https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
+    # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
+    leaderElection:
+      enabled: true
 
   kubeRbacProxy:
     image:
@@ -30,24 +67,19 @@ controllerManager:
       requests:
         cpu: 5m
         memory: 64Mi
+    # -- Sets security context (at container level) for kubeRbacProxy. Overrides `containerSecurityContext` and `global.containerSecurityContext`
+    containerSecurityContext: {}
 
-  manager:
-    image:
-      repository: newrelic/k8s-agents-operator
-      tag:
-      pullPolicy:
-    resources:
-      requests:
-        cpu: 100m
-        memory: 64Mi
-    serviceAccount:
-      create: true
-    # -- Source: https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
-    # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
-    leaderElection:
-      enabled: true
-
-kubernetesClusterDomain: cluster.local
+# -- Settings controlling ServiceAccount creation
+# @default -- See `values.yaml`
+serviceAccount:
+  # serviceAccount.create -- (bool) Specifies whether a ServiceAccount should be created
+  # @default -- `true`
+  create:
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+  # Specify any annotations to add to the ServiceAccount
+  annotations:
 
 metricsService:
   ports:
@@ -63,14 +95,6 @@ webhookService:
     protocol: TCP
     targetPort: 9443
   type: ClusterIP
-
-# -- Source: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
-# -- SecurityContext holds pod-level security attributes and common container settings
-securityContext:
-  runAsGroup: 65532
-  runAsNonRoot: true
-  runAsUser: 65532
-  fsGroup: 65532
 
 # -- Admission webhooks make sure only requests with correctly formatted rules will get into the Operator
 admissionWebhooks:
