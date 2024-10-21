@@ -8,6 +8,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY ./src/ ./src/
+COPY ./interop/ ./interop/
 COPY Makefile .
 
 ARG TARGETOS
