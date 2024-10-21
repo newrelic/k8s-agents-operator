@@ -23,10 +23,11 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strings"
 	"time"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"

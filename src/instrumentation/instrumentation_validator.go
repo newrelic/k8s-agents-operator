@@ -3,9 +3,10 @@ package instrumentation
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"slices"
 	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
