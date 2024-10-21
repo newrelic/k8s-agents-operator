@@ -39,7 +39,6 @@ import (
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete;deletecollection;patch;update;watch
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;create;delete;deletecollection;patch;update;watch
 
 var _ WebhookHandler = (*podMutationHandler)(nil)
 

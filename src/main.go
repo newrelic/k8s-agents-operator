@@ -236,7 +236,7 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
-		mgr.GetScheme()
+
 		client := mgr.GetClient()
 		injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
 		secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
