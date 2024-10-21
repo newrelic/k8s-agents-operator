@@ -5,10 +5,10 @@ FROM --platform=$BUILDPLATFORM golang:1.23.2-bookworm@sha256:2341ddffd3eddb72e0a
 WORKDIR /app
 
 COPY go.mod go.sum ./
+COPY ./interop/ ./interop/
 RUN go mod download
 
 COPY ./src/ ./src/
-COPY ./interop/ ./interop/
 COPY Makefile .
 
 ARG TARGETOS
