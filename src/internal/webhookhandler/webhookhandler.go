@@ -38,19 +38,20 @@ import (
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete;deletecollection;patch;update;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;create;delete;deletecollection;patch;update;watch
 
 var _ WebhookHandler = (*podMutationHandler)(nil)
 
 // WebhookHandler is a webhook handler that analyzes new pods and injects appropriate sidecars into it.
 type WebhookHandler interface {
 	admission.Handler
-	admission.DecoderInjector
 }
 
 // the implementation.
 type podMutationHandler struct {
 	client      client.Client
-	decoder     *admission.Decoder
+	decoder     admission.Decoder
 	logger      logr.Logger
 	podMutators []PodMutator
 	config      config.Config
@@ -62,12 +63,13 @@ type PodMutator interface {
 }
 
 // NewWebhookHandler creates a new WebhookHandler.
-func NewWebhookHandler(cfg config.Config, logger logr.Logger, cl client.Client, podMutators []PodMutator) WebhookHandler {
+func NewWebhookHandler(cfg config.Config, logger logr.Logger, cl client.Client, decoder admission.Decoder, podMutators []PodMutator) WebhookHandler {
 	return &podMutationHandler{
 		config:      cfg,
 		logger:      logger,
 		client:      cl,
 		podMutators: podMutators,
+		decoder:     decoder,
 	}
 }
 
@@ -109,9 +111,4 @@ func (p *podMutationHandler) Handle(ctx context.Context, req admission.Request) 
 		return res
 	}
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPod)
-}
-
-func (p *podMutationHandler) InjectDecoder(d *admission.Decoder) error {
-	p.decoder = d
-	return nil
 }

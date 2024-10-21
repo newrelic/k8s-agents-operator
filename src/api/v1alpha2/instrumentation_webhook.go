@@ -24,6 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strings"
 )
 
@@ -67,40 +68,40 @@ func (r *Instrumentation) Default() {
 var _ webhook.Validator = (*Instrumentation)(nil)
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type.
-func (r *Instrumentation) ValidateCreate() error {
+func (r *Instrumentation) ValidateCreate() (admission.Warnings, error) {
 	instrumentationlog.V(1).Info("validate_create", "name", r.Name)
 	return r.validate()
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type.
-func (r *Instrumentation) ValidateUpdate(oldObj runtime.Object) error {
+func (r *Instrumentation) ValidateUpdate(oldObj runtime.Object) (admission.Warnings, error) {
 	instrumentationlog.V(1).Info("validate_update", "name", r.Name)
 	return r.validate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type.
-func (r *Instrumentation) ValidateDelete() error {
+func (r *Instrumentation) ValidateDelete() (admission.Warnings, error) {
 	instrumentationlog.V(1).Info("validate_delete", "name", r.Name)
-	return nil
+	return nil, nil
 }
 
-func (r *Instrumentation) validate() error {
+func (r *Instrumentation) validate() (admission.Warnings, error) {
 	if err := r.validateEnv(r.Spec.Agent.Env); err != nil {
-		return err
+		return nil, err
 	}
 
 	if r.Spec.Agent.IsEmpty() {
-		return fmt.Errorf("instrumentation %q agent is empty", r.Name)
+		return nil, fmt.Errorf("instrumentation %q agent is empty", r.Name)
 	}
 
 	if _, err := metav1.LabelSelectorAsSelector(&r.Spec.PodLabelSelector); err != nil {
-		return err
+		return nil, err
 	}
 	if _, err := metav1.LabelSelectorAsSelector(&r.Spec.NamespaceLabelSelector); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (r *Instrumentation) validateEnv(envs []corev1.EnvVar) error {
