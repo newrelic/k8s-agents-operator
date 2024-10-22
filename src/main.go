@@ -31,7 +31,6 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -229,11 +228,12 @@ func main() {
 			Logger:            logger.WithName("instrumentation-validator"),
 			InjectorRegistery: injectorRegistry,
 		}
-		if err = (&v1alpha2.Instrumentation{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{},
-			},
-		}).SetupWebhookWithManager(mgr, instDefaulter, instValidator); err != nil {
+		err = ctrl.NewWebhookManagedBy(mgr).
+			For(&v1alpha2.Instrumentation{}).
+			WithValidator(instValidator).
+			WithDefaulter(instDefaulter).
+			Complete()
+		if err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
