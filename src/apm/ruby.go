@@ -116,8 +116,7 @@ func (i *RubyInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation
 		})
 	}
 
-	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
-	pod.Spec.Containers[firstContainer] = i.injectNewrelicLicenseKeyIntoContainer(*container, inst.Spec.LicenseKeySecret)
+	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
 
 	return pod, nil
 }

@@ -139,11 +139,11 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 				MountPath: "/newrelic-instrumentation",
 			}},
 		}
-		initContainer = i.injectNewrelicLicenseKeyIntoContainer(initContainer, inst.Spec.LicenseKeySecret)
+		i.injectNewrelicLicenseKeyIntoContainer(&initContainer, inst.Spec.LicenseKeySecret)
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	}
 
-	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
+	pod = i.injectNewrelicEnvConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
 
 	return pod, nil
 }

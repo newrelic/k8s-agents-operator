@@ -214,7 +214,7 @@ func (i *baseInjector) validate(inst v1alpha2.Instrumentation) error {
 	return nil
 }
 
-func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Container, licenseKeySecretName string) corev1.Container {
+func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container *corev1.Container, licenseKeySecretName string) {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLicenseKey); idx == -1 {
 		optional := true
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -228,10 +228,15 @@ func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Co
 			},
 		})
 	}
-	return container
 }
 
-func (i *baseInjector) injectNewrelicConfig(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int) corev1.Pod {
+func (i *baseInjector) injectNewrelicConfig(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int, licenseKeySecret string) corev1.Pod {
+	i.injectNewrelicEnvConfig(ctx, resource, ns, pod, index)
+	i.injectNewrelicLicenseKeyIntoContainer(&pod.Spec.Containers[index], licenseKeySecret)
+	return pod
+}
+
+func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int) corev1.Pod {
 	container := &pod.Spec.Containers[index]
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
 		//@todo: how can we do this if multiple injectors need this?
