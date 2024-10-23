@@ -18,8 +18,6 @@ package apm
 import (
 	"context"
 	"errors"
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
@@ -39,18 +37,6 @@ func init() {
 	}
 }
 
-var phpApiMap = map[string]string{
-	"7.2": "20170718",
-	"7.3": "20180731",
-	"7.4": "20190902",
-	"8.0": "20200930",
-	"8.1": "20210902",
-	"8.2": "20220829",
-	"8.3": "20230831",
-}
-
-var phpAcceptVersions = []acceptVersion{php72, php73, php74, php80, php81, php82, php83}
-
 const (
 	php72 acceptVersion = "php-7.2"
 	php73 acceptVersion = "php-7.3"
@@ -60,6 +46,18 @@ const (
 	php82 acceptVersion = "php-8.2"
 	php83 acceptVersion = "php-8.3"
 )
+
+var phpApiMap = map[acceptVersion]string{
+	php72: "20170718",
+	php73: "20180731",
+	php74: "20190902",
+	php80: "20200930",
+	php81: "20210902",
+	php82: "20220829",
+	php83: "20230831",
+}
+
+var phpAcceptVersions = []acceptVersion{php72, php73, php74, php80, php81, php82, php83}
 
 type acceptVersion string
 
@@ -93,15 +91,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 
 	firstContainer := 0
 
-	// <lang:php>-<version:[0-9].[0-9]>
-	lang := strings.SplitN(i.Language(), "-", 2)
-	if len(lang) != 2 {
-		// should never happen
-		return pod, errors.New("missing php version")
-	}
-	phpVer := lang[1]
-
-	apiNum, ok := phpApiMap[phpVer]
+	apiNum, ok := phpApiMap[acceptVersion(i.Language())]
 	if !ok {
 		return pod, errors.New("invalid php version")
 	}
