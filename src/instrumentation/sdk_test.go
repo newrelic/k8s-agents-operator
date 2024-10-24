@@ -174,7 +174,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			}
 			defaulter := InstrumentationDefaulter{Logger: logger}
 			for _, langInst := range test.langInsts {
-				defaulter.Default(ctx, langInst)
+				_ = defaulter.Default(ctx, langInst)
 			}
 			injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
 			pod := injector.Inject(ctx, test.langInsts, test.ns, test.pod)

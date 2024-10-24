@@ -48,7 +48,7 @@ func TestUpgrade(t *testing.T) {
 		},
 	}
 	defaulter := instrumentation.InstrumentationDefaulter{Logger: logger}
-	defaulter.Default(ctx, inst)
+	_ = defaulter.Default(ctx, inst)
 	err = k8sClient.Create(context.Background(), inst)
 	require.NoError(t, err)
 
