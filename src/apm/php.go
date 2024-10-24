@@ -18,14 +18,12 @@ package apm
 import (
 	"context"
 	"errors"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
 const (
-	annotationPhpVersion = "instrumentation.newrelic.com/php-version"
 	envIniScanDirKey     = "PHP_INI_SCAN_DIR"
 	envIniScanDirVal     = "/newrelic-instrumentation/php-agent/ini"
 	phpInitContainerName = initContainerName + "-php"
@@ -34,30 +32,41 @@ const (
 var _ Injector = (*PhpInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&PhpInjector{})
+	for _, v := range phpAcceptVersions {
+		DefaultInjectorRegistry.MustRegister(&PhpInjector{acceptVersion: v})
+	}
 }
 
-// Deprecated: phpApiMap is deprecated.  Do not use annotations.
-var phpApiMap = map[string]string{
-	"7.2": "20170718",
-	"7.3": "20180731",
-	"7.4": "20190902",
-	"8.0": "20200930",
-	"8.1": "20210902",
-	"8.2": "20220829",
-	"8.3": "20230831",
+const (
+	php72 acceptVersion = "php-7.2"
+	php73 acceptVersion = "php-7.3"
+	php74 acceptVersion = "php-7.4"
+	php80 acceptVersion = "php-8.0"
+	php81 acceptVersion = "php-8.1"
+	php82 acceptVersion = "php-8.2"
+	php83 acceptVersion = "php-8.3"
+)
+
+var phpApiMap = map[acceptVersion]string{
+	php72: "20170718",
+	php73: "20180731",
+	php74: "20190902",
+	php80: "20200930",
+	php81: "20210902",
+	php82: "20220829",
+	php83: "20230831",
 }
 
-type PhpInjector struct {
-	baseInjector
+var phpAcceptVersions = []acceptVersion{php72, php73, php74, php80, php81, php82, php83}
+
+type acceptVersion string
+
+func (al acceptVersion) Language() string {
+	return string(al)
 }
 
-func (i *PhpInjector) Language() string {
-	return "php"
-}
-
-func (i *PhpInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != i.Language() {
+func (al acceptVersion) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language != string(al) {
 		return false
 	}
 	if len(pod.Spec.Containers) == 0 {
@@ -66,8 +75,12 @@ func (i *PhpInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) 
 	return true
 }
 
+type PhpInjector struct {
+	baseInjector
+	acceptVersion
+}
+
 // Inject is used to inject the PHP agent.
-// @todo: Currently it uses annotations, which should be removed.  This should either use a specific image for each php version or the k8s-agents-operator needs to add support for a language version
 func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
@@ -78,15 +91,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 
 	firstContainer := 0
 
-	// exit early if we're missing mandatory annotations
-	// Deprecated: phpVer is deprecated.  Do not use annotations.
-	phpVer, ok := pod.Annotations[annotationPhpVersion]
-	if !ok {
-		return pod, errors.New("missing php version annotation")
-	}
-
-	// Deprecated: apiNum is deprecated.  Do not use annotations.
-	apiNum, ok := phpApiMap[phpVer]
+	apiNum, ok := phpApiMap[acceptVersion(i.Language())]
 	if !ok {
 		return pod, errors.New("invalid php version")
 	}
@@ -121,7 +126,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 				}})
 		}
 
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
+		initContainer := corev1.Container{
 			Name:    phpInitContainerName,
 			Image:   inst.Spec.Agent.Image,
 			Command: []string{"/bin/sh"},
@@ -133,10 +138,12 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
-		})
+		}
+		i.injectNewrelicLicenseKeyIntoContainer(&initContainer, inst.Spec.LicenseKeySecret)
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	}
 
-	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+	pod = i.injectNewrelicEnvConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
 
 	return pod, nil
 }

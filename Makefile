@@ -218,7 +218,11 @@ generate: controller-gen ## Generate stuff
 
 .PHONY: manifests
 manifests: generate controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=tests/kustomize/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." \
+	  rbac:roleName=manager-role output:rbac:artifacts:config=tests/kustomize/rbac \
+	  output:webhook:artifacts:config=tests/kustomize/webhook \
+	  output:crd:artifacts:config=tests/kustomize/crd/bases \
+	  output:stdout
 
 .PHONY: run-helmify
 run-helmify: manifests helmify kustomize ## Generate the CRD with kustomize and helmify from the manifests
