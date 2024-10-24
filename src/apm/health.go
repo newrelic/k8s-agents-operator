@@ -147,11 +147,11 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 				}})
 		}
 
+		restartAlways := corev1.ContainerRestartPolicyAlways
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-			Name:  healthSidecarContainerName,
-			Image: inst.Spec.Agent.Image,
-			//@todo: 😭 can't enable in this yet. not available unless we upgrade package k8s.io/api
-			//RestartPolicy: corev1.RestartPolicyAlways,
+			Name:          healthSidecarContainerName,
+			Image:         inst.Spec.Agent.Image,
+			RestartPolicy: &restartAlways,
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      healthVolumeName,
 				MountPath: healthMountPath,
