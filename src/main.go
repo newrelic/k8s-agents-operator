@@ -26,9 +26,11 @@ import (
 	"strings"
 	"time"
 
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -86,6 +88,8 @@ func main() {
 		labelsFilter         []string
 		webhookPort          int
 		tlsOpt               tlsConfig
+		secureMetrics        bool
+		enableHTTP2          bool
 	)
 
 	pflag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -98,6 +102,12 @@ func main() {
 	pflag.IntVar(&webhookPort, "webhook-port", 9443, "The port the webhook endpoint binds to.")
 	pflag.StringVar(&tlsOpt.minVersion, "tls-min-version", "VersionTLS12", "Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
 	pflag.StringSliceVar(&tlsOpt.cipherSuites, "tls-cipher-suites", nil, "Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used")
+
+	flag.BoolVar(&secureMetrics, "metrics-secure", false,
+		"If set the metrics endpoint is served securely")
+	flag.BoolVar(&enableHTTP2, "enable-http2", false,
+		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+
 	pflag.Parse()
 
 	logger := zap.New(zap.UseFlagOptions(&opts))
@@ -149,27 +159,49 @@ func main() {
 	renewDeadline := time.Second * 107
 	retryPeriod := time.Second * 26
 
-	optionsTlSOptsFuncs := []func(*tls.Config){
-		func(config *tls.Config) { tlsConfigSetting(config, tlsOpt) },
+	// if the enable-http2 flag is false (the default), http/2 should be disabled
+	// due to its vulnerabilities. More specifically, disabling http/2 will
+	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
+	// Rapid Reset CVEs. For more information see:
+	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
+	// - https://github.com/advisories/GHSA-4374-p667-p6c8
+	disableHTTP2 := func(c *tls.Config) {
+		setupLog.Info("disabling http/2")
+		c.NextProtos = []string{"http/1.1"}
 	}
 
+	tlsOpts := []func(*tls.Config){}
+	if !enableHTTP2 {
+		tlsOpts = append(tlsOpts, disableHTTP2)
+	}
+
+	webhookServer := webhook.NewServer(webhook.Options{
+		TLSOpts: tlsOpts,
+		Port:    webhookPort,
+	})
+
 	mgrOptions := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   webhookPort,
-		TLSOpts:                optionsTlSOptsFuncs,
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress:   metricsAddr,
+			SecureServing: secureMetrics,
+			TLSOpts:       tlsOpts,
+		},
+		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "9f7554c3.newrelic.com",
-		Namespace:              watchNamespace,
 		LeaseDuration:          &leaseDuration,
 		RenewDeadline:          &renewDeadline,
 		RetryPeriod:            &retryPeriod,
 	}
 
-	if strings.Contains(watchNamespace, ",") {
-		mgrOptions.Namespace = ""
-		mgrOptions.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNamespace, ","))
+	if watchNamespace != "" {
+		nsDefaults := map[string]cache.Config{}
+		for _, watchNamespace := range strings.Split(watchNamespace, ",") {
+			nsDefaults[watchNamespace] = cache.Config{}
+		}
+		mgrOptions.Cache = cache.Options{DefaultNamespaces: nsDefaults}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOptions)
@@ -196,11 +228,12 @@ func main() {
 			Logger:            logger.WithName("instrumentation-validator"),
 			InjectorRegistery: injectorRegistry,
 		}
-		if err = (&v1alpha2.Instrumentation{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{},
-			},
-		}).SetupWebhookWithManager(mgr, instDefaulter, instValidator); err != nil {
+		err = ctrl.NewWebhookManagedBy(mgr).
+			For(&v1alpha2.Instrumentation{}).
+			WithValidator(instValidator).
+			WithDefaulter(instDefaulter).
+			Complete()
+		if err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
@@ -211,7 +244,7 @@ func main() {
 		instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
 		mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{
 			Handler: webhookhandler.NewWebhookHandler(
-				cfg, ctrl.Log.WithName("pod-webhook"), mgr.GetClient(),
+				cfg, ctrl.Log.WithName("pod-webhook"), mgr.GetClient(), admission.NewDecoder(mgr.GetScheme()),
 				[]webhookhandler.PodMutator{
 					instrumentation.NewMutator(
 						logger,
