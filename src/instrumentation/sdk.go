@@ -20,9 +20,10 @@ import (
 	"context"
 	"fmt"
 
+	"runtime/debug"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"runtime/debug"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
