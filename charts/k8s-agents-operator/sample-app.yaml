@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-petclinic
+spec:
+  selector:
+    matchLabels:
+      app: spring-petclinic
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: spring-petclinic
+    spec:
+      containers:
+        - name: spring-petclinic
+          image: ghcr.io/pavolloffay/spring-petclinic:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NEW_RELIC_APP_NAME
+              value: spring-petclinic-demo-1015-1
