@@ -82,6 +82,6 @@ require (
 
 // fix because k8s.io/client-go v0.31.1 requires the package, but mergo recently moved to dario.cat/mergo
 // this can be removed once k8s.io/client-go updates to no longer require it, or updates to the new location
-replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.16
+replace github.com/imdario/mergo => github.com/imdario/mergo v1.0.1
 
 replace github.com/golang/protobuf => ./interop/github.com/golang/protobuf
