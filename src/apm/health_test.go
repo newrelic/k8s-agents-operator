@@ -17,7 +17,6 @@ func TestHealthInjector_Language(t *testing.T) {
 }
 
 func TestHealthInjector_Inject(t *testing.T) {
-	vtrue := true
 	tests := []struct {
 		name           string
 		pod            corev1.Pod
