@@ -1,0 +1,40 @@
+suite: images
+templates:
+  - templates/deployment.yaml
+release:
+  name: my-release
+  namespace: my-namespace
+tests:
+  - it: has a default image tag
+    set:
+      licenseKey: us-whatever
+    asserts:
+      - notMatchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: ".*nil.*"
+        template: templates/deployment.yaml
+      - notMatchRegex:
+          path: spec.template.spec.containers[1].image
+          pattern: ".*nil.*"
+        template: templates/deployment.yaml
+  - it: loads image and version
+    set:
+      licenseKey: us-whatever
+      controllerManager:
+        manager:
+          image:
+            repository: nr/test-1
+            tag: "1.1.1"
+        kubeRbacProxy:
+          image:
+            repository: nr/test-2
+            tag: "1.1.2"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: nr/test-1:1.1.1
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: nr/test-2:1.1.2
+        template: templates/deployment.yaml
