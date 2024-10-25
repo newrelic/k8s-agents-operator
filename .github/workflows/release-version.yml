@@ -66,7 +66,7 @@ jobs:
 
       - name: Install Helm Docs
         run: |
-          version="v1.13.1"
+          version="v1.14.2"
           stripped=$( echo "${version}" | sed s'/v//' )
           wget https://github.com/norwoodj/helm-docs/releases/download/${version}/helm-docs_${stripped}_Linux_x86_64.tar.gz
           tar --extract --verbose --file="helm-docs_${stripped}_Linux_x86_64.tar.gz" helm-docs
