@@ -172,8 +172,9 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			for _, apmInjector := range apmInjectors {
 				injectorRegistry.MustRegister(apmInjector)
 			}
+			defaulter := InstrumentationDefaulter{Logger: logger}
 			for _, langInst := range test.langInsts {
-				langInst.Default()
+				_ = defaulter.Default(ctx, langInst)
 			}
 			injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
 			pod := injector.Inject(ctx, test.langInsts, test.ns, test.pod)
