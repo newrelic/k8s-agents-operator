@@ -5,12 +5,3 @@
 # the repo. Unless a later match takes precedence.
 
 * @newrelic/k8s-agents
-
-# APM team owned directories
-/src/apm/dotnet*.go @newrelic/dotnet
-/src/apm/golang*.go @newrelic/go
-/src/apm/java*.go @newrelic/java
-/src/apm/nodejs*.go @newrelic/node
-/src/apm/php*.go @newrelic/phpc 
-/src/apm/python*.go @newrelic/python
-/src/apm/ruby*.go @newrelic/ruby
