@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/internal/webhookhandler"
 )
 
 // compile time type assertion

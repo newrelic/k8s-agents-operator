@@ -4,7 +4,7 @@
 
 A Helm chart for the Kubernetes Agents Operator
 
-**Homepage:** <https://github.com/newrelic/k8s-agents-operator/blob/main/charts/k8s-agents-operator/README.md>
+**Homepage:** <https://github.com/newrelic-experimental/k8s-agents-operator-windows/blob/main/charts/k8s-agents-operator/README.md>
 
 ## Prerequisites
 
@@ -14,16 +14,16 @@ A Helm chart for the Kubernetes Agents Operator
 
 ### Requirements
 
-Add the `k8s-agents-operator` Helm chart repository:
+Add the `k8s-agents-operator-windows` Helm chart repository:
 ```shell
-helm repo add k8s-agents-operator https://newrelic.github.io/k8s-agents-operator
+helm repo add k8s-agents-operator-windows https://newrelic-experimental.github.io/k8s-agents-operator-windows/
 ```
 
 ### Instrumentation
 
-Install the [`k8s-agents-operator`](https://github.com/newrelic/k8s-agents-operator) Helm chart:
+Install the [`k8s-agents-operator`](https://github.com/newrelic-experimental/k8s-agents-operator-windows) Helm chart:
 ```shell
-helm upgrade --install k8s-agents-operator k8s-agents-operator/k8s-agents-operator \
+helm upgrade --install k8s-agents-operator-windows k8s-agents-operator-windows/k8s-agents-operator \
   --namespace newrelic \
   --create-namespace \
   --values your-custom-values.yaml
@@ -53,6 +53,19 @@ spec:
   agent:
     language: dotnet
     image: newrelic/newrelic-dotnet-init:latest
+    # env: ...
+```
+For .NET on Windows
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-dotnet-windows
+spec:
+  agent:
+    language: dotnet-windows
+    image: ghrc.io/andrew-lozoya/newrelic-dotnet-windows-init:10.32.0
     # env: ...
 ```
 
@@ -215,11 +228,11 @@ To see the available charts:
 helm search repo k8s-agents-operator
 ```
 
-If you want to see a list of all available charts and releases, check [index.yaml](https://newrelic.github.io/k8s-agents-operator/index.yaml).
+If you want to see a list of all available charts and releases, check [index.yaml](https://newrelic-experimental.github.io/k8s-agents-operator-windows/index.yaml).
 
 ## Source Code
 
-* <https://github.com/newrelic/k8s-agents-operator>
+* <https://github.com/newrelic-experimental/k8s-agents-operator-windows>
 
 ## Requirements
 

@@ -1,4 +1,4 @@
-module github.com/newrelic/k8s-agents-operator
+module github.com/newrelic-experimental/k8s-agents-operator-windows
 
 go 1.23.2
 

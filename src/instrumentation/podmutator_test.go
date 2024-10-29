@@ -16,8 +16,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/apm"
 )
 
 type FakeInjector func(ctx context.Context, insts []*v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
@@ -276,6 +276,7 @@ func TestMutatePod(t *testing.T) {
 				injectorRegistry := apm.NewInjectorRegistry()
 				apmInjectors := []apm.Injector{
 					&apm.DotnetInjector{},
+					&apm.DotnetWindowsInjector{},
 					&apm.GoInjector{},
 					&apm.JavaInjector{},
 					&apm.NodejsInjector{},

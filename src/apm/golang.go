@@ -10,7 +10,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.5.0"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
 )
 
 const (

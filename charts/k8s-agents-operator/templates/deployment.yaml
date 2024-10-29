@@ -26,6 +26,7 @@ spec:
         control-plane: controller-manager
         {{- include "newrelic.common.labels" . | nindent 8 }}
     spec:
+      {{ include "linux.nodeSelector" . | nindent 6 }}
       containers:
       - args:
         - --metrics-addr=127.0.0.1:8080

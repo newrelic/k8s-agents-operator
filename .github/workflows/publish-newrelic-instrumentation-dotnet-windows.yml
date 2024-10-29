@@ -1,0 +1,106 @@
+name: "Publish Dotnet Newrelic-Instrumentation for Windows"
+
+on:
+  push:
+    paths:
+      - 'src/apm/dotnet_windows/**'
+      - '.github/workflows/publish-newrelic-instrumentation-dotnet-windows.yml'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'src/apm/dotnet_windows/**'
+      - '.github/workflows/publish-newrelic-instrumentation-dotnet-windows.yml'
+  workflow_dispatch:
+
+jobs:
+  read-version:
+    name: Read Version
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.get_version.outputs.VERSION }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Read version
+        id: get_version
+        run: |
+          VERSION=$(cat src/apm/dotnet_windows/version.txt)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+  build-publish-containers:
+    name: Build and Publish Containers
+    runs-on: ${{ matrix.os }}
+    needs: read-version
+    strategy:
+      max-parallel: 2
+      matrix:
+        os: [windows-2019, windows-2022]
+        include:
+          - os: windows-2019
+            base: ltsc2019
+            file: src/apm/dotnet_windows/Dockerfile.windows
+            tag: ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows-ltsc2019-amd64:${{ needs.read-version.outputs.VERSION }}
+          - os: windows-2022
+            base: ltsc2022
+            file: src/apm/dotnet_windows/Dockerfile.windows
+            tag: ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows-ltsc2022-amd64:${{ needs.read-version.outputs.VERSION }}
+  
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Package Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.K8S_AGENTS_GHCR_TOKEN }}
+
+      - name: Build and Push Docker image
+        run: |
+          docker build -f ${{ matrix.file }} --build-arg BASE=${{ matrix.base }} --build-arg VERSION=${{ needs.read-version.outputs.VERSION }} -t ${{ matrix.tag }} .
+          docker push ${{ matrix.tag }}
+
+  publish-manifest:
+    name: Publish Manifest
+    runs-on: ubuntu-latest
+    needs: build-publish-containers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+        # Redundant GITHUB_OUTPUT will not propigate to this job
+      - name: Read version
+        id: get_version
+        run: |
+          VERSION=$(cat src/apm/dotnet_windows/version.txt)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Login to GitHub Package Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.K8S_AGENTS_GHCR_TOKEN }}
+
+      - name: Docker Manifest
+        run: |          
+          docker manifest create ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows:${{ env.VERSION }} \
+            --amend ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows-ltsc2019-amd64:${{ env.VERSION }} \
+            --amend ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows-ltsc2022-amd64:${{ env.VERSION }}
+
+      - name: Docker Annotate
+        run: |
+          docker manifest annotate --os windows --arch amd64 \
+            --os-version "10.0.17763.6414" \
+            ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows:${{ env.VERSION }} ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows-ltsc2019-amd64:${{ env.VERSION }}
+          
+          docker manifest annotate --os windows --arch amd64 \
+            --os-version "10.0.20348.2762" \
+            ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows:${{ env.VERSION }} ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows-ltsc2022-amd64:${{ env.VERSION }}
+
+      - name: Docker Push Manifest
+        run: |
+          docker manifest push ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows/newrelic-dotnet-init-windows:${{ env.VERSION }}

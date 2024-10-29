@@ -1,0 +1,14 @@
+# Use the Windows Nano Server as the base image
+ARG BASE
+FROM mcr.microsoft.com/windows/nanoserver:${BASE}
+
+# Argument to specify the version of the New Relic agent
+ARG VERSION
+
+# Set the working directory
+WORKDIR C:\\instrumentation
+
+# Download and extract the New Relic .NET agent
+RUN curl.exe -L -o newrelic-agent.zip https://download.newrelic.com/dot_net_agent/latest_release/NewRelicDotNetAgent_%VERSION%_x64.zip\
+    && tar.exe -xzf newrelic-agent.zip\
+    && del newrelic-agent.zip

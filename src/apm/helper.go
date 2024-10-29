@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
 )
 
 const LicenseKey = "new_relic_license_key"

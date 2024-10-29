@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
 )
 
 func TestRubyInjector_Language(t *testing.T) {

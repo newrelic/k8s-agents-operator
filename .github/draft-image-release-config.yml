@@ -52,4 +52,4 @@ version-resolver:
 template: |
   $CHANGES
 
-  **Full Changelog**: https://github.com/newrelic/k8s-agents-operator/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+  **Full Changelog**: https://github.com/newrelic-experimental/k8s-agents-operator-windows/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

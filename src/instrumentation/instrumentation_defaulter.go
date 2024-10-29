@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
 )
 
 var _ webhook.CustomDefaulter = (*InstrumentationDefaulter)(nil)

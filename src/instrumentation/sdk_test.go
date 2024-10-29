@@ -11,8 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/apm"
 )
 
 var _ apm.Injector = (*ErrorInjector)(nil)

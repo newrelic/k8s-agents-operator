@@ -43,14 +43,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
-	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
-	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/instrumentation/upgrade"
-	"github.com/newrelic/k8s-agents-operator/src/internal/config"
-	"github.com/newrelic/k8s-agents-operator/src/internal/version"
-	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/apm"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/autodetect"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/instrumentation"
+	instrumentationupgrade "github.com/newrelic-experimental/k8s-agents-operator-windows/src/instrumentation/upgrade"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/internal/config"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/internal/version"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/internal/webhookhandler"
 	// +kubebuilder:scaffold:imports
 )
 

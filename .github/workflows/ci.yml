@@ -113,12 +113,12 @@ jobs:
         run: |
           make test
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        with:
-          files: ./tmp/cover.out
+      # - name: Upload coverage reports to Codecov
+      #   uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
+      #   env:
+      #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      #   with:
+      #     files: ./tmp/cover.out
 
   e2e-tests:
     name: E2E tests
@@ -154,8 +154,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
         with:
-          images: |
-            newrelic/k8s-agents-operator
+          images: ghcr.io/${{ github.repository_owner }}/k8s-agents-operator-windows
           tags: |
             # reflects the last commit of the active branch
             type=edge
@@ -166,12 +165,13 @@ jobs:
             # push tag event
             type=semver,pattern={{major}}.{{minor}}
 
-      - name: Login to Docker Hub
+      - name: Login to GitHub Package Registry
         if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/heads/renovate')
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.K8S_AGENTS_DOCKERHUB_USERNAME }}
-          password: ${{ secrets.K8S_AGENTS_DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.K8S_AGENTS_GHCR_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1

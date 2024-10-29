@@ -8,6 +8,16 @@ spec:
     image: newrelic/newrelic-dotnet-init:latest
 
 ---
+# apiVersion: newrelic.com/v1alpha2
+# kind: Instrumentation
+# metadata:
+#   name: newrelic-instrumentation-dotnet-windows
+# spec:
+#   agent:
+#     language: dotnet-windows
+#     image: ghrc.io/newrelic-experimental/newrelic-dotnet-windows-init:latest
+#
+#---
 apiVersion: newrelic.com/v1alpha2
 kind: Instrumentation
 metadata:

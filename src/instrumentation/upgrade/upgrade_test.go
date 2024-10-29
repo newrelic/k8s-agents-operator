@@ -17,7 +17,7 @@ package upgrade
 
 import (
 	"context"
-	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/instrumentation"
 	"strings"
 	"testing"
 
@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic-experimental/k8s-agents-operator-windows/src/api/v1alpha2"
 )
 
 func TestUpgrade(t *testing.T) {

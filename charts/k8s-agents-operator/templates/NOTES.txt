@@ -24,7 +24,7 @@ kubectl get deployments -o wide -w --namespace {{ .Release.Namespace }} {{ inclu
 WARNING: This deployment will be incomplete until you configure your Instrumentation custom resource definition.
 =====================================
 
-Please visit https://github.com/newrelic/k8s-agents-operator for instructions on how to create & configure the
+Please visit https://github.com/newrelic-experimental/k8s-agents-operator-windows for instructions on how to create & configure the
 Instrumentation custom resource definition required by the Operator.
 {{- else }}
 
