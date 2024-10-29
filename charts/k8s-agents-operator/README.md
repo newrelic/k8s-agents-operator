@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.16.0](https://img.shields.io/badge/Version-0.16.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.16.0](https://img.shields.io/badge/AppVersion-0.16.0-informational?style=flat-square)
+![Version: 0.16.1](https://img.shields.io/badge/Version-0.16.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.16.1](https://img.shields.io/badge/AppVersion-0.16.1-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -240,7 +240,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | admissionWebhooks.certManager.enabled | bool | `false` | If true and autoGenerateCert.enabled is false, cert-manager will create a self-signed cert and secret for you. |
 | admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
 | controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` |  |
-| controllerManager.kubeRbacProxy.image.tag | string | `"v0.14.0"` |  |
+| controllerManager.kubeRbacProxy.image.tag | string | `"v0.16.0"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.memory | string | `"128Mi"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.cpu | string | `"5m"` |  |
