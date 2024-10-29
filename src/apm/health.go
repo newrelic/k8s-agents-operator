@@ -83,21 +83,24 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		return pod, err
 	}
 
-	heathFileIdx := getIndexOfEnv(container.Env, envHealthFleetControlFile)
-	if heathFileIdx == -1 {
-		return pod, fmt.Errorf("missing required %q env variable", envHealthFleetControlFile)
-	}
-	healthMountPath := filepath.Base(container.Env[heathFileIdx].Value)
-	if healthMountPath == "" {
-		return pod, fmt.Errorf("env variable %q configured incorrectly.  requires a full path", envHealthFleetControlFile)
-	}
-
 	// inject Health instrumentation spec env vars.
 	for _, env := range inst.Spec.Agent.Env {
 		idx := getIndexOfEnv(container.Env, env.Name)
 		if idx == -1 {
 			container.Env = append(container.Env, env)
 		}
+	}
+
+	heathFileIdx := getIndexOfEnv(container.Env, envHealthFleetControlFile)
+	if heathFileIdx == -1 {
+		return pod, fmt.Errorf("missing required %q env variable", envHealthFleetControlFile)
+	}
+	healthMountPath := filepath.Dir(container.Env[heathFileIdx].Value)
+	if healthMountPath == "" {
+		return pod, fmt.Errorf("env variable %q configured incorrectly.  requires a full path", envHealthFleetControlFile)
+	}
+	if healthMountPath == "/" {
+		return pod, fmt.Errorf("env variable %q configured incorrectly.  cannot be the root", envHealthFleetControlFile)
 	}
 
 	//set defaults
