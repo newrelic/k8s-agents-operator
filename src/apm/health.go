@@ -94,36 +94,8 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		initContainerEnv = append(initContainerEnv, container.Env[idx])
 	}
 
-	for _, env := range inst.Spec.Agent.Env {
-		if slices.Contains([]string{envHealthListenPort, envHealthTimeout}, env.Name) {
-			// configure sidecar specific env vars
-			if idx := getIndexOfEnv(initContainerEnv, env.Name); idx == -1 {
-				initContainerEnv = append(initContainerEnv, env)
-			}
-		}
-	}
-
-	for _, env := range inst.Spec.Agent.Env {
-		if envHealthFleetControlFile == env.Name {
-			// configure env vars for both the sidecar and the first container
-			if idx := getIndexOfEnv(initContainerEnv, env.Name); idx == -1 {
-				initContainerEnv = append(initContainerEnv, env)
-			}
-			if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
-				container.Env = append(container.Env, env)
-			}
-		}
-	}
-
-	for _, env := range inst.Spec.Agent.Env {
-		if slices.Contains([]string{envHealthListenPort, envHealthTimeout, envHealthFleetControlFile}, env.Name) {
-			continue
-		}
-		// configure the remaining env vars for the first container
-		if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
-			container.Env = append(container.Env, env)
-		}
-	}
+	i.injectEnvVarsIntoTargetedEnvVars(inst.Spec.Agent.Env, &container.Env)
+	i.injectEnvVarsIntoSidecarEnvVars(inst.Spec.Agent.Env, &initContainerEnv)
 
 	var healthMountPath string
 	if v, ok := i.getValueFromEnvVars(container.Env, envHealthFleetControlFile); ok {
@@ -192,6 +164,31 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 	}
 
 	return pod, nil
+}
+
+func (i *HealthInjector) injectEnvVarsIntoTargetedEnvVars(instEnvVars []corev1.EnvVar, containerEnvVars *[]corev1.EnvVar) {
+	for _, env := range instEnvVars {
+		// skip configuring sidecar specific env vars
+		if slices.Contains([]string{envHealthListenPort, envHealthTimeout}, env.Name) {
+			continue
+		}
+
+		// configure the remaining env vars for the targeted container
+		if idx := getIndexOfEnv(*containerEnvVars, env.Name); idx == -1 {
+			*containerEnvVars = append(*containerEnvVars, env)
+		}
+	}
+}
+
+func (i *HealthInjector) injectEnvVarsIntoSidecarEnvVars(instEnvVars []corev1.EnvVar, sidecarEnvVars *[]corev1.EnvVar) {
+	for _, env := range instEnvVars {
+		if slices.Contains([]string{envHealthListenPort, envHealthTimeout, envHealthFleetControlFile}, env.Name) {
+			// configure sidecar specific env vars
+			if idx := getIndexOfEnv(*sidecarEnvVars, env.Name); idx == -1 {
+				*sidecarEnvVars = append(*sidecarEnvVars, env)
+			}
+		}
+	}
 }
 
 func (i *HealthInjector) getValueFromEnvVars(envVars []corev1.EnvVar, name string) (string, bool) {
