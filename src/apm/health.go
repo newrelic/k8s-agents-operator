@@ -41,7 +41,7 @@ var (
 	defaultHealthTimeout    = time.Second
 )
 
-var healthDefaultEnvMap = []corev1.EnvVar{
+var healthDefaultEnv = []corev1.EnvVar{
 	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
 	{Name: envHealthTimeout, Value: defaultHealthTimeout.String()},
 }
@@ -94,15 +94,17 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		initContainerEnv = append(initContainerEnv, container.Env[idx])
 	}
 
-	// inject Health instrumentation spec env vars.
 	for _, env := range inst.Spec.Agent.Env {
 		if slices.Contains([]string{envHealthListenPort, envHealthTimeout}, env.Name) {
 			// configure sidecar specific env vars
 			if idx := getIndexOfEnv(initContainerEnv, env.Name); idx == -1 {
 				initContainerEnv = append(initContainerEnv, env)
 			}
-			continue
-		} else if envHealthFleetControlFile == env.Name {
+		}
+	}
+
+	for _, env := range inst.Spec.Agent.Env {
+		if envHealthFleetControlFile == env.Name {
 			// configure env vars for both the sidecar and the first container
 			if idx := getIndexOfEnv(initContainerEnv, env.Name); idx == -1 {
 				initContainerEnv = append(initContainerEnv, env)
@@ -110,29 +112,28 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 			if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
 				container.Env = append(container.Env, env)
 			}
-			continue
-		} else {
-			// configure the remaining env vars for the first container
-			if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
-				container.Env = append(container.Env, env)
-			}
 		}
 	}
 
-	heathFileIdx := getIndexOfEnv(container.Env, envHealthFleetControlFile)
-	if heathFileIdx == -1 {
-		return pod, fmt.Errorf("missing required %q env variable", envHealthFleetControlFile)
+	for _, env := range inst.Spec.Agent.Env {
+		if slices.Contains([]string{envHealthListenPort, envHealthTimeout, envHealthFleetControlFile}, env.Name) {
+			continue
+		}
+		// configure the remaining env vars for the first container
+		if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
+			container.Env = append(container.Env, env)
+		}
 	}
-	healthMountPath := filepath.Dir(container.Env[heathFileIdx].Value)
-	if healthMountPath == "" {
-		return pod, fmt.Errorf("env variable %q configured incorrectly.  requires a full path", envHealthFleetControlFile)
-	}
-	if healthMountPath == "/" {
-		return pod, fmt.Errorf("env variable %q configured incorrectly.  cannot be the root", envHealthFleetControlFile)
+
+	var healthMountPath string
+	if v, ok := i.getValueFromEnvVars(container.Env, envHealthFleetControlFile); ok {
+		if healthMountPath, err = i.validateHealthFile(v); err != nil {
+			return pod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthFleetControlFile, err)
+		}
 	}
 
 	// set defaults
-	for _, entry := range healthDefaultEnvMap {
+	for _, entry := range healthDefaultEnv {
 		if idx := getIndexOfEnv(container.Env, entry.Name); idx == -1 {
 			initContainerEnv = append(initContainerEnv, corev1.EnvVar{
 				Name:  entry.Name,
@@ -141,24 +142,17 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		}
 	}
 
-	sidecarListenPort := defaultHealthListenPort
-
 	// validate env values
-	healthListenPortIdx := getIndexOfEnv(initContainerEnv, envHealthListenPort)
-	if healthListenPortIdx > -1 {
-		healthListenPort, err := strconv.Atoi(initContainerEnv[healthListenPortIdx].Value)
+	sidecarListenPort := defaultHealthListenPort
+	if v, ok := i.getValueFromEnvVars(initContainerEnv, envHealthListenPort); ok {
+		sidecarListenPort, err = i.validateHealthListenPort(v)
 		if err != nil {
-			return pod, fmt.Errorf("invalid health listen port %q > %w", initContainerEnv[healthListenPortIdx].Value, err)
+			return pod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthListenPort, err)
 		}
-		if healthListenPort > 65535 || healthListenPort < 1 {
-			return pod, fmt.Errorf("invalid health listen port %q, must be between 1-65535 (inclusive)", initContainerEnv[healthListenPortIdx].Value)
-		}
-		sidecarListenPort = healthListenPort
 	}
-	healthTimeoutIdx := getIndexOfEnv(initContainerEnv, envHealthTimeout)
-	if healthTimeoutIdx > -1 {
-		if _, err = time.ParseDuration(initContainerEnv[healthTimeoutIdx].Value); err != nil {
-			return pod, fmt.Errorf("invalid health timeout %q > %w", initContainerEnv[healthTimeoutIdx].Value, err)
+	if v, ok := i.getValueFromEnvVars(initContainerEnv, envHealthTimeout); ok {
+		if _, err = i.validateHealthTimeout(v); err != nil {
+			return pod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthTimeout, err)
 		}
 	}
 
@@ -198,4 +192,43 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 	}
 
 	return pod, nil
+}
+
+func (i *HealthInjector) getValueFromEnvVars(envVars []corev1.EnvVar, name string) (string, bool) {
+	for _, env := range envVars {
+		if env.Name == name {
+			return env.Value, true
+		}
+	}
+	return "", false
+}
+
+func (i *HealthInjector) validateHealthListenPort(value string) (int, error) {
+	healthListenPort, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid health listen port %q > %w", value, err)
+	}
+	if healthListenPort > 65535 || healthListenPort < 1 {
+		return 0, fmt.Errorf("invalid health listen port %q, must be between 1-65535 (inclusive)", value)
+	}
+	return healthListenPort, nil
+}
+
+func (i *HealthInjector) validateHealthTimeout(value string) (time.Duration, error) {
+	t, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid timeout %q > %w", value, err)
+	}
+	return t, nil
+}
+
+func (i *HealthInjector) validateHealthFile(value string) (string, error) {
+	healthMountPath := filepath.Dir(value)
+	if healthMountPath == "" {
+		return "", fmt.Errorf("invalid mount path %q, cannot be blank", envHealthFleetControlFile)
+	}
+	if healthMountPath == "/" {
+		return "", fmt.Errorf("invalid mount path %q, cannot be root", envHealthFleetControlFile)
+	}
+	return healthMountPath, nil
 }
