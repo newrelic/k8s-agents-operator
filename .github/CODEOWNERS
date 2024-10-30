@@ -14,4 +14,3 @@
 /src/apm/php*.go @newrelic/phpc 
 /src/apm/python*.go @newrelic/python
 /src/apm/ruby*.go @newrelic/ruby
-/src/apm/health*.go @newrelic/act

@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"time"
 
@@ -31,15 +32,18 @@ const (
 	envHealthFleetControlFile  = "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE"
 	envHealthListenPort        = "NEW_RELIC_SIDECAR_LISTEN_PORT"
 	envHealthTimeout           = "NEW_RELIC_SIDECAR_TIMEOUT_DURATION"
-	envHealthDebug             = "DEBUG"
 	healthSidecarContainerName = "newrelic-apm-health"
 	healthVolumeName           = "newrelic-apm-health"
 )
 
-var healthDefaultEnvMap = map[string]string{
-	envHealthDebug:      "false",
-	envHealthListenPort: "6194",
-	envHealthTimeout:    "1s",
+var (
+	defaultHealthListenPort = 6194
+	defaultHealthTimeout    = time.Second
+)
+
+var healthDefaultEnvMap = []corev1.EnvVar{
+	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
+	{Name: envHealthTimeout, Value: defaultHealthTimeout.String()},
 }
 
 var _ Injector = (*HealthInjector)(nil)
@@ -78,15 +82,39 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
-	err := validateContainerEnv(container.Env, envHealthFleetControlFile, envHealthListenPort, envHealthTimeout, envHealthDebug)
+	err := validateContainerEnv(container.Env, envHealthFleetControlFile, envHealthListenPort, envHealthTimeout)
 	if err != nil {
 		return pod, err
 	}
 
+	var initContainerEnv []corev1.EnvVar
+
+	// copy the env var for the health file
+	if idx := getIndexOfEnv(container.Env, envHealthFleetControlFile); idx > -1 {
+		initContainerEnv = append(initContainerEnv, container.Env[idx])
+	}
+
 	// inject Health instrumentation spec env vars.
 	for _, env := range inst.Spec.Agent.Env {
-		idx := getIndexOfEnv(container.Env, env.Name)
-		if idx == -1 {
+		// configure sidecar specific env vars
+		if slices.Contains([]string{envHealthListenPort, envHealthTimeout}, env.Name) {
+			if idx := getIndexOfEnv(initContainerEnv, env.Name); idx == -1 {
+				initContainerEnv = append(initContainerEnv, env)
+			}
+			continue
+		}
+		// configure env vars for both the sidecar and the first container
+		if envHealthFleetControlFile == env.Name {
+			if idx := getIndexOfEnv(initContainerEnv, env.Name); idx == -1 {
+				initContainerEnv = append(initContainerEnv, env)
+			}
+			if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
+				container.Env = append(container.Env, env)
+			}
+			continue
+		}
+		// configure the remaining env vars for the first container
+		if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
 			container.Env = append(container.Env, env)
 		}
 	}
@@ -103,34 +131,33 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		return pod, fmt.Errorf("env variable %q configured incorrectly.  cannot be the root", envHealthFleetControlFile)
 	}
 
-	//set defaults
-	for defaultEnvKey, defaultEnvValue := range healthDefaultEnvMap {
-		if idx := getIndexOfEnv(container.Env, defaultEnvKey); idx == -1 {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  defaultEnvKey,
-				Value: defaultEnvValue,
+	// set defaults
+	for _, entry := range healthDefaultEnvMap {
+		if idx := getIndexOfEnv(container.Env, entry.Name); idx == -1 {
+			initContainerEnv = append(initContainerEnv, corev1.EnvVar{
+				Name:  entry.Name,
+				Value: entry.Value,
 			})
 		}
 	}
 
-	//validate env values
-	healthListenPortIdx := getIndexOfEnv(container.Env, envHealthListenPort)
-	healthListenPort, err := strconv.Atoi(container.Env[healthListenPortIdx].Value)
-	if err != nil {
-		return pod, fmt.Errorf("invalid health listen port %q > %w", container.Env[healthListenPortIdx].Value, err)
-	}
-	if healthListenPort > 65535 || healthListenPort < 1 {
-		return pod, fmt.Errorf("invalid health listen port %q, must be between 1-65535 (inclusive)", container.Env[healthListenPortIdx].Value)
-	}
+	sidecarListenPort := defaultHealthListenPort
 
-	healthTimeoutIdx := getIndexOfEnv(container.Env, envHealthTimeout)
-	if _, err = time.ParseDuration(container.Env[healthTimeoutIdx].Value); err != nil {
-		return pod, fmt.Errorf("invalid health timeout %q > %w", container.Env[healthTimeoutIdx].Value, err)
+	// validate env values
+	if healthListenPortIdx := getIndexOfEnv(initContainerEnv, envHealthListenPort); healthListenPortIdx > -1 {
+		healthListenPort, err := strconv.Atoi(initContainerEnv[healthListenPortIdx].Value)
+		if err != nil {
+			return pod, fmt.Errorf("invalid health listen port %q > %w", initContainerEnv[healthListenPortIdx].Value, err)
+		}
+		if healthListenPort > 65535 || healthListenPort < 1 {
+			return pod, fmt.Errorf("invalid health listen port %q, must be between 1-65535 (inclusive)", initContainerEnv[healthListenPortIdx].Value)
+		}
+		sidecarListenPort = healthListenPort
 	}
-
-	healthDebugIdx := getIndexOfEnv(container.Env, envHealthDebug)
-	if _, err = strconv.ParseBool(container.Env[healthDebugIdx].Value); err != nil {
-		return pod, fmt.Errorf("invalid debug value %q > %w", container.Env[healthDebugIdx].Value, err)
+	if healthTimeoutIdx := getIndexOfEnv(initContainerEnv, envHealthTimeout); healthTimeoutIdx > -1 {
+		if _, err = time.ParseDuration(initContainerEnv[healthTimeoutIdx].Value); err != nil {
+			return pod, fmt.Errorf("invalid health timeout %q > %w", initContainerEnv[healthTimeoutIdx].Value, err)
+		}
 	}
 
 	if isContainerVolumeMissing(&pod.Spec.Containers[firstContainer], healthVolumeName) {
@@ -151,7 +178,7 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		}
 
 		restartAlways := corev1.ContainerRestartPolicyAlways
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
+		initContainer := corev1.Container{
 			Name:          healthSidecarContainerName,
 			Image:         inst.Spec.Agent.Image,
 			RestartPolicy: &restartAlways,
@@ -160,9 +187,12 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 				MountPath: healthMountPath,
 			}},
 			Ports: []corev1.ContainerPort{
-				{ContainerPort: int32(healthListenPort)},
+				{ContainerPort: int32(sidecarListenPort)},
 			},
-		})
+			Env: initContainerEnv,
+		}
+
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	}
 
 	return pod, nil
