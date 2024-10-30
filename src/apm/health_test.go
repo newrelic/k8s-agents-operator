@@ -102,6 +102,131 @@ func TestHealthInjector_Inject(t *testing.T) {
 				}},
 			}},
 		},
+		{
+			name: "a container, instrumentation, missing health file",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
+				Agent: v1alpha2.Agent{
+					Language: "health",
+				},
+				LicenseKeySecret: "newrelic-key-secret"},
+			},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: "test",
+				}},
+			}},
+			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_FILE\" > invalid mount path \"\" from value \"\", cannot be blank",
+		},
+		{
+			name: "a container, instrumentation, invalid timeout",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
+				Agent: v1alpha2.Agent{
+					Language: "health",
+					Env: []corev1.EnvVar{
+						{Name: envHealthFleetControlFile, Value: "/a/b"},
+						{Name: envHealthTimeout, Value: "not a duration"},
+					},
+				},
+				LicenseKeySecret: "newrelic-key-secret"},
+			},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: "test",
+				}},
+			}},
+			expectedErrStr: "invalid env value \"not a duration\" for \"NEW_RELIC_SIDECAR_TIMEOUT_DURATION\" > invalid timeout \"not a duration\" > time: invalid duration \"not a duration\"",
+		},
+		{
+			name: "a container, instrumentation, invalid port",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
+				Agent: v1alpha2.Agent{
+					Language: "health",
+					Env: []corev1.EnvVar{
+						{Name: envHealthFleetControlFile, Value: "/a/b"},
+						{Name: envHealthListenPort, Value: "not a port"},
+					},
+				},
+				LicenseKeySecret: "newrelic-key-secret"},
+			},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: "test",
+				}},
+			}},
+			expectedErrStr: "invalid env value \"not a port\" for \"NEW_RELIC_SIDECAR_LISTEN_PORT\" > invalid health listen port \"not a port\" > strconv.Atoi: parsing \"not a port\": invalid syntax",
+		},
+		{
+			name: "a container, instrumentation, invalid (blank) health file",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
+				Agent: v1alpha2.Agent{
+					Language: "health",
+					Env: []corev1.EnvVar{
+						{Name: envHealthFleetControlFile, Value: ""},
+					},
+				},
+				LicenseKeySecret: "newrelic-key-secret"},
+			},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: "test",
+				}},
+			}},
+			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_FILE\" > invalid mount path \"\" from value \"\", cannot be blank",
+		},
+		{
+			name: "a container, instrumentation, invalid (root) health path",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
+				Agent: v1alpha2.Agent{
+					Language: "health",
+					Env: []corev1.EnvVar{
+						{Name: envHealthFleetControlFile, Value: "/file"},
+					},
+				},
+				LicenseKeySecret: "newrelic-key-secret"},
+			},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: "test",
+				}},
+			}},
+			expectedErrStr: "invalid env value \"/file\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_FILE\" > invalid mount path \"/\" from value \"/file\", cannot be root",
+		},
+		{
+			name: "a container, instrumentation, invalid (root) health file",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
+				Agent: v1alpha2.Agent{
+					Language: "health",
+					Env: []corev1.EnvVar{
+						{Name: envHealthFleetControlFile, Value: "/just-a-directory/"},
+					},
+				},
+				LicenseKeySecret: "newrelic-key-secret"},
+			},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: "test",
+				}},
+			}},
+			expectedErrStr: "invalid env value \"/just-a-directory/\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_FILE\" > invalid mount file \"\" from value \"/just-a-directory/\", cannot be blank",
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

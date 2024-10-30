@@ -18,9 +18,11 @@ package apm
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -78,13 +80,14 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		return pod, err
 	}
 
+	originalPod := pod.DeepCopy()
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
 	err := validateContainerEnv(container.Env, envHealthFleetControlFile, envHealthListenPort, envHealthTimeout)
 	if err != nil {
-		return pod, err
+		return *originalPod, err
 	}
 
 	var initContainerEnv []corev1.EnvVar
@@ -98,9 +101,10 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 	i.injectEnvVarsIntoSidecarEnvVars(inst.Spec.Agent.Env, &initContainerEnv)
 
 	var healthMountPath string
-	if v, ok := i.getValueFromEnvVars(container.Env, envHealthFleetControlFile); ok {
+	{
+		v, _ := i.getValueFromEnvVars(container.Env, envHealthFleetControlFile)
 		if healthMountPath, err = i.validateHealthFile(v); err != nil {
-			return pod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthFleetControlFile, err)
+			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthFleetControlFile, err)
 		}
 	}
 
@@ -119,12 +123,12 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 	if v, ok := i.getValueFromEnvVars(initContainerEnv, envHealthListenPort); ok {
 		sidecarListenPort, err = i.validateHealthListenPort(v)
 		if err != nil {
-			return pod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthListenPort, err)
+			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthListenPort, err)
 		}
 	}
 	if v, ok := i.getValueFromEnvVars(initContainerEnv, envHealthTimeout); ok {
 		if _, err = i.validateHealthTimeout(v); err != nil {
-			return pod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthTimeout, err)
+			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthTimeout, err)
 		}
 	}
 
@@ -220,12 +224,18 @@ func (i *HealthInjector) validateHealthTimeout(value string) (time.Duration, err
 }
 
 func (i *HealthInjector) validateHealthFile(value string) (string, error) {
-	healthMountPath := filepath.Dir(value)
+	healthMountPath, healthMountFile := filepath.Split(value)
+	if len(healthMountPath) >= 2 {
+		healthMountPath = strings.TrimRight(healthMountPath, string(os.PathSeparator))
+	}
 	if healthMountPath == "" {
-		return "", fmt.Errorf("invalid mount path %q, cannot be blank", envHealthFleetControlFile)
+		return "", fmt.Errorf("invalid mount path %q from value %q, cannot be blank", healthMountPath, value)
 	}
 	if healthMountPath == "/" {
-		return "", fmt.Errorf("invalid mount path %q, cannot be root", envHealthFleetControlFile)
+		return "", fmt.Errorf("invalid mount path %q from value %q, cannot be root", healthMountPath, value)
+	}
+	if healthMountFile == "" {
+		return "", fmt.Errorf("invalid mount file %q from value %q, cannot be blank", healthMountFile, value)
 	}
 	return healthMountPath, nil
 }
