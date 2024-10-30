@@ -23,13 +23,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	stdruntime "runtime"
 	"sync"
 	"testing"
 	"time"
 
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
+	"go.uber.org/zap/zapcore"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -38,8 +38,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -59,8 +64,21 @@ func TestMain(m *testing.M) {
 	ctx, cancel = context.WithCancel(context.TODO())
 	defer cancel()
 
+	logger := zap.New(zap.UseDevMode(true), zap.Level(zapcore.DebugLevel))
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "tests", "kustomize", "crd", "bases")},
+
+		ErrorIfCRDPathMissing: false,
+
+		// The BinaryAssetsDirectory is only required if you want to run the tests directly
+		// without call the makefile target test. If not informed it will look for the
+		// default path defined in controller-runtime which is /usr/local/kubebuilder/.
+		// Note that you must have the required binaries setup under the bin directory to perform
+		// the tests directly. When we run make test it will be setup and used automatically.
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.29.0-%s-%s", stdruntime.GOOS, stdruntime.GOARCH)),
+
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "..", "tests", "kustomize", "webhook")},
 		},
@@ -75,6 +93,12 @@ func TestMain(m *testing.M) {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
 	}
+
+	if err = admissionv1.AddToScheme(testScheme); err != nil {
+		fmt.Printf("failed to register scheme: %v", err)
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: testScheme})
@@ -93,14 +117,27 @@ func TestMain(m *testing.M) {
 			CertDir: webhookInstallOptions.LocalServingCertDir,
 		}),
 		LeaderElection: false,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
+		Metrics:        metricsserver.Options{BindAddress: "0"},
 	})
 	if mgrErr != nil {
 		fmt.Printf("failed to start webhook server: %v", mgrErr)
 		os.Exit(1)
 	}
+
+	injectorRegistry := apm.DefaultInjectorRegistry
+
+	instDefaulter := &instrumentation.InstrumentationDefaulter{
+		Logger: logger.WithName("instrumentation-defaulter"),
+	}
+	instValidator := &instrumentation.InstrumentationValidator{
+		Logger:            logger.WithName("instrumentation-validator"),
+		InjectorRegistery: injectorRegistry,
+	}
+	ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.Instrumentation{}).
+		WithValidator(instValidator).
+		WithDefaulter(instDefaulter).
+		Complete()
 
 	ctx, cancel = context.WithCancel(context.TODO())
 	defer cancel()

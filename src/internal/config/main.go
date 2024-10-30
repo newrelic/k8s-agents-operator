@@ -144,11 +144,12 @@ type openshiftRoutesStore interface {
 func newOpenShiftRoutesWrapper() openshiftRoutesStore {
 	return &openshiftRoutesWrapper{
 		current: autodetect.OpenShiftRoutesNotAvailable,
+		mu:      &sync.Mutex{},
 	}
 }
 
 type openshiftRoutesWrapper struct {
-	mu      sync.Mutex
+	mu      *sync.Mutex
 	current autodetect.OpenShiftRoutesAvailability
 }
 
