@@ -96,15 +96,14 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 
 	// inject Health instrumentation spec env vars.
 	for _, env := range inst.Spec.Agent.Env {
-		// configure sidecar specific env vars
 		if slices.Contains([]string{envHealthListenPort, envHealthTimeout}, env.Name) {
+			// configure sidecar specific env vars
 			if idx := getIndexOfEnv(initContainerEnv, env.Name); idx == -1 {
 				initContainerEnv = append(initContainerEnv, env)
 			}
 			continue
-		}
-		// configure env vars for both the sidecar and the first container
-		if envHealthFleetControlFile == env.Name {
+		} else if envHealthFleetControlFile == env.Name {
+			// configure env vars for both the sidecar and the first container
 			if idx := getIndexOfEnv(initContainerEnv, env.Name); idx == -1 {
 				initContainerEnv = append(initContainerEnv, env)
 			}
@@ -112,10 +111,11 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 				container.Env = append(container.Env, env)
 			}
 			continue
-		}
-		// configure the remaining env vars for the first container
-		if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
-			container.Env = append(container.Env, env)
+		} else {
+			// configure the remaining env vars for the first container
+			if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
+				container.Env = append(container.Env, env)
+			}
 		}
 	}
 
@@ -144,7 +144,8 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 	sidecarListenPort := defaultHealthListenPort
 
 	// validate env values
-	if healthListenPortIdx := getIndexOfEnv(initContainerEnv, envHealthListenPort); healthListenPortIdx > -1 {
+	healthListenPortIdx := getIndexOfEnv(initContainerEnv, envHealthListenPort)
+	if healthListenPortIdx > -1 {
 		healthListenPort, err := strconv.Atoi(initContainerEnv[healthListenPortIdx].Value)
 		if err != nil {
 			return pod, fmt.Errorf("invalid health listen port %q > %w", initContainerEnv[healthListenPortIdx].Value, err)
@@ -154,7 +155,8 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 		}
 		sidecarListenPort = healthListenPort
 	}
-	if healthTimeoutIdx := getIndexOfEnv(initContainerEnv, envHealthTimeout); healthTimeoutIdx > -1 {
+	healthTimeoutIdx := getIndexOfEnv(initContainerEnv, envHealthTimeout)
+	if healthTimeoutIdx > -1 {
 		if _, err = time.ParseDuration(initContainerEnv[healthTimeoutIdx].Value); err != nil {
 			return pod, fmt.Errorf("invalid health timeout %q > %w", initContainerEnv[healthTimeoutIdx].Value, err)
 		}
