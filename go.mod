@@ -1,23 +1,21 @@
 module github.com/newrelic/k8s-agents-operator
 
-go 1.23
-
-toolchain go1.23.0
+go 1.23.2
 
 require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.6.0
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
-	github.com/openshift/api v0.0.0-20241018083007-4f6053f954b0
+	github.com/openshift/api v0.0.0-20241024191314-684b2b1679ba
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/otel v1.31.0
-	k8s.io/api v0.31.1
-	k8s.io/apimachinery v0.31.1
-	k8s.io/client-go v0.31.1
-	k8s.io/component-base v0.31.1
-	sigs.k8s.io/controller-runtime v0.19.0
+	k8s.io/api v0.31.2
+	k8s.io/apimachinery v0.31.2
+	k8s.io/client-go v0.31.2
+	k8s.io/component-base v0.31.2
+	sigs.k8s.io/controller-runtime v0.19.1
 )
 
 require (
