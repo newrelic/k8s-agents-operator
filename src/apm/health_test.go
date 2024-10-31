@@ -103,6 +103,52 @@ func TestHealthInjector_Inject(t *testing.T) {
 			}},
 		},
 		{
+			name: "a container, instrumentation, ensure no dup env name/value in sidecar",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
+				Agent: v1alpha2.Agent{
+					Language: "health",
+					Env: []corev1.EnvVar{
+						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"},
+						{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
+					},
+				},
+				LicenseKeySecret: "newrelic-key-secret"},
+			},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{{
+					Name: "newrelic-apm-health",
+					VolumeMounts: []corev1.VolumeMount{{
+						Name:      "newrelic-apm-health",
+						MountPath: "/health",
+					}},
+					Env: []corev1.EnvVar{
+						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"},
+						{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
+						{Name: "NEW_RELIC_SIDECAR_TIMEOUT_DURATION", Value: "1s"},
+					},
+					RestartPolicy: &restartAlways,
+					Ports:         []corev1.ContainerPort{{ContainerPort: 6194}},
+				}},
+				Containers: []corev1.Container{{
+					Name: "test",
+					VolumeMounts: []corev1.VolumeMount{{
+						Name:      "newrelic-apm-health",
+						MountPath: "/health",
+					}},
+					Env: []corev1.EnvVar{
+						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"},
+					},
+				}},
+				Volumes: []corev1.Volume{{
+					Name:         "newrelic-apm-health",
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				}},
+			}},
+		},
+		{
 			name: "a container, instrumentation, missing health file",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},

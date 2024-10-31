@@ -110,7 +110,7 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 
 	// set defaults
 	for _, entry := range healthDefaultEnv {
-		if idx := getIndexOfEnv(container.Env, entry.Name); idx == -1 {
+		if idx := getIndexOfEnv(initContainerEnv, entry.Name); idx == -1 {
 			initContainerEnv = append(initContainerEnv, corev1.EnvVar{
 				Name:  entry.Name,
 				Value: entry.Value,
