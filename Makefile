@@ -84,7 +84,7 @@ coverprofile: $(TMP_DIR)/cover.out ## Generate coverage report
 	go tool cover -func=$(TMP_DIR)/cover.out
 
 .PHONY: go-test
-go-test: $(SETUP_ENVTEST) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION
+go-test: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION
 	@chmod -R 755 $(LOCALBIN)/k8s
 	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 		go test -v -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
