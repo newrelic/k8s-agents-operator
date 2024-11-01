@@ -135,7 +135,7 @@ test: go-test # run-helm-unittest ## Run go tests (just an alias)
 
 .PHONY: go-lint
 go-lint: golangci-lint ## Lint all go files
-	$(GOLANGCI_LINT) run --config=./.github/.golangci.yml ./src/apm
+	$(GOLANGCI_LINT) run --config=./.github/.golangci.yml
 
 .PHONY: lint
 lint: go-lint run-helm-lint ## Lint everything
