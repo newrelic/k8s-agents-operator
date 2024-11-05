@@ -20,16 +20,18 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
+	stdruntime "runtime"
 	"sync"
 	"testing"
 	"time"
 
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
+	admissionv1 "k8s.io/api/admission/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -38,8 +40,18 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"github.com/newrelic/k8s-agents-operator/src/autodetect"
+	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
+	"github.com/newrelic/k8s-agents-operator/src/internal/config"
+	"github.com/newrelic/k8s-agents-operator/src/internal/version"
+	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,14 +65,33 @@ var (
 	cfg        *rest.Config
 )
 
-var _ = k8sClient
+var _ io.Writer = (*fakeWriter)(nil)
+
+type fakeWriter struct{}
+
+func (w *fakeWriter) Write(p []byte) (n int, err error) {
+	return len(p), nil
+}
 
 func TestMain(m *testing.M) {
 	ctx, cancel = context.WithCancel(context.TODO())
 	defer cancel()
 
+	logger := zap.New(zap.UseDevMode(true), zap.WriteTo(&fakeWriter{}))
+
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "tests", "kustomize", "crd", "bases")},
+
+		ErrorIfCRDPathMissing: false,
+
+		// The BinaryAssetsDirectory is only required if you want to run the tests directly
+		// without call the makefile target test. If not informed it will look for the
+		// default path defined in controller-runtime which is /usr/local/kubebuilder/.
+		// Note that you must have the required binaries setup under the bin directory to perform
+		// the tests directly. When we run make test it will be setup and used automatically.
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "k8s",
+			fmt.Sprintf("1.29.0-%s-%s", stdruntime.GOOS, stdruntime.GOARCH)),
+
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "..", "tests", "kustomize", "webhook")},
 		},
@@ -75,6 +106,12 @@ func TestMain(m *testing.M) {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
 	}
+
+	if err = admissionv1.AddToScheme(testScheme); err != nil {
+		fmt.Printf("failed to register scheme: %v", err)
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: testScheme})
@@ -93,17 +130,67 @@ func TestMain(m *testing.M) {
 			CertDir: webhookInstallOptions.LocalServingCertDir,
 		}),
 		LeaderElection: false,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
+		Metrics:        metricsserver.Options{BindAddress: "0"},
 	})
 	if mgrErr != nil {
 		fmt.Printf("failed to start webhook server: %v", mgrErr)
 		os.Exit(1)
 	}
 
-	ctx, cancel = context.WithCancel(context.TODO())
-	defer cancel()
+	injectorRegistry := apm.DefaultInjectorRegistry
+
+	instDefaulter := &instrumentation.InstrumentationDefaulter{
+		Logger: logger.WithName("instrumentation-defaulter"),
+	}
+	instValidator := &instrumentation.InstrumentationValidator{
+		Logger:            logger.WithName("instrumentation-validator"),
+		InjectorRegistery: injectorRegistry,
+	}
+	err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.Instrumentation{}).
+		WithValidator(instValidator).
+		WithDefaulter(instDefaulter).
+		Complete()
+	if err != nil {
+		fmt.Printf("failed to register instrumentation webhook: %v", mgrErr)
+		os.Exit(1)
+	}
+
+	restConfig := cfg
+	operatorNamespace := "newrelic"
+	var labelsFilter []string
+	ad, err := autodetect.New(restConfig)
+	if err != nil {
+		fmt.Printf("failed to setup auto-detect routine: %v", err)
+		os.Exit(1)
+	}
+	v := version.Get()
+	hcfg := config.New(
+		config.WithLogger(ctrl.Log.WithName("config")),
+		config.WithVersion(v),
+		config.WithAutoDetect(ad),
+		config.WithLabelFilters(labelsFilter),
+	)
+	client := mgr.GetClient()
+	injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
+	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{
+		Handler: webhookhandler.NewWebhookHandler(
+			hcfg, ctrl.Log.WithName("pod-webhook"), mgr.GetClient(), admission.NewDecoder(mgr.GetScheme()),
+			[]webhookhandler.PodMutator{
+				instrumentation.NewMutator(
+					logger,
+					client,
+					injector,
+					secretReplicator,
+					instrumentationLocator,
+					operatorNamespace,
+				),
+			},
+		),
+	})
+
 	go func() {
 		if err = mgr.Start(ctx); err != nil {
 			fmt.Printf("failed to start manager: %v", err)
@@ -143,6 +230,7 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
+	cancel()
 	err = testEnv.Stop()
 	if err != nil {
 		fmt.Printf("failed to stop testEnv: %v", err)
@@ -150,4 +238,79 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(code)
+}
+
+func TestPodMutationHandler_Handle(t *testing.T) {
+	tests := []struct {
+		name                 string
+		initNamespaces       []corev1.Namespace
+		initSecrets          []corev1.Secret
+		initInstrumentations []v1alpha2.Instrumentation
+		initPod              corev1.Pod
+	}{
+		{
+			name: "basic",
+			initNamespaces: []corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic"}},
+			},
+			initSecrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: instrumentation.DefaultLicenseKeySecretName, Namespace: "newrelic"},
+					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
+				},
+			},
+			initInstrumentations: []v1alpha2.Instrumentation{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation", Namespace: "newrelic"},
+					Spec: v1alpha2.InstrumentationSpec{
+						Agent: v1alpha2.Agent{
+							Language: "python",
+							Image:    "not-a-real-python-image",
+						},
+					},
+				},
+			},
+			initPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "alpine", Namespace: "default"},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:    "alpine",
+							Image:   "alpine:latest",
+							Command: []string{"sleep", "300"},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, ns := range tt.initNamespaces {
+				err = k8sClient.Create(context.Background(), &ns)
+				if err != nil {
+					t.Fatalf("failed to create namespace: %v", err)
+				}
+			}
+			for _, secret := range tt.initSecrets {
+				err = k8sClient.Create(context.Background(), &secret)
+				if err != nil {
+					t.Fatalf("failed to create secret: %v", err)
+				}
+			}
+			for _, instrumentation := range tt.initInstrumentations {
+				err = k8sClient.Create(context.Background(), &instrumentation)
+				if err != nil {
+					t.Fatalf("failed to create instrumentation: %v", err)
+				}
+			}
+			err = k8sClient.Create(context.Background(), &tt.initPod)
+			if err != nil {
+				t.Fatalf("failed to create pod: %v", err)
+			}
+			if len(tt.initPod.Spec.InitContainers) != 1 {
+				t.Errorf("expected 1 init container; got %d", len(tt.initPod.Spec.InitContainers))
+			}
+		})
+	}
 }
