@@ -6,7 +6,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.6.0
 	github.com/onsi/ginkgo/v2 v2.21.0
-	github.com/onsi/gomega v1.35.0
+	github.com/onsi/gomega v1.35.1
 	github.com/openshift/api v0.0.0-20241024191314-684b2b1679ba
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
