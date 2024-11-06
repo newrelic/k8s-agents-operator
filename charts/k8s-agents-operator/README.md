@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.16.1](https://img.shields.io/badge/Version-0.16.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.16.1](https://img.shields.io/badge/AppVersion-0.16.1-informational?style=flat-square)
+![Version: 0.17.0](https://img.shields.io/badge/Version-0.17.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.17.0](https://img.shields.io/badge/AppVersion-0.17.0-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -243,7 +243,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
 | controllerManager.kubeRbacProxy.containerSecurityContext | object | `{}` | Sets security context (at container level) for kubeRbacProxy. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
 | controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` |  |
-| controllerManager.kubeRbacProxy.image.tag | string | `"v0.14.0"` |  |
+| controllerManager.kubeRbacProxy.image.tag | string | `"v0.16.0"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.memory | string | `"128Mi"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.cpu | string | `"5m"` |  |

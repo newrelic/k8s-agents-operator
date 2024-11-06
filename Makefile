@@ -11,15 +11,16 @@ ALL_E2E_K8S_VERSIONS ?= v1.31.1 v1.30.5 v1.29.9 v1.28.14 v1.27.16 v1.26.15
 
 # Go packages to test
 TEST_PACKAGES = ./src/internal/config \
+                ./src/internal/version \
+                ./src/internal/webhookhandler \
 				./src/api/v1alpha2 \
 				./src/autodetect \
 				./src/instrumentation/ \
 				./src/instrumentation/upgrade \
-                ./src/internal/version \
                 ./src/apm
 
 # Kubebuilder variables
-SETUP_ENVTEST             = $(TMP_DIR)/setup-envtest
+SETUP_ENVTEST             = $(LOCALBIN)/setup-envtest
 SETUP_ENVTEST_VERSION     ?= release-0.19
 SETUP_ENVTEST_K8S_VERSION ?= 1.29.0
 ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.30.0 1.29.3 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
@@ -83,10 +84,16 @@ coverprofile: $(TMP_DIR)/cover.out ## Generate coverage report
 	go tool cover -func=$(TMP_DIR)/cover.out
 
 .PHONY: go-test
-go-test: $(SETUP_ENVTEST) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION
-	@chmod -R 755 $(TMP_DIR)/k8s
-	KUBEBUILDER_ASSETS="$(shell $(TMP_DIR)/setup-envtest use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(TMP_DIR) -p path)" \
+go-test: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION
+	@chmod -R 755 $(LOCALBIN)/k8s
+	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 		go test -v -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
+
+.PHONY: go-test-race
+go-test-race: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION with race detector
+	@chmod -R 755 $(LOCALBIN)/k8s
+	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
+		go test -v -race -cover -covermode=atomic -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
 
 .PHONY: all-go-tests
 all-go-tests: ## Run go tests with all k8s versions specified by $ALL_SETUP_ENVTEST_K8S_VERSIONS
@@ -203,8 +210,8 @@ $(KUSTOMIZE): $(LOCALBIN)
 
 .PHONY: setup-envtest
 setup-envtest: $(SETUP_ENVTEST) ## Download setup-envtest
-$(SETUP_ENVTEST): $(TMP_DIR)
-	GOBIN="$(realpath $(TMP_DIR))" go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(SETUP_ENVTEST_VERSION)
+$(SETUP_ENVTEST): $(LOCALBIN)
+	test -s $(SETUP_ENVTEST) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(SETUP_ENVTEST_VERSION)
 
 ##@ Generate manifests e.g. CRD, RBAC etc.
 
