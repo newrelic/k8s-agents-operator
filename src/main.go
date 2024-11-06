@@ -26,9 +26,6 @@ import (
 	"strings"
 	"time"
 
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -41,7 +38,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 	"github.com/newrelic/k8s-agents-operator/src/apm"
@@ -51,6 +50,7 @@ import (
 	"github.com/newrelic/k8s-agents-operator/src/internal/config"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
+
 	// +kubebuilder:scaffold:imports
 )
 

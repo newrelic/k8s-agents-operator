@@ -18,7 +18,6 @@ package instrumentation
 import (
 	"context"
 	"errors"
-
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -73,7 +72,7 @@ func NewMutator(
 
 // Mutate is used to mutate a pod based on some instrumentation(s)
 func (pm *instPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	logger := pm.logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
+	logger := pm.logger.WithValues("namespace", pod.Namespace, "name", pod.Name, "generate_name", pod.GenerateName)
 
 	instCandidates, err := pm.instrumentationLocator.GetInstrumentations(ctx, ns, pod)
 	if err != nil {
@@ -153,7 +152,7 @@ func NewNewRelicInstrumentationLocator(logger logr.Logger, client client.Client,
 // GetInstrumentations is used to get all instrumentations in the cluster. While we could limit it to the operator
 // namespace, it's more helpful to list anything in the logs that may have been excluded.
 func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*v1alpha2.Instrumentation, error) {
-	logger := il.logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
+	logger := il.logger.WithValues("namespace", pod.Namespace, "name", pod.Name, "generate_name", pod.GenerateName)
 
 	var listInst v1alpha2.InstrumentationList
 	if err := il.client.List(ctx, &listInst); err != nil {
@@ -246,7 +245,7 @@ func NewNewrelicSecretReplicator(logger logr.Logger, client client.Client) *Newr
 
 // ReplicateSecret is used to copy the secret from the operator namespace to the pod namespace if the secret doesn't already exist
 func (sr *NewrelicSecretReplicator) ReplicateSecret(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretName string) error {
-	logger := sr.logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
+	logger := sr.logger.WithValues("namespace", pod.Namespace, "name", pod.Name, "generate_name", pod.GenerateName)
 
 	var secret corev1.Secret
 

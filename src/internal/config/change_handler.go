@@ -36,7 +36,8 @@ type changeHandler interface {
 // newOnChange returns a thread-safe ChangeHandler.
 func newOnChange() changeHandler {
 	return &onChange{
-		logger: logf.Log.WithName("change-handler"),
+		logger:      logf.Log.WithName("change-handler"),
+		muCallbacks: &sync.Mutex{},
 	}
 }
 
@@ -44,7 +45,7 @@ type onChange struct {
 	logger logr.Logger
 
 	callbacks   []func() error
-	muCallbacks sync.Mutex
+	muCallbacks *sync.Mutex
 }
 
 func (o *onChange) Do() error {

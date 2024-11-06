@@ -17,7 +17,7 @@ limitations under the License.
 package config_test
 
 import (
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -68,17 +68,17 @@ func TestOnPlatformChangeCallback(t *testing.T) {
 
 func TestAutoDetectInBackground(t *testing.T) {
 	// prepare
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	var ac int64
+	tickTime := 100 * time.Millisecond
 	mock := &mockAutoDetect{
 		OpenShiftRoutesAvailabilityFunc: func() (autodetect.OpenShiftRoutesAvailability, error) {
-			wg.Done()
+			atomic.AddInt64(&ac, 1)
 			return autodetect.OpenShiftRoutesNotAvailable, nil
 		},
 	}
 	cfg := config.New(
 		config.WithAutoDetect(mock),
-		config.WithAutoDetectFrequency(100*time.Millisecond),
+		config.WithAutoDetectFrequency(tickTime),
 	)
 
 	// sanity check
@@ -89,7 +89,9 @@ func TestAutoDetectInBackground(t *testing.T) {
 	require.NoError(t, err)
 
 	// verify
-	wg.Wait()
+	time.Sleep(tickTime + 17*time.Millisecond)
+	c := atomic.LoadInt64(&ac)
+	assert.GreaterOrEqual(t, c, int64(2))
 }
 
 var _ autodetect.AutoDetect = (*mockAutoDetect)(nil)
