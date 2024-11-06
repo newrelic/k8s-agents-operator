@@ -47,6 +47,6 @@
 {{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "leader-election-rolebinding") -}}
 {{- end -}}
 
-{{- define "k8s-agents-operator.rbac.reader.role.name" -}}
+{{- define "k8s-agents-operator.rbac.metricsReader.role.name" -}}
 {{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "metrics-reader") -}}
 {{- end -}}
