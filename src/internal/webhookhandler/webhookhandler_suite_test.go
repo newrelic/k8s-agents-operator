@@ -20,7 +20,10 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -241,12 +244,15 @@ func TestMain(m *testing.M) {
 }
 
 func TestPodMutationHandler_Handle(t *testing.T) {
+	optionalTrue := true
+
 	tests := []struct {
 		name                 string
 		initNamespaces       []corev1.Namespace
 		initSecrets          []corev1.Secret
 		initInstrumentations []v1alpha2.Instrumentation
 		initPod              corev1.Pod
+		expectedPod          corev1.Pod
 	}{
 		{
 			name: "basic",
@@ -261,8 +267,11 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			},
 			initInstrumentations: []v1alpha2.Instrumentation{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation", Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation-python", Namespace: "newrelic"},
 					Spec: v1alpha2.InstrumentationSpec{
+						PodLabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{"inject": "python"},
+						},
 						Agent: v1alpha2.Agent{
 							Language: "python",
 							Image:    "not-a-real-python-image",
@@ -271,7 +280,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 				},
 			},
 			initPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: "alpine", Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{Name: "alpine1", Namespace: "default", Labels: map[string]string{"inject": "python"}},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
@@ -282,17 +291,211 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 					},
 				},
 			},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "alpine1", Namespace: "default", Labels: map[string]string{"inject": "python"}},
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name:    "newrelic-instrumentation-python",
+							Image:   "not-a-real-python-image",
+							Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation",
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:    "alpine",
+							Image:   "alpine:latest",
+							Command: []string{"sleep", "300"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation",
+								},
+							},
+							Env: []corev1.EnvVar{
+								{Name: "PYTHONPATH", Value: "/newrelic-instrumentation"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "alpine1"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{Key: "new_relic_license_key", Optional: &optionalTrue, LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}}}},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "newrelic-instrumentation",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "test php",
+			initNamespaces: []corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic"}},
+			},
+			initSecrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: instrumentation.DefaultLicenseKeySecretName, Namespace: "newrelic"},
+					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
+				},
+			},
+			initInstrumentations: []v1alpha2.Instrumentation{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation-php", Namespace: "newrelic"},
+					Spec: v1alpha2.InstrumentationSpec{
+						PodLabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{
+								"inject": "php",
+							},
+						},
+						Agent: v1alpha2.Agent{
+							Language: "php-8.3",
+							Image:    "not-a-real-php-image",
+						},
+					},
+				},
+			},
+			initPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "alpine2", Namespace: "default", Labels: map[string]string{"inject": "php"}},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:    "alpine",
+							Image:   "alpine:latest",
+							Command: []string{"sleep", "300"},
+							Env: []corev1.EnvVar{
+								{Name: "a", Value: "a"},
+								{Name: "b", Value: "b"},
+							},
+						},
+					},
+				},
+			},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "alpine2", Namespace: "default", Labels: map[string]string{"inject": "php"}},
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name:    "newrelic-instrumentation-php",
+							Image:   "not-a-real-php-image",
+							Command: []string{"/bin/sh"},
+							Args:    []string{"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh 20230831 && /newrelic-instrumentation/nr_env_to_ini.sh"},
+							Env: []corev1.EnvVar{
+								{Name: "a", Value: "a"},
+								{Name: "b", Value: "b"},
+								{Name: "PHP_INI_SCAN_DIR", Value: "/newrelic-instrumentation/php-agent/ini"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "alpine2"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{Key: "new_relic_license_key", Optional: &optionalTrue, LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}}}},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation",
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:    "alpine",
+							Image:   "alpine:latest",
+							Command: []string{"sleep", "300"},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation",
+								},
+							},
+							Env: []corev1.EnvVar{
+								{Name: "a", Value: "a"},
+								{Name: "b", Value: "b"},
+								{Name: "PHP_INI_SCAN_DIR", Value: "/newrelic-instrumentation/php-agent/ini"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "alpine2"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "newrelic-instrumentation",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
+
+	opts := cmp.Options{
+		cmpopts.IgnoreFields(corev1.PodSpec{},
+			"DNSPolicy",
+			"EnableServiceLinks",
+			"PreemptionPolicy",
+			"Priority",
+			"RestartPolicy",
+			"SchedulerName",
+			"SecurityContext",
+			"TerminationGracePeriodSeconds",
+			"Tolerations",
+		),
+		cmpopts.IgnoreFields(metav1.ObjectMeta{},
+			"CreationTimestamp",
+			"ManagedFields",
+			"ResourceVersion",
+			"UID",
+		),
+		cmpopts.IgnoreFields(corev1.Container{},
+			"ImagePullPolicy",
+			"TerminationMessagePath",
+			"TerminationMessagePolicy",
+		),
+		cmpopts.IgnoreTypes(corev1.PodStatus{}),
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, ns := range tt.initNamespaces {
+				{
+					getNs := &corev1.Namespace{}
+					err = k8sClient.Get(ctx, client.ObjectKey{Name: ns.Name}, getNs)
+					if err == nil {
+						continue
+					}
+					if !apierrors.IsNotFound(err) {
+						if err != nil {
+							t.Fatalf("failed to check for existing namespace: %v", err)
+						}
+					}
+				}
 				err = k8sClient.Create(context.Background(), &ns)
 				if err != nil {
 					t.Fatalf("failed to create namespace: %v", err)
 				}
 			}
 			for _, secret := range tt.initSecrets {
+				{
+					getNs := &corev1.Secret{}
+					err = k8sClient.Get(ctx, client.ObjectKey{Name: secret.Name, Namespace: secret.Namespace}, getNs)
+					if err == nil {
+						continue
+					}
+					if !apierrors.IsNotFound(err) {
+						if err != nil {
+							t.Fatalf("failed to check for existing secret: %v", err)
+						}
+					}
+				}
 				err = k8sClient.Create(context.Background(), &secret)
 				if err != nil {
 					t.Fatalf("failed to create secret: %v", err)
@@ -304,12 +507,17 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 					t.Fatalf("failed to create instrumentation: %v", err)
 				}
 			}
+
 			err = k8sClient.Create(context.Background(), &tt.initPod)
 			if err != nil {
 				t.Fatalf("failed to create pod: %v", err)
 			}
 			if len(tt.initPod.Spec.InitContainers) != 1 {
 				t.Errorf("expected 1 init container; got %d", len(tt.initPod.Spec.InitContainers))
+			}
+			diff := cmp.Diff(tt.expectedPod, tt.initPod, opts...)
+			if diff != "" {
+				t.Errorf("init pod does not match expected pod (-want +got): %s", diff)
 			}
 		})
 	}
