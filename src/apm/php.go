@@ -116,6 +116,8 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 		})
 	}
 
+	pod = i.injectNewrelicEnvConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
+
 	// We just inject Volumes and init containers for the first processed container.
 	if isInitContainerMissing(pod, nodejsInitContainerName) {
 		if isPodVolumeMissing(pod, volumeName) {
@@ -126,6 +128,8 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 				}})
 		}
 
+		copyOfContainerEnv := make([]corev1.EnvVar, len(container.Env))
+		copy(copyOfContainerEnv, container.Env)
 		initContainer := corev1.Container{
 			Name:    phpInitContainerName,
 			Image:   inst.Spec.Agent.Image,
@@ -133,17 +137,15 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 			Args: []string{
 				"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh " + apiNum + " && /newrelic-instrumentation/nr_env_to_ini.sh",
 			},
-			Env: container.Env,
+			Env: copyOfContainerEnv,
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
 		}
-		i.injectNewrelicLicenseKeyIntoContainer(&initContainer, inst.Spec.LicenseKeySecret)
+		initContainer = i.injectNewrelicLicenseKeyIntoContainer(initContainer, inst.Spec.LicenseKeySecret)
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	}
-
-	pod = i.injectNewrelicEnvConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
 
 	return pod, nil
 }
