@@ -54,7 +54,7 @@ metadata:
 spec:
   agent:
     language: dotnet
-    image: newrelic/newrelic-dotnet-init:latest
+    image: newrelic/newrelic-dotnet-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -69,7 +69,7 @@ metadata:
 spec:
   agent:
     language: java
-    image: newrelic/newrelic-java-init:latest
+    image: newrelic/newrelic-java-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -84,7 +84,7 @@ metadata:
 spec:
   agent:
     language: nodejs
-    image: newrelic/newrelic-node-init:latest
+    image: newrelic/newrelic-node-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -99,7 +99,7 @@ metadata:
 spec:
   agent:
     language: python
-    image: newrelic/newrelic-python-init:latest
+    image: newrelic/newrelic-python-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -114,7 +114,7 @@ metadata:
 spec:
   agent:
     language: ruby
-    image: newrelic/newrelic-ruby-init:latest
+    image: newrelic/newrelic-ruby-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -209,6 +209,10 @@ helm install cert-manager jetstack/cert-manager \
 ```
 
 In your `values.yaml` file, set `admissionWebhooks.autoGenerateCert.enabled: false` and `admissionWebhooks.certManager.enabled: true`. Then install the chart as normal.
+
+## Security
+
+This operator requires a privileged environment to run correctly. As with all components that run in a privileged environment, please exercise caution when granting access to the namespace (and other resources) that the K8s Agent Operator is deployed on.
 
 ## Available Chart Releases
 

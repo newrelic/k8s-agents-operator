@@ -52,7 +52,7 @@ metadata:
 spec:
   agent:
     language: dotnet
-    image: newrelic/newrelic-dotnet-init:latest
+    image: newrelic/newrelic-dotnet-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -67,7 +67,7 @@ metadata:
 spec:
   agent:
     language: java
-    image: newrelic/newrelic-java-init:latest
+    image: newrelic/newrelic-java-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -82,7 +82,7 @@ metadata:
 spec:
   agent:
     language: nodejs
-    image: newrelic/newrelic-node-init:latest
+    image: newrelic/newrelic-node-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -97,7 +97,7 @@ metadata:
 spec:
   agent:
     language: python
-    image: newrelic/newrelic-python-init:latest
+    image: newrelic/newrelic-python-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -112,7 +112,7 @@ metadata:
 spec:
   agent:
     language: ruby
-    image: newrelic/newrelic-ruby-init:latest
+    image: newrelic/newrelic-ruby-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -208,6 +208,10 @@ helm install cert-manager jetstack/cert-manager \
 
 In your `values.yaml` file, set `admissionWebhooks.autoGenerateCert.enabled: false` and `admissionWebhooks.certManager.enabled: true`. Then install the chart as normal.
 
+## Security
+
+This operator requires a privileged environment to run correctly. As with all components that run in a privileged environment, please exercise caution when granting access to the namespace (and other resources) that the K8s Agent Operator is deployed on.
+
 ## Available Chart Releases
 
 To see the available charts:
@@ -242,16 +246,16 @@ If you want to see a list of all available charts and releases, check [index.yam
 | affinity | object | `{}` | Sets all pods' affinities. Can be configured also with `global.affinity` |
 | containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
 | controllerManager.kubeRbacProxy.containerSecurityContext | object | `{}` | Sets security context (at container level) for kubeRbacProxy. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
-| controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` |  |
-| controllerManager.kubeRbacProxy.image.tag | string | `"v0.16.0"` |  |
+| controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` | Sets the repository and image to use for kube-rbac-proxy. Please ensure you're using a trusted image. |
+| controllerManager.kubeRbacProxy.image.version | string | `"sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea"` | Sets the kube-rbac-proxy image version to retrieve. Could be a tag i.e. "v0.16.0" or a SHA digest i.e. "sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea" |
 | controllerManager.kubeRbacProxy.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.memory | string | `"128Mi"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.cpu | string | `"5m"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.memory | string | `"64Mi"` |  |
 | controllerManager.manager.containerSecurityContext | object | `{}` | Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
 | controllerManager.manager.image.pullPolicy | string | `nil` |  |
-| controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` |  |
-| controllerManager.manager.image.tag | string | `nil` |  |
+| controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` | Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images. |
+| controllerManager.manager.image.version | string | `nil` | Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e" |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
