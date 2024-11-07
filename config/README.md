@@ -1,6 +1,6 @@
 ## Structure
 
-The `kustomize` folder contains the Kustomize resources that are used to assemble the operator's deployment units for testing
+The `config` folder contains the Kustomize resources that are used to assemble the operator's deployment units for testing
 
 ```
 .

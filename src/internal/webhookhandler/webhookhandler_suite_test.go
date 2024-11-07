@@ -83,7 +83,7 @@ func TestMain(m *testing.M) {
 	logger := zap.New(zap.UseDevMode(true), zap.WriteTo(&fakeWriter{}))
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "tests", "kustomize", "crd", "bases")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 
 		ErrorIfCRDPathMissing: false,
 
@@ -96,7 +96,7 @@ func TestMain(m *testing.M) {
 			fmt.Sprintf("1.29.0-%s-%s", stdruntime.GOOS, stdruntime.GOARCH)),
 
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "..", "tests", "kustomize", "webhook")},
+			Paths: []string{filepath.Join("..", "..", "..", "config", "webhook")},
 		},
 	}
 	cfg, err = testEnv.Start()
