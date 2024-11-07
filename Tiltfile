@@ -36,7 +36,7 @@ helm_resource(
   update_dependencies=False,
   flags=flags_helm,
   image_deps=['tilt.local/operator-dev'],
-  image_keys=[('controllerManager.manager.image.repository', 'controllerManager.manager.image.tag')],
+  image_keys=[('controllerManager.manager.image.repository', 'controllerManager.manager.image.version')],
   resource_deps=[]
 )
 

@@ -5,7 +5,7 @@ release:
   name: my-release
   namespace: my-namespace
 tests:
-  - it: has a default image tag
+  - it: has a default image version
     set:
       licenseKey: us-whatever
     asserts:
