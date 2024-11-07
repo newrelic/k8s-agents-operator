@@ -243,7 +243,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
 | controllerManager.kubeRbacProxy.containerSecurityContext | object | `{}` | Sets security context (at container level) for kubeRbacProxy. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
 | controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` |  |
-| controllerManager.kubeRbacProxy.image.tag | string | `"v0.16.0"` |  |
+| controllerManager.kubeRbacProxy.image.version | string | `"sha256:f0895cf3cac8d4feb32bed558909dc590c25432f"` | Sets the version to retrieve. Could be a tag i.e. "v0.16.0" or a SHA digest i.e. "sha256:f0895cf3cac8d4feb32bed558909dc590c25432f" |
 | controllerManager.kubeRbacProxy.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.kubeRbacProxy.resources.limits.memory | string | `"128Mi"` |  |
 | controllerManager.kubeRbacProxy.resources.requests.cpu | string | `"5m"` |  |
@@ -251,7 +251,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.manager.containerSecurityContext | object | `{}` | Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
 | controllerManager.manager.image.pullPolicy | string | `nil` |  |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` |  |
-| controllerManager.manager.image.tag | string | `nil` |  |
+| controllerManager.manager.image.version | string | `nil` | Sets the version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:0f5798d371ced36e5213caa8052dac89e7b0c493" |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
