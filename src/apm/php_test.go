@@ -64,7 +64,14 @@ func TestPhpInjector_Inject(t *testing.T) {
 			name: "a container, instrumentation",
 			pod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"}},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "test"}}},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{
+					{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "a", Value: "a"},
+						},
+					},
+				}},
 			},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"}},
@@ -72,6 +79,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
+							{Name: "a", Value: "a"},
 							{Name: "PHP_INI_SCAN_DIR", Value: "/newrelic-instrumentation/php-agent/ini"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
@@ -82,7 +90,11 @@ func TestPhpInjector_Inject(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "newrelic-instrumentation-php",
 						Env: []corev1.EnvVar{
+							{Name: "a", Value: "a"},
 							{Name: "PHP_INI_SCAN_DIR", Value: "/newrelic-instrumentation/php-agent/ini"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
 						Command:      []string{"/bin/sh"},

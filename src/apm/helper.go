@@ -214,7 +214,7 @@ func (i *baseInjector) validate(inst v1alpha2.Instrumentation) error {
 	return nil
 }
 
-func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container *corev1.Container, licenseKeySecretName string) {
+func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Container, licenseKeySecretName string) corev1.Container {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLicenseKey); idx == -1 {
 		optional := true
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -228,11 +228,12 @@ func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container *corev1.C
 			},
 		})
 	}
+	return container
 }
 
 func (i *baseInjector) injectNewrelicConfig(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int, licenseKeySecret string) corev1.Pod {
-	i.injectNewrelicEnvConfig(ctx, resource, ns, pod, index)
-	i.injectNewrelicLicenseKeyIntoContainer(&pod.Spec.Containers[index], licenseKeySecret)
+	pod = i.injectNewrelicEnvConfig(ctx, resource, ns, pod, index)
+	pod.Spec.Containers[index] = i.injectNewrelicLicenseKeyIntoContainer(pod.Spec.Containers[index], licenseKeySecret)
 	return pod
 }
 
