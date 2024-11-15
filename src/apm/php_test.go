@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 )
 
 func TestPhpInjector_Language(t *testing.T) {
@@ -74,7 +75,11 @@ func TestPhpInjector_Inject(t *testing.T) {
 				}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"}},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"},
+					Labels: map[string]string{
+						DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
+				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: "test",

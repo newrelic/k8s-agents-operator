@@ -20,10 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -31,6 +28,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -292,7 +293,10 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: "alpine1", Namespace: "default", Labels: map[string]string{"inject": "python"}},
+				ObjectMeta: metav1.ObjectMeta{Name: "alpine1", Namespace: "default", Labels: map[string]string{
+					"inject":                                 "python",
+					apm.DescK8sAgentOperatorVersionLabelName: ""},
+				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
 						{
@@ -380,7 +384,10 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: "alpine2", Namespace: "default", Labels: map[string]string{"inject": "php"}},
+				ObjectMeta: metav1.ObjectMeta{Name: "alpine2", Namespace: "default", Labels: map[string]string{
+					"inject":                                 "php",
+					apm.DescK8sAgentOperatorVersionLabelName: ""},
+				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
 						{
