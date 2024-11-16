@@ -181,6 +181,8 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64,linux/arm
+          build-args: |
+            K8S_AGENTS_OPERATOR_VERSION=${{ steps.metadata.outputs.version }}
           file: ./Dockerfile
           push: ${{ github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/heads/renovate') }}
           tags: ${{ steps.metadata.outputs.tags }}

@@ -15,8 +15,9 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG GOOS=$TARGETOS
 ARG GOARCH=$TARGETARCH
+ARG K8S_AGENTS_OPERATOR_VERSION="development"
 
-RUN make build
+RUN make build K8S_AGENTS_OPERATOR_VERSION="${K8S_AGENTS_OPERATOR_VERSION}"
 
 # Use minimal base image to package the operator
 # Source: https://github.com/GoogleContainerTools/distroless
