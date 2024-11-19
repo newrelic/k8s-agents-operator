@@ -51,7 +51,7 @@ const (
 	EnvNewRelicK8sOperatorEnabled        = "NEW_RELIC_K8S_OPERATOR_ENABLED"
 	EnvNewRelicLabels                    = "NEW_RELIC_LABELS"
 	EnvNewRelicLicenseKey                = "NEW_RELIC_LICENSE_KEY"
-	DescK8sAgentOperatorVersionLabelName = "k8s_agents_operator_version"
+	DescK8sAgentOperatorVersionLabelName = "newrelic-k8s-agents-operator-version"
 )
 
 var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")

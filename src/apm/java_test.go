@@ -113,7 +113,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "NEW_RELIC_LABELS", Value: "app:java-injected,operator:auto-injection"},
+							{Name: "NEW_RELIC_LABELS", Value: "app:java-injected;operator:auto-injection"},
 							{Name: "JAVA_TOOL_OPTIONS", Value: " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
