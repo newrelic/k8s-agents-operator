@@ -256,7 +256,7 @@ func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1a
 		})
 	} else {
 		customLabel := container.Env[idx].Value
-		customLabel += ",operator:auto-injection"
+		customLabel += ";operator:auto-injection"
 		container.Env[idx].Value = customLabel
 
 	}
