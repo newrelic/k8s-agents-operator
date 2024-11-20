@@ -7,6 +7,8 @@ LICENSE_KEY     ?= fake-abc123
 E2E_K8S_VERSION ?= v1.31.1
 ALL_E2E_K8S_VERSIONS ?= v1.31.1 v1.30.5 v1.29.9 v1.28.14 v1.27.16 v1.26.15
 
+K8S_AGENTS_OPERATOR_VERSION = ""
+
 .DEFAULT_GOAL := help
 
 # Go packages to test
@@ -158,7 +160,7 @@ go-format: ## Format all go files
 
 .PHONY: build
 build: ## Build the go binary
-	CGO_ENABLED=0 go build -o $(BIN_DIR)/operator $(GO_DIR)
+	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/src/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/src/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator $(GO_DIR)
 
 .PHONY: dockerbuild
 dockerbuild: ## Build the docker image
