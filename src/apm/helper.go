@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 )
 
 const LicenseKey = "new_relic_license_key"
@@ -46,10 +47,11 @@ const (
 )
 
 const (
-	EnvNewRelicAppName            = "NEW_RELIC_APP_NAME"
-	EnvNewRelicK8sOperatorEnabled = "NEW_RELIC_K8S_OPERATOR_ENABLED"
-	EnvNewRelicLabels             = "NEW_RELIC_LABELS"
-	EnvNewRelicLicenseKey         = "NEW_RELIC_LICENSE_KEY"
+	EnvNewRelicAppName                   = "NEW_RELIC_APP_NAME"
+	EnvNewRelicK8sOperatorEnabled        = "NEW_RELIC_K8S_OPERATOR_ENABLED"
+	EnvNewRelicLabels                    = "NEW_RELIC_LABELS"
+	EnvNewRelicLicenseKey                = "NEW_RELIC_LICENSE_KEY"
+	DescK8sAgentOperatorVersionLabelName = "newrelic-k8s-agents-operator-version"
 )
 
 var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")
@@ -252,6 +254,11 @@ func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1a
 			Name:  EnvNewRelicLabels,
 			Value: "operator:auto-injection",
 		})
+	} else {
+		customLabel := container.Env[idx].Value
+		customLabel += ";operator:auto-injection"
+		container.Env[idx].Value = customLabel
+
 	}
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicK8sOperatorEnabled); idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -259,6 +266,8 @@ func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1a
 			Value: "true",
 		})
 	}
+	// Also apply specific pod labels indicating that operator is being attached and it's version
+	ApplyLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
 	return pod
 }
 
@@ -389,4 +398,13 @@ func createServiceInstanceId(namespaceName, podName, containerName string) strin
 		serviceInstanceId = strings.Join(resNames, ".")
 	}
 	return serviceInstanceId
+}
+
+func ApplyLabel(pod *corev1.Pod, key, val string) *corev1.Pod {
+	labels := pod.ObjectMeta.GetLabels()
+	if labels == nil {
+		pod.ObjectMeta.Labels = make(map[string]string)
+	}
+	pod.ObjectMeta.Labels[key] = val
+	return pod
 }
