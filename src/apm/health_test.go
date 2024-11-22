@@ -67,7 +67,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
 				Agent: v1alpha2.Agent{
 					Language: "health",
-					Env:      []corev1.EnvVar{{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"}},
+					Env:      []corev1.EnvVar{{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"}},
 				},
 				LicenseKeySecret: "newrelic-key-secret"},
 			},
@@ -76,10 +76,10 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Name: "newrelic-apm-health",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name:      "newrelic-apm-health",
-						MountPath: "/health",
+						MountPath: "/health/this",
 					}},
 					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"},
+						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
 						{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
 						{Name: "NEW_RELIC_SIDECAR_TIMEOUT_DURATION", Value: "1s"},
 					},
@@ -90,10 +90,10 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Name: "test",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name:      "newrelic-apm-health",
-						MountPath: "/health",
+						MountPath: "/health/this",
 					}},
 					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"},
+						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
 					},
 				}},
 				Volumes: []corev1.Volume{{
@@ -111,7 +111,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 				Agent: v1alpha2.Agent{
 					Language: "health",
 					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"},
+						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
 						{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
 					},
 				},
@@ -122,10 +122,10 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Name: "newrelic-apm-health",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name:      "newrelic-apm-health",
-						MountPath: "/health",
+						MountPath: "/health/this",
 					}},
 					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"},
+						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
 						{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
 						{Name: "NEW_RELIC_SIDECAR_TIMEOUT_DURATION", Value: "1s"},
 					},
@@ -136,10 +136,10 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Name: "test",
 					VolumeMounts: []corev1.VolumeMount{{
 						Name:      "newrelic-apm-health",
-						MountPath: "/health",
+						MountPath: "/health/this",
 					}},
 					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE", Value: "/health/this"},
+						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
 					},
 				}},
 				Volumes: []corev1.Volume{{
@@ -164,7 +164,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Name: "test",
 				}},
 			}},
-			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_FILE\" > invalid mount path \"\" from value \"\", cannot be blank",
+			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_PATH\" > invalid mount path \"\", cannot be blank",
 		},
 		{
 			name: "a container, instrumentation, invalid timeout",
@@ -175,7 +175,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 				Agent: v1alpha2.Agent{
 					Language: "health",
 					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFile, Value: "/a/b"},
+						{Name: envHealthFleetControlFilepath, Value: "/a/b"},
 						{Name: envHealthTimeout, Value: "not a duration"},
 					},
 				},
@@ -197,7 +197,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 				Agent: v1alpha2.Agent{
 					Language: "health",
 					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFile, Value: "/a/b"},
+						{Name: envHealthFleetControlFilepath, Value: "/a/b"},
 						{Name: envHealthListenPort, Value: "not a port"},
 					},
 				},
@@ -219,7 +219,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 				Agent: v1alpha2.Agent{
 					Language: "health",
 					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFile, Value: ""},
+						{Name: envHealthFleetControlFilepath, Value: ""},
 					},
 				},
 				LicenseKeySecret: "newrelic-key-secret"},
@@ -229,7 +229,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Name: "test",
 				}},
 			}},
-			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_FILE\" > invalid mount path \"\" from value \"\", cannot be blank",
+			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_PATH\" > invalid mount path \"\", cannot be blank",
 		},
 		{
 			name: "a container, instrumentation, invalid (root) health path",
@@ -240,7 +240,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 				Agent: v1alpha2.Agent{
 					Language: "health",
 					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFile, Value: "/file"},
+						{Name: envHealthFleetControlFilepath, Value: "/file.yml"},
 					},
 				},
 				LicenseKeySecret: "newrelic-key-secret"},
@@ -250,28 +250,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Name: "test",
 				}},
 			}},
-			expectedErrStr: "invalid env value \"/file\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_FILE\" > invalid mount path \"/\" from value \"/file\", cannot be root",
-		},
-		{
-			name: "a container, instrumentation, invalid (root) health file",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
-				Agent: v1alpha2.Agent{
-					Language: "health",
-					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFile, Value: "/just-a-directory/"},
-					},
-				},
-				LicenseKeySecret: "newrelic-key-secret"},
-			},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name: "test",
-				}},
-			}},
-			expectedErrStr: "invalid env value \"/just-a-directory/\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_FILE\" > invalid mount file \"\" from value \"/just-a-directory/\", cannot be blank",
+			expectedErrStr: "invalid env value \"/file.yml\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_PATH\" > invalid mount path \"/file.yml\", cannot have a file extension",
 		},
 	}
 	for _, test := range tests {

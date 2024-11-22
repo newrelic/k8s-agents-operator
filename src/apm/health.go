@@ -18,11 +18,9 @@ package apm
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,11 +29,11 @@ import (
 )
 
 const (
-	envHealthFleetControlFile  = "NEW_RELIC_FLEET_CONTROL_HEALTH_FILE"
-	envHealthListenPort        = "NEW_RELIC_SIDECAR_LISTEN_PORT"
-	envHealthTimeout           = "NEW_RELIC_SIDECAR_TIMEOUT_DURATION"
-	healthSidecarContainerName = "newrelic-apm-health"
-	healthVolumeName           = "newrelic-apm-health"
+	envHealthFleetControlFilepath = "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH"
+	envHealthListenPort           = "NEW_RELIC_SIDECAR_LISTEN_PORT"
+	envHealthTimeout              = "NEW_RELIC_SIDECAR_TIMEOUT_DURATION"
+	healthSidecarContainerName    = "newrelic-apm-health"
+	healthVolumeName              = "newrelic-apm-health"
 )
 
 var (
@@ -85,15 +83,15 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
-	err := validateContainerEnv(container.Env, envHealthFleetControlFile, envHealthListenPort, envHealthTimeout)
+	err := validateContainerEnv(container.Env, envHealthFleetControlFilepath, envHealthListenPort, envHealthTimeout)
 	if err != nil {
 		return *originalPod, err
 	}
 
 	var initContainerEnv []corev1.EnvVar
 
-	// copy the env var for the health file
-	if idx := getIndexOfEnv(container.Env, envHealthFleetControlFile); idx > -1 {
+	// copy the env var for the health filepath
+	if idx := getIndexOfEnv(container.Env, envHealthFleetControlFilepath); idx > -1 {
 		initContainerEnv = append(initContainerEnv, container.Env[idx])
 	}
 
@@ -102,9 +100,9 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 
 	var healthMountPath string
 	{
-		v, _ := i.getValueFromEnvVars(container.Env, envHealthFleetControlFile)
-		if healthMountPath, err = i.validateHealthFile(v); err != nil {
-			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthFleetControlFile, err)
+		v, _ := i.getValueFromEnvVars(container.Env, envHealthFleetControlFilepath)
+		if healthMountPath, err = i.validateHealthFilepath(v); err != nil {
+			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthFleetControlFilepath, err)
 		}
 	}
 
@@ -186,7 +184,7 @@ func (i *HealthInjector) injectEnvVarsIntoTargetedEnvVars(instEnvVars []corev1.E
 
 func (i *HealthInjector) injectEnvVarsIntoSidecarEnvVars(instEnvVars []corev1.EnvVar, sidecarEnvVars *[]corev1.EnvVar) {
 	for _, env := range instEnvVars {
-		if slices.Contains([]string{envHealthListenPort, envHealthTimeout, envHealthFleetControlFile}, env.Name) {
+		if slices.Contains([]string{envHealthListenPort, envHealthTimeout, envHealthFleetControlFilepath}, env.Name) {
 			// configure sidecar specific env vars
 			if idx := getIndexOfEnv(*sidecarEnvVars, env.Name); idx == -1 {
 				*sidecarEnvVars = append(*sidecarEnvVars, env)
@@ -223,19 +221,17 @@ func (i *HealthInjector) validateHealthTimeout(value string) (time.Duration, err
 	return t, nil
 }
 
-func (i *HealthInjector) validateHealthFile(value string) (string, error) {
-	healthMountPath, healthMountFile := filepath.Split(value)
-	if len(healthMountPath) >= 2 {
-		healthMountPath = strings.TrimRight(healthMountPath, string(os.PathSeparator))
+func (i *HealthInjector) validateHealthFilepath(value string) (string, error) {
+	fileExtension := filepath.Ext(value)
+	if fileExtension != "" {
+		return "", fmt.Errorf("invalid mount path %q, cannot have a file extension", value)
 	}
-	if healthMountPath == "" {
-		return "", fmt.Errorf("invalid mount path %q from value %q, cannot be blank", healthMountPath, value)
+	if value == "" {
+		return "", fmt.Errorf("invalid mount path %q, cannot be blank", value)
 	}
-	if healthMountPath == "/" {
-		return "", fmt.Errorf("invalid mount path %q from value %q, cannot be root", healthMountPath, value)
+	if value == "/" {
+		return "", fmt.Errorf("invalid mount path %q, cannot be root", value)
 	}
-	if healthMountFile == "" {
-		return "", fmt.Errorf("invalid mount file %q from value %q, cannot be blank", healthMountFile, value)
-	}
-	return healthMountPath, nil
+
+	return value, nil
 }
