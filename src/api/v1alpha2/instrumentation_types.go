@@ -143,8 +143,21 @@ func (a *Agent) IsEqual(b Agent) bool {
 	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) && reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) && reflect.DeepEqual(a.Resources, b.Resources)
 }
 
+type UnhealthyPodError struct {
+	Pod       string `json:"pod,omitempty"`
+	LastError string `json:"lastError,omitempty"`
+}
+
 // InstrumentationStatus defines the observed state of Instrumentation
 type InstrumentationStatus struct {
+	PodsMatching        int64               `json:"podsMatching,omitempty"`
+	PodsInjected        int64               `json:"podsInjected,omitempty"`
+	PodsNotReady        int64               `json:"podsNotReady,omitempty"`
+	PodsOutdated        int64               `json:"podsOutdated,omitempty"`
+	PodsHealthy         int64               `json:"podsHealthy,omitempty"`
+	PodsUnhealthy       int64               `json:"podsUnhealthy,omitempty"`
+	UnhealthyPodsErrors []UnhealthyPodError `json:"unhealthyPodsErrors,omitempty"`
+	LastUpdated         metav1.Time         `json:"lastUpdated,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -153,6 +166,9 @@ type InstrumentationStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:displayName="New Relic Instrumentation"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1}}
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:object:resource:scope=Namespaced
 
 // Instrumentation is the Schema for the instrumentations API
 type Instrumentation struct {

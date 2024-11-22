@@ -10,6 +10,8 @@ import (
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
 
+//+kubebuilder:webhook:path=/mutate-newrelic-com-v1alpha2-instrumentation,mutating=true,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1alpha2,name=minstrumentation.kb.io,admissionReviewVersions=v1
+
 var _ webhook.CustomDefaulter = (*InstrumentationDefaulter)(nil)
 
 // InstrumentationDefaulter is used to set defaults for instrumentation

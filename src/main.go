@@ -26,9 +26,6 @@ import (
 	"strings"
 	"time"
 
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -41,7 +38,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 	"github.com/newrelic/k8s-agents-operator/src/apm"
@@ -49,6 +48,7 @@ import (
 	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
 	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/instrumentation/upgrade"
 	"github.com/newrelic/k8s-agents-operator/src/internal/config"
+	"github.com/newrelic/k8s-agents-operator/src/internal/controller"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
 	// +kubebuilder:scaffold:imports
@@ -71,6 +71,11 @@ func init() {
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
+
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
+// +kubebuilder:rbac:groups="apps",resources=replicasets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete;deletecollection;patch;update;watch
 
 func main() {
 	// registers any flags that underlying libraries might use
@@ -217,6 +222,44 @@ func main() {
 		os.Exit(1)
 	}
 
+	healthCtx, healthCtxCancel := context.WithCancel(context.Background())
+	healthMonitor := instrumentation.NewHealthMonitor(healthCtx, mgr.GetClient())
+	go func() {
+		<-ctx.Done()
+		logger.Info("Shutting down health checker")
+		stopCtx, stopCtxCancel := context.WithTimeout(context.Background(), 25*time.Second)
+		err := healthMonitor.Stop(stopCtx)
+		if err != nil {
+			setupLog.Error(err, "failed to stop health checker")
+		} else {
+			logger.Info("Shut down health checker")
+		}
+		stopCtxCancel()
+		healthCtxCancel()
+	}()
+
+	if err = (&controller.NamespaceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithHealthMonitor(healthMonitor).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Namespace")
+		os.Exit(1)
+	}
+	if err = (&controller.PodReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithHealthMonitor(healthMonitor).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Pod")
+		os.Exit(1)
+	}
+	if err = (&controller.InstrumentationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithHealthMonitor(healthMonitor).SetupWithOperatorNamespace(operatorNamespace).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Instrumentation")
+		os.Exit(1)
+	}
+
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		//configure injectors that we accept.  go, dotnet, etc..
 		injectorRegistry := apm.DefaultInjectorRegistry
@@ -227,6 +270,7 @@ func main() {
 		instValidator := &instrumentation.InstrumentationValidator{
 			Logger:            logger.WithName("instrumentation-validator"),
 			InjectorRegistery: injectorRegistry,
+			OperatorNamespace: operatorNamespace,
 		}
 		err = ctrl.NewWebhookManagedBy(mgr).
 			For(&v1alpha2.Instrumentation{}).

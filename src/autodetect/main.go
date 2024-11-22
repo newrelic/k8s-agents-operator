@@ -25,6 +25,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
+
 var _ AutoDetect = (*autoDetect)(nil)
 
 // AutoDetect provides an assortment of routines that auto-detect traits based on the runtime.

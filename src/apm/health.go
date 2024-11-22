@@ -34,6 +34,8 @@ const (
 	envHealthTimeout              = "NEW_RELIC_SIDECAR_TIMEOUT_DURATION"
 	healthSidecarContainerName    = "newrelic-apm-health"
 	healthVolumeName              = "newrelic-apm-health"
+
+	HealthInstrumentedAnnotation = "newrelic.com/apm-health"
 )
 
 var (
@@ -164,6 +166,11 @@ func (i *HealthInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	}
+
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+	pod.Annotations[HealthInstrumentedAnnotation] = "true"
 
 	return pod, nil
 }

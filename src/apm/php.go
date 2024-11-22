@@ -17,10 +17,13 @@ package apm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	corev1 "k8s.io/api/core/v1"
-
+	"fmt"
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -28,6 +31,8 @@ const (
 	envIniScanDirVal     = "/newrelic-instrumentation/php-agent/ini"
 	phpInitContainerName = initContainerName + "-php"
 )
+
+const instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
 
 var _ Injector = (*PhpInjector)(nil)
 
@@ -145,5 +150,31 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 
 	pod = i.injectNewrelicEnvConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
 
+	pod = AddAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
+
 	return pod, nil
+}
+
+func AddAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev1.Pod, inst v1alpha2.Instrumentation) corev1.Pod {
+	logger := log.FromContext(ctx)
+	instName := types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()
+	instVersions := map[string]string{}
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+	if v, ok := pod.Annotations[instrumentationVersionAnnotation]; ok {
+		err := json.Unmarshal([]byte(v), &instVersions)
+		if err != nil {
+			// crVersions could have incomplete data, however, some of the annotations may still be valid, so we'll keep them
+			logger.Error(err, "Failed to unmarshal instrumentation version annotation")
+		}
+	}
+	instVersions[instName] = fmt.Sprintf("%s/%d", inst.UID, inst.Generation)
+	instVersionBytes, err := json.Marshal(instVersions)
+	if err != nil {
+		logger.Error(err, "Failed to marshal instrumentation version annotation")
+		return pod
+	}
+	pod.Annotations[instrumentationVersionAnnotation] = string(instVersionBytes)
+	return pod
 }
