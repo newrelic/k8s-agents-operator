@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	testConfigMapName     = "volume-test-configmap"
 	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
 	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
 	javaInitContainerName = initContainerName + "-java"
@@ -86,6 +87,35 @@ func (i *JavaInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation
 		})
 	} else {
 		container.Env[idx].Value = container.Env[idx].Value + javaJVMArgument
+	}
+
+	if testConfigMapName != "" {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: apmConfigVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: testConfigMapName,
+					},
+				},
+			},
+		})
+
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      apmConfigVolumeName,
+			MountPath: apmConfigMountPath,
+		})
+
+		// Add ENV
+		apmIdx := getIndexOfEnv(container.Env, EnvApmConfigFile)
+		if apmIdx == -1 {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  EnvApmConfigFile,
+				Value: apmConfigPath,
+			})
+		} else {
+			container.Env[apmIdx].Value = apmConfigPath
+		}
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {

@@ -41,8 +41,11 @@ import (
 const LicenseKey = "new_relic_license_key"
 
 const (
-	volumeName        = "newrelic-instrumentation"
-	initContainerName = "newrelic-instrumentation"
+	volumeName          = "newrelic-instrumentation"
+	initContainerName   = "newrelic-instrumentation"
+	apmConfigVolumeName = "newrelic-apm-config"
+	apmConfigMountPath  = "/config"
+	apmConfigPath       = apmConfigMountPath + "/newrelic.yaml"
 )
 
 const (
@@ -50,6 +53,7 @@ const (
 	EnvNewRelicK8sOperatorEnabled = "NEW_RELIC_K8S_OPERATOR_ENABLED"
 	EnvNewRelicLabels             = "NEW_RELIC_LABELS"
 	EnvNewRelicLicenseKey         = "NEW_RELIC_LICENSE_KEY"
+	EnvApmConfigFile              = "NEW_RELIC_APM_CONFIG"
 )
 
 var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")
