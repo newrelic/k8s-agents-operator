@@ -67,7 +67,12 @@ func TestPhpInjector_Inject(t *testing.T) {
 				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "test"}}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"}},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"instrumentation.newrelic.com/php-version": "8.3",
+						"newrelic.com/instrumentation-versions":    `{"/":"/0"}`,
+					},
+				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: "test",

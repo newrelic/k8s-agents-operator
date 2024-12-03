@@ -2,6 +2,7 @@ package apm
 
 import (
 	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -11,10 +12,6 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
-
-func TestHealthInjector_Language(t *testing.T) {
-	require.Equal(t, "health", (&HealthInjector{}).Language())
-}
 
 func TestHealthInjector_Inject(t *testing.T) {
 	restartAlways := corev1.ContainerRestartPolicyAlways
@@ -39,7 +36,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 			}}},
 		},
 		{
-			name: "a container, wrong instrumentation (not the correct lang)",
+			name: "a container, blank instrumentation healthAgent",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
@@ -49,115 +46,130 @@ func TestHealthInjector_Inject(t *testing.T) {
 			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "not-this"}}},
 		},
 		{
-			name: "a container, instrumentation with blank licenseKeySecret",
+			name: "a container, instrumentation healthAgent with only env",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			expectedErrStr: "licenseKeySecret must not be blank",
-			inst:           v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "health"}}},
+			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_PATH\" > invalid mount path \"\", cannot be blank",
+			inst: v1alpha2.Instrumentation{
+				Spec: v1alpha2.InstrumentationSpec{
+					HealthAgent: v1alpha2.HealthAgent{
+						Env: []corev1.EnvVar{{Name: "test", Value: "test"}},
+					},
+				},
+			},
 		},
 		{
-			name: "a container, instrumentation",
+			name: "a container, instrumentation with healthAgent",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
-				Agent: v1alpha2.Agent{
-					Language: "health",
-					Env:      []corev1.EnvVar{{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"}},
+			inst: v1alpha2.Instrumentation{
+				Spec: v1alpha2.InstrumentationSpec{
+					HealthAgent: v1alpha2.HealthAgent{
+						Image: "health",
+						Env:   []corev1.EnvVar{{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"}},
+					},
 				},
-				LicenseKeySecret: "newrelic-key-secret"},
 			},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
-				InitContainers: []corev1.Container{{
-					Name: "newrelic-apm-health",
-					VolumeMounts: []corev1.VolumeMount{{
-						Name:      "newrelic-apm-health",
-						MountPath: "/health/this",
-					}},
-					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
-						{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
-						{Name: "NEW_RELIC_SIDECAR_TIMEOUT_DURATION", Value: "1s"},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/apm-health": "true",
 					},
-					RestartPolicy: &restartAlways,
-					Ports:         []corev1.ContainerPort{{ContainerPort: 6194}},
-				}},
-				Containers: []corev1.Container{{
-					Name: "test",
-					VolumeMounts: []corev1.VolumeMount{{
-						Name:      "newrelic-apm-health",
-						MountPath: "/health/this",
+				},
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{{
+						Name: "newrelic-apm-health",
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "newrelic-apm-health",
+							MountPath: "/health/this",
+						}},
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
+							{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
+						},
+						RestartPolicy: &restartAlways,
+						Ports:         []corev1.ContainerPort{{ContainerPort: 6194}},
 					}},
-					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
-					},
+					Containers: []corev1.Container{{
+						Name: "test",
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "newrelic-apm-health",
+							MountPath: "/health/this",
+						}},
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
+						},
+					}},
+					Volumes: []corev1.Volume{{
+						Name:         "newrelic-apm-health",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					}},
 				}},
-				Volumes: []corev1.Volume{{
-					Name:         "newrelic-apm-health",
-					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-				}},
-			}},
 		},
 		{
 			name: "a container, instrumentation, ensure no dup env name/value in sidecar",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
-				Agent: v1alpha2.Agent{
-					Language: "health",
-					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
-						{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
+			inst: v1alpha2.Instrumentation{
+				Spec: v1alpha2.InstrumentationSpec{
+					HealthAgent: v1alpha2.HealthAgent{
+						Image: "health",
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
+							{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
+						},
 					},
 				},
-				LicenseKeySecret: "newrelic-key-secret"},
 			},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
-				InitContainers: []corev1.Container{{
-					Name: "newrelic-apm-health",
-					VolumeMounts: []corev1.VolumeMount{{
-						Name:      "newrelic-apm-health",
-						MountPath: "/health/this",
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"newrelic.com/apm-health": "true"}},
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{{
+						Name: "newrelic-apm-health",
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "newrelic-apm-health",
+							MountPath: "/health/this",
+						}},
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
+							{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
+						},
+						RestartPolicy: &restartAlways,
+						Ports:         []corev1.ContainerPort{{ContainerPort: 6194}},
 					}},
-					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
-						{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6194"},
-						{Name: "NEW_RELIC_SIDECAR_TIMEOUT_DURATION", Value: "1s"},
-					},
-					RestartPolicy: &restartAlways,
-					Ports:         []corev1.ContainerPort{{ContainerPort: 6194}},
-				}},
-				Containers: []corev1.Container{{
-					Name: "test",
-					VolumeMounts: []corev1.VolumeMount{{
-						Name:      "newrelic-apm-health",
-						MountPath: "/health/this",
+					Containers: []corev1.Container{{
+						Name: "test",
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      "newrelic-apm-health",
+							MountPath: "/health/this",
+						}},
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
+						},
 					}},
-					Env: []corev1.EnvVar{
-						{Name: "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH", Value: "/health/this"},
-					},
+					Volumes: []corev1.Volume{{
+						Name:         "newrelic-apm-health",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					}},
 				}},
-				Volumes: []corev1.Volume{{
-					Name:         "newrelic-apm-health",
-					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-				}},
-			}},
 		},
 		{
 			name: "a container, instrumentation, missing health file",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
-				Agent: v1alpha2.Agent{
-					Language: "health",
+			inst: v1alpha2.Instrumentation{
+				Spec: v1alpha2.InstrumentationSpec{
+					HealthAgent: v1alpha2.HealthAgent{
+						Image: "health",
+					},
 				},
-				LicenseKeySecret: "newrelic-key-secret"},
 			},
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
 				Containers: []corev1.Container{{
@@ -167,41 +179,20 @@ func TestHealthInjector_Inject(t *testing.T) {
 			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_PATH\" > invalid mount path \"\", cannot be blank",
 		},
 		{
-			name: "a container, instrumentation, invalid timeout",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
-				Agent: v1alpha2.Agent{
-					Language: "health",
-					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFilepath, Value: "/a/b"},
-						{Name: envHealthTimeout, Value: "not a duration"},
-					},
-				},
-				LicenseKeySecret: "newrelic-key-secret"},
-			},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name: "test",
-				}},
-			}},
-			expectedErrStr: "invalid env value \"not a duration\" for \"NEW_RELIC_SIDECAR_TIMEOUT_DURATION\" > invalid timeout \"not a duration\" > time: invalid duration \"not a duration\"",
-		},
-		{
 			name: "a container, instrumentation, invalid port",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
-				Agent: v1alpha2.Agent{
-					Language: "health",
-					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFilepath, Value: "/a/b"},
-						{Name: envHealthListenPort, Value: "not a port"},
+			inst: v1alpha2.Instrumentation{
+				Spec: v1alpha2.InstrumentationSpec{
+					HealthAgent: v1alpha2.HealthAgent{
+						Image: "health",
+						Env: []corev1.EnvVar{
+							{Name: envHealthFleetControlFilepath, Value: "/a/b"},
+							{Name: envHealthListenPort, Value: "not a port"},
+						},
 					},
 				},
-				LicenseKeySecret: "newrelic-key-secret"},
 			},
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
 				Containers: []corev1.Container{{
@@ -215,14 +206,15 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
-				Agent: v1alpha2.Agent{
-					Language: "health",
-					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFilepath, Value: ""},
+			inst: v1alpha2.Instrumentation{
+				Spec: v1alpha2.InstrumentationSpec{
+					HealthAgent: v1alpha2.HealthAgent{
+						Image: "health",
+						Env: []corev1.EnvVar{
+							{Name: envHealthFleetControlFilepath, Value: ""},
+						},
 					},
 				},
-				LicenseKeySecret: "newrelic-key-secret"},
 			},
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
 				Containers: []corev1.Container{{
@@ -236,14 +228,15 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{
-				Agent: v1alpha2.Agent{
-					Language: "health",
-					Env: []corev1.EnvVar{
-						{Name: envHealthFleetControlFilepath, Value: "/file.yml"},
+			inst: v1alpha2.Instrumentation{
+				Spec: v1alpha2.InstrumentationSpec{
+					HealthAgent: v1alpha2.HealthAgent{
+						Image: "health",
+						Env: []corev1.EnvVar{
+							{Name: envHealthFleetControlFilepath, Value: "/file.yml"},
+						},
 					},
 				},
-				LicenseKeySecret: "newrelic-key-secret"},
 			},
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
 				Containers: []corev1.Container{{
@@ -256,8 +249,8 @@ func TestHealthInjector_Inject(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			i := &HealthInjector{}
-			actualPod, err := i.Inject(ctx, test.inst, test.ns, test.pod)
+			i := &baseInjector{}
+			actualPod, err := i.injectHealth(ctx, test.inst, test.ns, test.pod)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
