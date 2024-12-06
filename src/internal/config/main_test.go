@@ -108,26 +108,3 @@ func (m *mockAutoDetect) OpenShiftRoutesAvailability() (autodetect.OpenShiftRout
 	}
 	return autodetect.OpenShiftRoutesNotAvailable, nil
 }
-
-/*
-
-panic: sync: negative WaitGroup counter
-
-goroutine 23 [running]:
-sync.(*WaitGroup).Add(0x10?, 0x101ada080?)
-        src/sync/waitgroup.go:64 +0x108
-sync.(*WaitGroup).Done(...)
-        src/sync/waitgroup.go:89
-github.com/newrelic/k8s-agents-operator/src/internal/config_test.TestAutoDetectInBackground.func1()
-        src/internal/config/main_test.go:75 +0x28
-github.com/newrelic/k8s-agents-operator/src/internal/config_test.(*mockAutoDetect).OpenShiftRoutesAvailability(0x101ada080?)
-        src/internal/config/main_test.go:107 +0x28
-github.com/newrelic/k8s-agents-operator/src/internal/config.(*Config).AutoDetect(0x140003c6150)
-        src/internal/config/main.go:94 +0xa8
-github.com/newrelic/k8s-agents-operator/src/internal/config.(*Config).periodicAutoDetect(0x140003c6150)
-        src/internal/config/main.go:84 +0xac
-created by github.com/newrelic/k8s-agents-operator/src/internal/config.(*Config).StartAutoDetect in goroutine 22
-        src/internal/config/main.go:75 +0xa4
-
-
-*/

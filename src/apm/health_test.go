@@ -83,9 +83,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name: "newrelic-apm-health",
+						Name: "newrelic-apm-health-sidecar",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      "newrelic-apm-health",
+							Name:      "newrelic-apm-health-volume",
 							MountPath: "/health/this",
 						}},
 						Env: []corev1.EnvVar{
@@ -98,7 +98,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      "newrelic-apm-health",
+							Name:      "newrelic-apm-health-volume",
 							MountPath: "/health/this",
 						}},
 						Env: []corev1.EnvVar{
@@ -106,7 +106,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 						},
 					}},
 					Volumes: []corev1.Volume{{
-						Name:         "newrelic-apm-health",
+						Name:         "newrelic-apm-health-volume",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}},
 				}},
@@ -131,9 +131,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"newrelic.com/apm-health": "true"}},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name: "newrelic-apm-health",
+						Name: "newrelic-apm-health-sidecar",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      "newrelic-apm-health",
+							Name:      "newrelic-apm-health-volume",
 							MountPath: "/health/this",
 						}},
 						Env: []corev1.EnvVar{
@@ -146,7 +146,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      "newrelic-apm-health",
+							Name:      "newrelic-apm-health-volume",
 							MountPath: "/health/this",
 						}},
 						Env: []corev1.EnvVar{
@@ -154,7 +154,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 						},
 					}},
 					Volumes: []corev1.Volume{{
-						Name:         "newrelic-apm-health",
+						Name:         "newrelic-apm-health-volume",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}},
 				}},

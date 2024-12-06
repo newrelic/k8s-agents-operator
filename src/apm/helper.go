@@ -54,6 +54,8 @@ const (
 	EnvNewRelicLicenseKey         = "NEW_RELIC_LICENSE_KEY"
 )
 
+const instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
+
 var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")
 
 type Injector interface {
@@ -412,7 +414,7 @@ func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev
 		err := json.Unmarshal([]byte(v), &instVersions)
 		if err != nil {
 			// crVersions could have incomplete data, however, some of the annotations may still be valid, so we'll keep them
-			logger.Error(err, "Failed to unmarshal instrumentation version annotation")
+			logger.Error(err, "Failed to unmarshal instrumentation version annotation, skipping adding new instrumentation version to pod annotation")
 		}
 	}
 	instVersions[instName] = fmt.Sprintf("%s/%d", inst.UID, inst.Generation)

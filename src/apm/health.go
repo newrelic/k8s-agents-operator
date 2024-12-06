@@ -29,10 +29,15 @@ import (
 const (
 	envHealthFleetControlFilepath = "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH"
 	envHealthListenPort           = "NEW_RELIC_SIDECAR_LISTEN_PORT"
-	healthSidecarContainerName    = "newrelic-apm-health"
-	healthVolumeName              = "newrelic-apm-health"
+	healthSidecarContainerName    = "newrelic-apm-health-sidecar"
+	healthVolumeName              = "newrelic-apm-health-volume"
 
 	HealthInstrumentedAnnotation = "newrelic.com/apm-health"
+)
+
+const (
+	maxPort = 65535
+	minPort = 1
 )
 
 var (
@@ -54,8 +59,8 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst v1alpha2.Instrumen
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
-	err := validateContainerEnv(container.Env, envHealthFleetControlFilepath)
-	if err != nil {
+	var err error
+	if err = validateContainerEnv(container.Env, envHealthFleetControlFilepath); err != nil {
 		return *originalPod, err
 	}
 
@@ -66,8 +71,8 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst v1alpha2.Instrumen
 		sidecarContainerEnv = append(sidecarContainerEnv, container.Env[idx])
 	}
 
-	i.injectEnvVarsIntoTargetedEnvVars(inst.Spec.HealthAgent.Env, &container.Env)
-	i.injectEnvVarsIntoSidecarEnvVars(inst.Spec.HealthAgent.Env, &sidecarContainerEnv)
+	container.Env = i.injectEnvVarsIntoTargetedEnvVars(inst.Spec.HealthAgent.Env, container.Env)
+	sidecarContainerEnv = i.injectEnvVarsIntoSidecarEnvVars(inst.Spec.HealthAgent.Env, sidecarContainerEnv)
 
 	var healthMountPath string
 	{
@@ -138,24 +143,25 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst v1alpha2.Instrumen
 	return pod, nil
 }
 
-func (i *baseInjector) injectEnvVarsIntoTargetedEnvVars(instEnvVars []corev1.EnvVar, containerEnvVars *[]corev1.EnvVar) {
+func (i *baseInjector) injectEnvVarsIntoTargetedEnvVars(instEnvVars []corev1.EnvVar, containerEnvVars []corev1.EnvVar) []corev1.EnvVar {
 	for _, env := range instEnvVars {
 		if env.Name == envHealthFleetControlFilepath {
-			if idx := getIndexOfEnv(*containerEnvVars, env.Name); idx == -1 {
-				*containerEnvVars = append(*containerEnvVars, env)
+			if idx := getIndexOfEnv(containerEnvVars, env.Name); idx == -1 {
+				containerEnvVars = append(containerEnvVars, env)
 			}
 			break
 		}
 	}
+	return containerEnvVars
 }
 
-func (i *baseInjector) injectEnvVarsIntoSidecarEnvVars(instEnvVars []corev1.EnvVar, sidecarEnvVars *[]corev1.EnvVar) {
+func (i *baseInjector) injectEnvVarsIntoSidecarEnvVars(instEnvVars []corev1.EnvVar, sidecarEnvVars []corev1.EnvVar) []corev1.EnvVar {
 	for _, env := range instEnvVars {
-		// configure sidecar specific env vars
-		if idx := getIndexOfEnv(*sidecarEnvVars, env.Name); idx == -1 {
-			*sidecarEnvVars = append(*sidecarEnvVars, env)
+		if idx := getIndexOfEnv(sidecarEnvVars, env.Name); idx == -1 {
+			sidecarEnvVars = append(sidecarEnvVars, env)
 		}
 	}
+	return sidecarEnvVars
 }
 
 func (i *baseInjector) validateHealthListenPort(value string) (int, error) {
@@ -163,8 +169,8 @@ func (i *baseInjector) validateHealthListenPort(value string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid health listen port %q > %w", value, err)
 	}
-	if healthListenPort > 65535 || healthListenPort < 1 {
-		return 0, fmt.Errorf("invalid health listen port %q, must be between 1-65535 (inclusive)", value)
+	if healthListenPort > maxPort || healthListenPort < minPort {
+		return 0, fmt.Errorf("invalid health listen port %q, must be between %d-%d (inclusive)", value, minPort, maxPort)
 	}
 	return healthListenPort, nil
 }

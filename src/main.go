@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -58,6 +59,8 @@ var (
 	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+var healthCheckTickInterval = time.Second * 15
 
 type tlsConfig struct {
 	minVersion   string
@@ -222,8 +225,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	instrumentationStatusUpdater := instrumentation.NewInstrumentationStatusUpdater(mgr.GetClient())
+	healthApi := instrumentation.NewHealthCheckApi(http.DefaultClient)
 	healthCtx, healthCtxCancel := context.WithCancel(context.Background())
-	healthMonitor := instrumentation.NewHealthMonitor(healthCtx, mgr.GetClient())
+	healthMonitor := instrumentation.NewHealthMonitor(
+		healthCtx, instrumentationStatusUpdater, healthApi, healthCheckTickInterval,
+	)
 	go func() {
 		<-ctx.Done()
 		logger.Info("Shutting down health checker")

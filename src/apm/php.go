@@ -28,8 +28,6 @@ const (
 	phpInitContainerName = initContainerName + "-php"
 )
 
-const instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
-
 var _ Injector = (*PhpInjector)(nil)
 
 func init() {
