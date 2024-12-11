@@ -17,13 +17,11 @@ limitations under the License.
 package config
 
 import (
-	"regexp"
-	"strings"
+	autodetect2 "github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"time"
 
 	"github.com/go-logr/logr"
 
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 )
 
@@ -31,17 +29,17 @@ import (
 type Option func(c *options)
 
 type options struct {
-	autoDetect              autodetect.AutoDetect
+	autoDetect              autodetect2.AutoDetect
 	version                 version.Version
 	logger                  logr.Logger
 	onOpenShiftRoutesChange changeHandler
 	labelsFilter            []string
 	openshiftRoutes         openshiftRoutesStore
 	autoDetectFrequency     time.Duration
-	autoscalingVersion      autodetect.AutoscalingVersion
+	autoscalingVersion      autodetect2.AutoscalingVersion
 }
 
-func WithAutoDetect(a autodetect.AutoDetect) Option {
+func WithAutoDetect(a autodetect2.AutoDetect) Option {
 	return func(o *options) {
 		o.autoDetect = a
 	}
@@ -64,7 +62,7 @@ func WithOnOpenShiftRoutesChangeCallback(f func() error) Option {
 		o.onOpenShiftRoutesChange.Register(f)
 	}
 }
-func WithPlatform(ora autodetect.OpenShiftRoutesAvailability) Option {
+func WithPlatform(ora autodetect2.OpenShiftRoutesAvailability) Option {
 	return func(o *options) {
 		o.openshiftRoutes.Set(ora)
 	}
@@ -72,30 +70,5 @@ func WithPlatform(ora autodetect.OpenShiftRoutesAvailability) Option {
 func WithVersion(v version.Version) Option {
 	return func(o *options) {
 		o.version = v
-	}
-}
-
-func WithLabelFilters(labelFilters []string) Option {
-	return func(o *options) {
-
-		filters := []string{}
-		for _, pattern := range labelFilters {
-			var result strings.Builder
-
-			for i, literal := range strings.Split(pattern, "*") {
-
-				// Replace * with .*
-				if i > 0 {
-					result.WriteString(".*")
-				}
-
-				// Quote any regular expression meta characters in the
-				// literal text.
-				result.WriteString(regexp.QuoteMeta(literal))
-			}
-			filters = append(filters, result.String())
-		}
-
-		o.labelsFilter = filters
 	}
 }

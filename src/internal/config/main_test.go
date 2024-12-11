@@ -17,6 +17,7 @@ limitations under the License.
 package config_test
 
 import (
+	autodetect2 "github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,26 +25,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 	"github.com/newrelic/k8s-agents-operator/src/internal/config"
 )
 
 func TestNewConfig(t *testing.T) {
 	// prepare
 	cfg := config.New(
-		config.WithPlatform(autodetect.OpenShiftRoutesNotAvailable),
+		config.WithPlatform(autodetect2.OpenShiftRoutesNotAvailable),
 	)
 
 	// test
-	assert.Equal(t, autodetect.OpenShiftRoutesNotAvailable, cfg.OpenShiftRoutes())
+	assert.Equal(t, autodetect2.OpenShiftRoutesNotAvailable, cfg.OpenShiftRoutes())
 }
 
 func TestOnPlatformChangeCallback(t *testing.T) {
 	// prepare
 	calledBack := false
 	mock := &mockAutoDetect{
-		OpenShiftRoutesAvailabilityFunc: func() (autodetect.OpenShiftRoutesAvailability, error) {
-			return autodetect.OpenShiftRoutesAvailable, nil
+		OpenShiftRoutesAvailabilityFunc: func() (autodetect2.OpenShiftRoutesAvailability, error) {
+			return autodetect2.OpenShiftRoutesAvailable, nil
 		},
 	}
 	cfg := config.New(
@@ -55,14 +55,14 @@ func TestOnPlatformChangeCallback(t *testing.T) {
 	)
 
 	// sanity check
-	require.Equal(t, autodetect.OpenShiftRoutesNotAvailable, cfg.OpenShiftRoutes())
+	require.Equal(t, autodetect2.OpenShiftRoutesNotAvailable, cfg.OpenShiftRoutes())
 
 	// test
 	err := cfg.AutoDetect()
 	require.NoError(t, err)
 
 	// verify
-	assert.Equal(t, autodetect.OpenShiftRoutesAvailable, cfg.OpenShiftRoutes())
+	assert.Equal(t, autodetect2.OpenShiftRoutesAvailable, cfg.OpenShiftRoutes())
 	assert.True(t, calledBack)
 }
 
@@ -71,9 +71,9 @@ func TestAutoDetectInBackground(t *testing.T) {
 	var ac int64
 	tickTime := 100 * time.Millisecond
 	mock := &mockAutoDetect{
-		OpenShiftRoutesAvailabilityFunc: func() (autodetect.OpenShiftRoutesAvailability, error) {
+		OpenShiftRoutesAvailabilityFunc: func() (autodetect2.OpenShiftRoutesAvailability, error) {
 			atomic.AddInt64(&ac, 1)
-			return autodetect.OpenShiftRoutesNotAvailable, nil
+			return autodetect2.OpenShiftRoutesNotAvailable, nil
 		},
 	}
 	cfg := config.New(
@@ -82,7 +82,7 @@ func TestAutoDetectInBackground(t *testing.T) {
 	)
 
 	// sanity check
-	require.Equal(t, autodetect.OpenShiftRoutesNotAvailable, cfg.OpenShiftRoutes())
+	require.Equal(t, autodetect2.OpenShiftRoutesNotAvailable, cfg.OpenShiftRoutes())
 
 	// test
 	err := cfg.StartAutoDetect()
@@ -94,19 +94,19 @@ func TestAutoDetectInBackground(t *testing.T) {
 	assert.GreaterOrEqual(t, c, int64(2))
 }
 
-var _ autodetect.AutoDetect = (*mockAutoDetect)(nil)
+var _ autodetect2.AutoDetect = (*mockAutoDetect)(nil)
 
 type mockAutoDetect struct {
-	OpenShiftRoutesAvailabilityFunc func() (autodetect.OpenShiftRoutesAvailability, error)
+	OpenShiftRoutesAvailabilityFunc func() (autodetect2.OpenShiftRoutesAvailability, error)
 }
 
-func (m *mockAutoDetect) HPAVersion() (autodetect.AutoscalingVersion, error) {
-	return autodetect.DefaultAutoscalingVersion, nil
+func (m *mockAutoDetect) HPAVersion() (autodetect2.AutoscalingVersion, error) {
+	return autodetect2.DefaultAutoscalingVersion, nil
 }
 
-func (m *mockAutoDetect) OpenShiftRoutesAvailability() (autodetect.OpenShiftRoutesAvailability, error) {
+func (m *mockAutoDetect) OpenShiftRoutesAvailability() (autodetect2.OpenShiftRoutesAvailability, error) {
 	if m.OpenShiftRoutesAvailabilityFunc != nil {
 		return m.OpenShiftRoutesAvailabilityFunc()
 	}
-	return autodetect.OpenShiftRoutesNotAvailable, nil
+	return autodetect2.OpenShiftRoutesNotAvailable, nil
 }

@@ -17,13 +17,13 @@ limitations under the License.
 package config
 
 import (
+	autodetect2 "github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 )
 
@@ -33,13 +33,13 @@ const (
 
 // Config holds the static configuration for this operator.
 type Config struct {
-	autoDetect              autodetect.AutoDetect
+	autoDetect              autodetect2.AutoDetect
 	logger                  logr.Logger
 	onOpenShiftRoutesChange changeHandler
 	labelsFilter            []string
 	openshiftRoutes         openshiftRoutesStore
 	autoDetectFrequency     time.Duration
-	autoscalingVersion      autodetect.AutoscalingVersion
+	autoscalingVersion      autodetect2.AutoscalingVersion
 }
 
 // New constructs a new configuration based on the given options.
@@ -50,7 +50,7 @@ func New(opts ...Option) Config {
 		logger:                  logf.Log.WithName("config"),
 		openshiftRoutes:         newOpenShiftRoutesWrapper(),
 		version:                 version.Get(),
-		autoscalingVersion:      autodetect.DefaultAutoscalingVersion,
+		autoscalingVersion:      autodetect2.DefaultAutoscalingVersion,
 		onOpenShiftRoutesChange: newOnChange(),
 	}
 	for _, opt := range opts {
@@ -116,12 +116,12 @@ func (c *Config) AutoDetect() error {
 }
 
 // OpenShiftRoutes represents the availability of the OpenShift Routes API.
-func (c *Config) OpenShiftRoutes() autodetect.OpenShiftRoutesAvailability {
+func (c *Config) OpenShiftRoutes() autodetect2.OpenShiftRoutesAvailability {
 	return c.openshiftRoutes.Get()
 }
 
 // AutoscalingVersion represents the preferred version of autoscaling.
-func (c *Config) AutoscalingVersion() autodetect.AutoscalingVersion {
+func (c *Config) AutoscalingVersion() autodetect2.AutoscalingVersion {
 	return c.autoscalingVersion
 }
 
@@ -137,29 +137,29 @@ func (c *Config) RegisterOpenShiftRoutesChangeCallback(f func() error) {
 }
 
 type openshiftRoutesStore interface {
-	Set(ora autodetect.OpenShiftRoutesAvailability)
-	Get() autodetect.OpenShiftRoutesAvailability
+	Set(ora autodetect2.OpenShiftRoutesAvailability)
+	Get() autodetect2.OpenShiftRoutesAvailability
 }
 
 func newOpenShiftRoutesWrapper() openshiftRoutesStore {
 	return &openshiftRoutesWrapper{
-		current: autodetect.OpenShiftRoutesNotAvailable,
+		current: autodetect2.OpenShiftRoutesNotAvailable,
 		mu:      &sync.Mutex{},
 	}
 }
 
 type openshiftRoutesWrapper struct {
 	mu      *sync.Mutex
-	current autodetect.OpenShiftRoutesAvailability
+	current autodetect2.OpenShiftRoutesAvailability
 }
 
-func (p *openshiftRoutesWrapper) Set(ora autodetect.OpenShiftRoutesAvailability) {
+func (p *openshiftRoutesWrapper) Set(ora autodetect2.OpenShiftRoutesAvailability) {
 	p.mu.Lock()
 	p.current = ora
 	p.mu.Unlock()
 }
 
-func (p *openshiftRoutesWrapper) Get() autodetect.OpenShiftRoutesAvailability {
+func (p *openshiftRoutesWrapper) Get() autodetect2.OpenShiftRoutesAvailability {
 	p.mu.Lock()
 	ora := p.current
 	p.mu.Unlock()

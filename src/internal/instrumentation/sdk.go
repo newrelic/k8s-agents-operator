@@ -20,9 +20,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/newrelic/k8s-agents-operator/src/apm"
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"runtime/debug"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -32,6 +33,8 @@ import (
 const (
 	DefaultLicenseKeySecretName = "newrelic-key-secret"
 )
+
+var sdkLog = ctrl.Log.WithName("instrumentation-mutator-sdk")
 
 // compile time type assertion
 var _ SdkInjector = (*NewrelicSdkInjector)(nil)
@@ -44,15 +47,13 @@ type SdkInjector interface {
 // NewrelicSdkInjector is the base struct used to inject our instrumentation into a pod
 type NewrelicSdkInjector struct {
 	client           client.Client
-	logger           logr.Logger
 	injectorRegistry *apm.InjectorRegistery
 }
 
 // NewNewrelicSdkInjector is used to create our injector
-func NewNewrelicSdkInjector(logger logr.Logger, client client.Client, injectorRegistry *apm.InjectorRegistery) *NewrelicSdkInjector {
+func NewNewrelicSdkInjector(client client.Client, injectorRegistry *apm.InjectorRegistery) *NewrelicSdkInjector {
 	return &NewrelicSdkInjector{
 		client:           client,
-		logger:           logger,
 		injectorRegistry: injectorRegistry,
 	}
 }
@@ -65,14 +66,14 @@ func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*v1alpha2.Inst
 			mutatedPod, matchedThisInjector, err := i.injectWithInjector(ctx, injector, inst, ns, pod)
 			hadMatchingInjector = hadMatchingInjector || matchedThisInjector
 			if err != nil {
-				i.logger.Error(err, "Skipping agent injection", "agent_language", inst.Spec.Agent.Language)
+				sdkLog.Error(err, "Skipping agent injection", "agent_language", inst.Spec.Agent.Language)
 				continue
 			}
 			pod = mutatedPod
 		}
 	}
 	if !hadMatchingInjector {
-		i.logger.Info("No language agents found while trying to instrument pod",
+		sdkLog.Info("No language agents found while trying to instrument pod",
 			"pod_details", pod.String(),
 			"pod_namespace", pod.Namespace,
 			"registered_injectors", i.injectorRegistry.GetInjectors().Names(),
@@ -92,8 +93,8 @@ func (i *NewrelicSdkInjector) injectWithInjector(ctx context.Context, injector a
 		return pod, false, nil
 	}
 	injector.ConfigureClient(i.client)
-	injector.ConfigureLogger(i.logger.WithValues("injector", injector.Language()))
-	i.logger.V(1).Info("injecting instrumentation into pod",
+	injector.ConfigureLogger(sdkLog.WithValues("injector", injector.Language()))
+	sdkLog.Info("injecting instrumentation into pod",
 		"agent_language", inst.Spec.Agent.Language,
 		"newrelic-namespace", inst.Namespace,
 		"newrelic-name", inst.Name,

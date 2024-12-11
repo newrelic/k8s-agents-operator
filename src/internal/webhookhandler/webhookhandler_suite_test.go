@@ -20,6 +20,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"io"
 	"net"
 	"os"
@@ -50,8 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
 	"github.com/newrelic/k8s-agents-operator/src/internal/config"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
@@ -143,13 +143,8 @@ func TestMain(m *testing.M) {
 
 	injectorRegistry := apm.DefaultInjectorRegistry
 
-	instDefaulter := &instrumentation.InstrumentationDefaulter{
-		Logger: logger.WithName("instrumentation-defaulter"),
-	}
-	instValidator := &instrumentation.InstrumentationValidator{
-		Logger:            logger.WithName("instrumentation-validator"),
-		InjectorRegistery: injectorRegistry,
-	}
+	instDefaulter := &v1alpha2.Instrumentation{}
+	instValidator := &v1alpha2.Instrumentation{}
 	err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha2.Instrumentation{}).
 		WithValidator(instValidator).
@@ -162,7 +157,6 @@ func TestMain(m *testing.M) {
 
 	restConfig := cfg
 	operatorNamespace := "newrelic"
-	var labelsFilter []string
 	ad, err := autodetect.New(restConfig)
 	if err != nil {
 		fmt.Printf("failed to setup auto-detect routine: %v", err)
@@ -173,7 +167,6 @@ func TestMain(m *testing.M) {
 		config.WithLogger(ctrl.Log.WithName("config")),
 		config.WithVersion(v),
 		config.WithAutoDetect(ad),
-		config.WithLabelFilters(labelsFilter),
 	)
 	client := mgr.GetClient()
 	injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
