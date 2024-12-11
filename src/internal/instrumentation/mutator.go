@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"github.com/go-logr/logr"
+	"github.com/newrelic/k8s-agents-operator/src/internal/webhook"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,15 +27,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
 )
 
 // compile time type assertion
 var (
-	_ webhookhandler.PodMutator = (*instPodMutator)(nil)
-	_ InstrumentationLocator    = (*NewrelicInstrumentationLocator)(nil)
-	_ SdkInjector               = (*NewrelicSdkInjector)(nil)
-	_ SecretReplicator          = (*NewrelicSecretReplicator)(nil)
+	_ webhook.PodMutator     = (*instrumentationPodMutator)(nil)
+	_ InstrumentationLocator = (*NewrelicInstrumentationLocator)(nil)
+	_ SdkInjector            = (*NewrelicSdkInjector)(nil)
+	_ SecretReplicator       = (*NewrelicSecretReplicator)(nil)
 )
 
 var (
@@ -42,7 +42,7 @@ var (
 	errNoInstancesAvailable      = errors.New("no New Relic Instrumentation instances available")
 )
 
-type instPodMutator struct {
+type instrumentationPodMutator struct {
 	logger                 logr.Logger
 	client                 client.Client
 	sdkInjector            SdkInjector
@@ -59,8 +59,8 @@ func NewMutator(
 	secretReplicator SecretReplicator,
 	instrumentationLocator InstrumentationLocator,
 	operatorNamespace string,
-) *instPodMutator {
-	return &instPodMutator{
+) *instrumentationPodMutator {
+	return &instrumentationPodMutator{
 		logger:                 logger,
 		client:                 client,
 		sdkInjector:            sdkInjector,
@@ -71,7 +71,7 @@ func NewMutator(
 }
 
 // Mutate is used to mutate a pod based on some instrumentation(s)
-func (pm *instPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (pm *instrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	logger := pm.logger.WithValues("namespace", pod.Namespace, "name", pod.Name, "generate_name", pod.GenerateName)
 
 	instCandidates, err := pm.instrumentationLocator.GetInstrumentations(ctx, ns, pod)

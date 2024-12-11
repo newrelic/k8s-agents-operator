@@ -1,34 +1,19 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-// Package webhookhandler contains the webhook that injects sidecars into pods.
-package webhookhandler
+package webhook
 
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
 	"k8s.io/apimachinery/pkg/types"
+	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/newrelic/k8s-agents-operator/src/internal/config"
+	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create;update,versions=v1,name=mpod.kb.io,sideEffects=none,admissionReviewVersions=v1
@@ -40,20 +25,11 @@ import (
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete;deletecollection;patch;update;watch
 
-var _ WebhookHandler = (*podMutationHandler)(nil)
-
-// WebhookHandler is a webhook handler that analyzes new pods and injects appropriate sidecars into it.
-type WebhookHandler interface {
-	admission.Handler
-}
-
-// the implementation.
-type podMutationHandler struct {
-	client      client.Client
-	decoder     admission.Decoder
-	logger      logr.Logger
-	podMutators []PodMutator
-	config      config.Config
+// PodMutationHandler is a webhook handler for mutating Pods
+type PodMutationHandler struct {
+	client   client.Client
+	decoder  *admission.Decoder
+	mutators []PodMutator
 }
 
 // PodMutator mutates a pod.
@@ -61,27 +37,27 @@ type PodMutator interface {
 	Mutate(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
 }
 
-// NewWebhookHandler creates a new WebhookHandler.
-func NewWebhookHandler(cfg config.Config, logger logr.Logger, cl client.Client, decoder admission.Decoder, podMutators []PodMutator) WebhookHandler {
-	return &podMutationHandler{
-		config:      cfg,
-		logger:      logger,
-		client:      cl,
-		podMutators: podMutators,
-		decoder:     decoder,
-	}
+var podMutatorLog = ctrl.Log.WithName("pod-mutator")
+
+// InjectDecoder injects the decoder
+func (m *PodMutationHandler) InjectDecoder(d *admission.Decoder) error {
+	m.decoder = d
+	return nil
 }
 
-func (p *podMutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
+// Handle manages Pod mutations
+func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := corev1.Pod{}
-	err := p.decoder.Decode(req, &pod)
+	err := (*m.decoder).Decode(req, &pod)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
+	podMutatorLog.Info("Mutating Pod", "name", pod.Name)
+
 	// we use the req.Namespace here because the pod might have not been created yet
 	ns := corev1.Namespace{}
-	err = p.client.Get(ctx, types.NamespacedName{Name: req.Namespace, Namespace: ""}, &ns)
+	err = m.client.Get(ctx, types.NamespacedName{Name: req.Namespace, Namespace: ""}, &ns)
 	if err != nil {
 		res := admission.Errored(http.StatusInternalServerError, err)
 		// By default, admission.Errored sets Allowed to false which blocks pod creation even though the failurePolicy=ignore.
@@ -93,8 +69,8 @@ func (p *podMutationHandler) Handle(ctx context.Context, req admission.Request) 
 		return res
 	}
 
-	for _, m := range p.podMutators {
-		pod, err = m.Mutate(ctx, ns, pod)
+	for _, mutator := range m.mutators {
+		pod, err = mutator.Mutate(ctx, ns, pod)
 		if err != nil {
 			//@todo: actually print the error message
 			res := admission.Errored(http.StatusInternalServerError, err)
@@ -105,9 +81,38 @@ func (p *podMutationHandler) Handle(ctx context.Context, req admission.Request) 
 
 	marshaledPod, err := json.Marshal(pod)
 	if err != nil {
+		podMutatorLog.Error(err, "failed to marshal pod")
 		res := admission.Errored(http.StatusInternalServerError, err)
 		res.Allowed = true
 		return res
 	}
+
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPod)
+}
+
+// SetupWebhookWithManager registers the pod mutation webhook
+func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger logr.Logger) error {
+	// Setup InstrumentationMutator
+	mgrClient := mgr.GetClient()
+	injectorRegistry := apm.DefaultInjectorRegistry
+	injector := instrumentation.NewNewrelicSdkInjector(logger, mgrClient, injectorRegistry)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, mgrClient)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, mgrClient, operatorNamespace)
+
+	hookServer := mgr.GetWebhookServer()
+	hookServer.Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodMutationHandler{
+		client: mgr.GetClient(),
+		mutators: []PodMutator{
+			instrumentation.NewMutator(
+				logger,
+				mgrClient,
+				injector,
+				secretReplicator,
+				instrumentationLocator,
+				operatorNamespace,
+			),
+		},
+	}})
+
+	return nil
 }

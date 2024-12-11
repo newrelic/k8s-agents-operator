@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
+	apm2 "github.com/newrelic/k8s-agents-operator/src/internal/apm"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -17,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
 )
 
 type FakeInjector func(ctx context.Context, insts []*v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
@@ -44,7 +45,7 @@ func (il InstrumentationLocatorFn) GetInstrumentations(ctx context.Context, ns c
 	return il(ctx, ns, pod)
 }
 
-var _ InstrumentationLocator = (InstrumentationLocatorFn)(nil)
+var _ instrumentation.InstrumentationLocator = (InstrumentationLocatorFn)(nil)
 
 type SdkInjectorFn func(ctx context.Context, insts []*v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
 
@@ -60,7 +61,7 @@ func (sr SecretReplicatorFn) ReplicateSecret(ctx context.Context, ns corev1.Name
 	return sr(ctx, ns, pod, operatorNamespace, secretName)
 }
 
-var _ SecretReplicator = (SecretReplicatorFn)(nil)
+var _ instrumentation.SecretReplicator = (SecretReplicatorFn)(nil)
 
 func TestMutatePod(t *testing.T) {
 	var fakeInjector FakeInjector = func(
@@ -122,8 +123,8 @@ func TestMutatePod(t *testing.T) {
 		expectedErrStr  string
 
 		injector               SdkInjector
-		instrumentationLocator InstrumentationLocator
-		secretReplicator       SecretReplicator
+		instrumentationLocator instrumentation.InstrumentationLocator
+		secretReplicator       instrumentation.SecretReplicator
 	}{
 		{
 			name: "java injection, true",
@@ -140,7 +141,7 @@ func TestMutatePod(t *testing.T) {
 			initSecrets: []*corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: DefaultLicenseKeySecretName, Namespace: "gns1-op"},
-					Data:       map[string][]byte{apm.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
+					Data:       map[string][]byte{apm2.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
 				},
 			},
 			pod:        corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "java-app"}}}},
@@ -170,7 +171,7 @@ func TestMutatePod(t *testing.T) {
 			instrumentationLocator: fakeInstrumentationLocator,
 			pod:                    corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
 			expectedPod:            corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
-			expectedErrStr:         errNoInstancesAvailable.Error(),
+			expectedErrStr:         instrumentation.errNoInstancesAvailable.Error(),
 		},
 		{
 			name:                   "some error when getting language instrumentations",
@@ -188,7 +189,7 @@ func TestMutatePod(t *testing.T) {
 				},
 			},
 			operatorNs:     "gns4-op",
-			expectedErrStr: errMultipleInstancesPossible.Error(),
+			expectedErrStr: instrumentation.errMultipleInstancesPossible.Error(),
 		},
 		{
 			name:        "conflicting secret names",
@@ -213,7 +214,7 @@ func TestMutatePod(t *testing.T) {
 			initSecrets: []*corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: DefaultLicenseKeySecretName, Namespace: "gns5-op"},
-					Data:       map[string][]byte{apm.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
+					Data:       map[string][]byte{apm2.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
 				},
 			},
 			operatorNs: "gns5-op",
@@ -247,59 +248,59 @@ func TestMutatePod(t *testing.T) {
 			ctx := context.Background()
 
 			for _, ns := range test.initNs {
-				err := k8sClient.Create(ctx, ns)
+				err := instrumentation.k8sClient.Create(ctx, ns)
 				require.NoError(t, err)
 				defer func() {
-					_ = k8sClient.Delete(ctx, ns)
+					_ = instrumentation.k8sClient.Delete(ctx, ns)
 				}()
 			}
 
 			for _, inst := range test.initInsts {
-				err := k8sClient.Create(ctx, inst)
+				err := instrumentation.k8sClient.Create(ctx, inst)
 				require.NoError(t, err)
 				defer func() {
-					_ = k8sClient.Delete(ctx, inst)
+					_ = instrumentation.k8sClient.Delete(ctx, inst)
 				}()
 			}
 
 			for _, secret := range test.initSecrets {
-				err := k8sClient.Create(ctx, secret)
+				err := instrumentation.k8sClient.Create(ctx, secret)
 				require.NoError(t, err)
 				defer func() {
-					_ = k8sClient.Delete(ctx, secret)
+					_ = instrumentation.k8sClient.Delete(ctx, secret)
 				}()
 			}
 
 			// by default, we'll use the real implementation
 			injector := test.injector
 			if injector == nil {
-				injectorRegistry := apm.NewInjectorRegistry()
-				apmInjectors := []apm.Injector{
-					&apm.DotnetInjector{},
-					&apm.GoInjector{},
-					&apm.JavaInjector{},
-					&apm.NodejsInjector{},
-					&apm.PhpInjector{},
-					&apm.PythonInjector{},
-					&apm.RubyInjector{},
+				injectorRegistry := apm2.NewInjectorRegistry()
+				apmInjectors := []apm2.Injector{
+					&apm2.DotnetInjector{},
+					&apm2.GoInjector{},
+					&apm2.JavaInjector{},
+					&apm2.NodejsInjector{},
+					&apm2.PhpInjector{},
+					&apm2.PythonInjector{},
+					&apm2.RubyInjector{},
 				}
 				for _, apmInjector := range apmInjectors {
 					injectorRegistry.MustRegister(apmInjector)
 				}
-				injector = NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
+				injector = NewNewrelicSdkInjector(logger, instrumentation.k8sClient, injectorRegistry)
 			}
 			instrumentationLocator := test.instrumentationLocator
 			if instrumentationLocator == nil {
-				instrumentationLocator = NewNewRelicInstrumentationLocator(logger, k8sClient, test.operatorNs)
+				instrumentationLocator = instrumentation.NewNewRelicInstrumentationLocator(logger, instrumentation.k8sClient, test.operatorNs)
 			}
 			secretReplicator := test.secretReplicator
 			if secretReplicator == nil {
-				secretReplicator = NewNewrelicSecretReplicator(logger, k8sClient)
+				secretReplicator = instrumentation.NewNewrelicSecretReplicator(logger, instrumentation.k8sClient)
 			}
 
-			mutator := NewMutator(
+			mutator := instrumentation.NewMutator(
 				logger,
-				k8sClient,
+				instrumentation.k8sClient,
 				injector,
 				secretReplicator,
 				instrumentationLocator,
@@ -314,7 +315,7 @@ func TestMutatePod(t *testing.T) {
 
 				for _, objKey := range test.expectedSecrets {
 					var secret corev1.Secret
-					err = k8sClient.Get(ctx, objKey, &secret)
+					err = instrumentation.k8sClient.Get(ctx, objKey, &secret)
 					require.NoError(t, err)
 				}
 			} else {
@@ -330,7 +331,7 @@ func TestMutatePod(t *testing.T) {
 
 func TestNewrelicSecretReplicator_ReplicateSecret(t *testing.T) {
 	logger := logr.Discard()
-	secretReplicator := NewNewrelicSecretReplicator(logger, k8sClient)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, instrumentation.k8sClient)
 
 	tests := []struct {
 		name           string
@@ -514,7 +515,7 @@ func TestNewrelicSecretReplicator_ReplicateSecret(t *testing.T) {
 				if initNs.Name == "default" || initNs.Name == "" {
 					continue
 				}
-				err := k8sClient.Create(ctx, initNs)
+				err := instrumentation.k8sClient.Create(ctx, initNs)
 				require.NoError(t, err)
 			}
 			defer func() {
@@ -522,18 +523,18 @@ func TestNewrelicSecretReplicator_ReplicateSecret(t *testing.T) {
 					if initNs.Name == "default" || initNs.Name == "" {
 						continue
 					}
-					err := k8sClient.Delete(ctx, initNs)
+					err := instrumentation.k8sClient.Delete(ctx, initNs)
 					require.NoError(t, err)
 				}
 			}()
 
 			for _, initSecret := range tc.initSecrets {
-				err := k8sClient.Create(ctx, initSecret)
+				err := instrumentation.k8sClient.Create(ctx, initSecret)
 				require.NoError(t, err)
 			}
 			defer func() {
 				for _, initSecret := range tc.initSecrets {
-					err := k8sClient.Delete(ctx, initSecret)
+					err := instrumentation.k8sClient.Delete(ctx, initSecret)
 					require.NoError(t, err)
 				}
 			}()
@@ -687,7 +688,7 @@ func TestGetLanguageInstrumentations(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			langInsts, err := GetLanguageInstrumentations(test.instrumentations)
+			langInsts, err := instrumentation.GetLanguageInstrumentations(test.instrumentations)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -779,7 +780,7 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			secretName, err := GetSecretNameFromInstrumentations(test.instrumentations)
+			secretName, err := instrumentation.GetSecretNameFromInstrumentations(test.instrumentations)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -1076,28 +1077,28 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			ctx := context.Background()
 
 			for _, initNs := range test.initNs {
-				err := k8sClient.Create(ctx, initNs)
+				err := instrumentation.k8sClient.Create(ctx, initNs)
 				require.NoError(t, err)
 			}
 			defer func() {
 				for _, initNs := range test.initNs {
-					err := k8sClient.Delete(ctx, initNs)
+					err := instrumentation.k8sClient.Delete(ctx, initNs)
 					require.NoError(t, err)
 				}
 			}()
 
 			for _, initInst := range test.initInsts {
-				err := k8sClient.Create(ctx, initInst)
+				err := instrumentation.k8sClient.Create(ctx, initInst)
 				require.NoError(t, err)
 			}
 			defer func() {
 				for _, initInst := range test.initInsts {
-					err := k8sClient.Delete(ctx, initInst)
+					err := instrumentation.k8sClient.Delete(ctx, initInst)
 					require.NoError(t, err)
 				}
 			}()
 
-			locator := NewNewRelicInstrumentationLocator(logger, k8sClient, test.operatorNs)
+			locator := instrumentation.NewNewRelicInstrumentationLocator(logger, instrumentation.k8sClient, test.operatorNs)
 			insts, err := locator.GetInstrumentations(ctx, test.ns, test.pod)
 			errStr := ""
 			if err != nil {

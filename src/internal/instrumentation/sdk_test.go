@@ -3,7 +3,8 @@ package instrumentation
 import (
 	"context"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
+	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -176,7 +177,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			for _, langInst := range test.langInsts {
 				_ = defaulter.Default(ctx, langInst)
 			}
-			injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
+			injector := NewNewrelicSdkInjector(logger, instrumentation.k8sClient, injectorRegistry)
 			pod := injector.Inject(ctx, test.langInsts, test.ns, test.pod)
 			if diff := cmp.Diff(test.expectedPod, pod); diff != "" {
 				t.Errorf("Unexpected diff (-want +got): %s", diff)
@@ -191,7 +192,7 @@ func TestNewrelicSdkInjector_Inject_WithPanic(t *testing.T) {
 	injectorRegistry := apm.NewInjectorRegistry()
 	pi := &PanicInjector{}
 	injectorRegistry.MustRegister(pi)
-	injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
+	injector := NewNewrelicSdkInjector(logger, instrumentation.k8sClient, injectorRegistry)
 	func() {
 		defer func() {
 			if r := recover(); r != nil {

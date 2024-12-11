@@ -14,14 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhookhandler_test
+package webhook_test
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
 	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
+	instrumentation2 "github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
 	"io"
 	"net"
 	"os"
@@ -169,7 +170,7 @@ func TestMain(m *testing.M) {
 		config.WithAutoDetect(ad),
 	)
 	client := mgr.GetClient()
-	injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
+	injector := instrumentation2.NewNewrelicSdkInjector(logger, client, injectorRegistry)
 	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
 	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
 	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{
@@ -255,7 +256,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			},
 			initSecrets: []corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: instrumentation.DefaultLicenseKeySecretName, Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: instrumentation2.DefaultLicenseKeySecretName, Namespace: "newrelic"},
 					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
 				},
 			},
@@ -340,7 +341,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			},
 			initSecrets: []corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: instrumentation.DefaultLicenseKeySecretName, Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: instrumentation2.DefaultLicenseKeySecretName, Namespace: "newrelic"},
 					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
 				},
 			},

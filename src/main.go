@@ -22,7 +22,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
-	"github.com/newrelic/k8s-agents-operator/src/webhooks"
+	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/internal/migrate/upgrade"
+	"github.com/newrelic/k8s-agents-operator/src/internal/webhook"
 	"os"
 	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -30,7 +31,6 @@ import (
 	"time"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/instrumentation/upgrade"
 	"github.com/newrelic/k8s-agents-operator/src/internal/config"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	routev1 "github.com/openshift/api/route/v1"
@@ -45,7 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -103,7 +103,7 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
-	webhookServer := webhook.NewServer(webhook.Options{
+	webhookServer := webhookruntime.NewServer(webhookruntime.Options{
 		TLSOpts: tlsOpts,
 	})
 
@@ -229,9 +229,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		// TODO: Inject logger
 		// Register the Pod mutation webhook
-		if err = webhooks.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
+		if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, ctrl.Log.WithName("mutation-webhook")); err != nil {
 			setupLog.Error(err, "unable to register pod mutate webhook")
 			os.Exit(1)
 		}
