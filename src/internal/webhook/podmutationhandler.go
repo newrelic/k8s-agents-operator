@@ -16,6 +16,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// compile time type assertion
+var (
+	_ PodMutator = (*instrumentation.InstrumentationPodMutator)(nil)
+)
+
 // +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create;update,versions=v1,name=mpod.kb.io,sideEffects=none,admissionReviewVersions=v1
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=list;watch
 // +kubebuilder:rbac:groups=newrelic.com,resources=instrumentations,verbs=get;list;watch
