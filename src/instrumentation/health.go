@@ -277,7 +277,6 @@ func (m *HealthMonitor) resourceQueueEvent(ctx context.Context, ev event) {
 func (m *HealthMonitor) healthCheckQueueEvent(ctx context.Context, event healthCheckData) {
 	// consume any extra ticks that might be waiting
 	if atomic.SwapInt64(&m.healthCheckActive, 1) == 1 {
-		fmt.Printf("health check active\n")
 		return
 	}
 	defer atomic.StoreInt64(&m.healthCheckActive, 0)
@@ -304,7 +303,7 @@ func (m *HealthMonitor) healthCheckQueueEvent(ctx context.Context, event healthC
 	// skip a tick (or more) if the time it takes exceeds our interval. round off the extra, otherwise we always skip at least 1
 	m.checksToSkip = int64(totalTime / m.tickInterval)
 	if m.checksToSkip > 0 {
-		logger.Info(fmt.Sprintf("Skipping %d ticks at a interval of %s", m.checksToSkip, m.tickInterval.String()))
+		logger.Info("Skipping health checks", "skip_count", m.checksToSkip, "interval", m.tickInterval.String())
 	}
 }
 
