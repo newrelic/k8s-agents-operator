@@ -19,16 +19,14 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 	"github.com/newrelic/k8s-agents-operator/src/apm"
+	"github.com/newrelic/k8s-agents-operator/src/instrumentation/util/ticker"
+	"github.com/newrelic/k8s-agents-operator/src/instrumentation/util/worker"
 )
 
 const (
 	instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
 	healthSidecarContainerName       = "newrelic-apm-health"
 	healthUrlFormat                  = "http://%s:%d/healthz"
-	podMetricWorkers                 = 50
-	instrumentationMetricWorkers     = 2
-	instrumentationMetricWaiters     = 50
-	maxBufferedEvents                = 100
 )
 
 var healthCheckTimeout = time.Second * 15
@@ -42,7 +40,7 @@ const (
 	instRemove
 	nsSet
 	nsRemove
-	healthChecksDone
+	triggerHealthCheck
 )
 
 type event struct {
@@ -64,6 +62,24 @@ type instrumentationMetric struct {
 	podsHealthy       int64
 	podsUnhealthy     int64
 	unhealthyPods     []v1alpha2.UnhealthyPodError
+}
+
+func (im *instrumentationMetric) resolve() {
+	close(im.doneCh)
+}
+
+func (im *instrumentationMetric) wait(ctx context.Context) error {
+	select {
+	case <-im.doneCh:
+		return nil
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-im.doneCh:
+		return nil
+	}
 }
 
 func (im *instrumentationMetric) isDiff() bool {
@@ -110,26 +126,39 @@ type podMetric struct {
 	doneCh           chan struct{}
 }
 
+func (pm *podMetric) resolve(health Health) {
+	pm.health = health
+	close(pm.doneCh)
+}
+
+func (pm *podMetric) wait(ctx context.Context) error {
+	select {
+	case <-pm.doneCh:
+		return nil
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-pm.doneCh:
+		return nil
+	}
+}
+
+type healthCheckData struct {
+	podMetrics             []*podMetric
+	instrumentationMetrics []*instrumentationMetric
+}
+
 type HealthMonitor struct {
-	instrumentationStatusUpdater InstrumentationStatusUpdater
-	instrumentations             map[string]*v1alpha2.Instrumentation
-	pods                         map[string]*corev1.Pod
-	namespaces                   map[string]*corev1.Namespace
-	events                       chan event
-	doneCh                       chan struct{}
-	doneOnce                     *sync.Once
-	healthApi                    HealthCheck
+	healthCheckActive int64
+	_padding1         [3]int64
 
-	instrumentationMetricWorkers int
-	podMetricWorkers             int
-	instrumentationMetricWaiters int
-	healthCheckTimeout           time.Duration
+	checksToSkip int64
+	_padding2    [3]int64
 
-	podMetricsBatchCh                     chan []*podMetric
-	instrumentationMetricsBatchCh         chan []*instrumentationMetric
-	waitForInstrumentationsMetricsBatchCh chan []*instrumentationMetric
-
-	tickInterval time.Duration
+	doneCh   chan struct{}
+	doneOnce *sync.Once
 
 	shutdownCh   chan struct{}
 	shutdownOnce *sync.Once
@@ -137,14 +166,32 @@ type HealthMonitor struct {
 	stopCh   chan struct{}
 	stopOnce *sync.Once
 
-	pending int64
+	healthApi                         HealthCheck
+	instrumentationStatusUpdater      InstrumentationStatusUpdater
+	resourceQueue                     worker.Worker
+	healthCheckQueue                  worker.Worker
+	podMetricsQueue                   worker.Worker
+	podMetricQueue                    worker.Worker
+	instrumentationMetricsQueue       worker.Worker
+	instrumentationMetricQueue        worker.Worker
+	instrumentationMetricPersistQueue worker.Worker
+	ticker                            *ticker.Ticker
+
+	instrumentations map[string]*v1alpha2.Instrumentation
+	pods             map[string]*corev1.Pod
+	namespaces       map[string]*corev1.Namespace
+
+	healthCheckTimeout time.Duration
+	tickInterval       time.Duration
 }
 
 func NewHealthMonitor(
-	ctx context.Context,
 	instrumentationStatusUpdater InstrumentationStatusUpdater,
 	healthCheck HealthCheck,
 	tickInterval time.Duration,
+	podMetricWorkers int,
+	instrumentationsMetricWorkers int,
+	instrumentationsMetricPersistWorkers int,
 ) *HealthMonitor {
 	m := &HealthMonitor{
 		healthApi:                    healthCheck,
@@ -158,256 +205,161 @@ func NewHealthMonitor(
 		shutdownOnce: &sync.Once{},
 		stopCh:       make(chan struct{}),
 		stopOnce:     &sync.Once{},
-
-		doneCh:   make(chan struct{}),
-		doneOnce: &sync.Once{},
-
-		events: make(chan event, maxBufferedEvents),
+		doneCh:       make(chan struct{}),
+		doneOnce:     &sync.Once{},
 
 		healthCheckTimeout: healthCheckTimeout,
 		tickInterval:       tickInterval,
-
-		podMetricWorkers:                      podMetricWorkers,
-		instrumentationMetricWorkers:          instrumentationMetricWorkers,
-		instrumentationMetricWaiters:          instrumentationMetricWaiters,
-		podMetricsBatchCh:                     make(chan []*podMetric),
-		instrumentationMetricsBatchCh:         make(chan []*instrumentationMetric),
-		waitForInstrumentationsMetricsBatchCh: make(chan []*instrumentationMetric),
 	}
-	m.start(ctx)
+	m.ticker = ticker.NewTicker(tickInterval, func(ctx context.Context, _ time.Time) {
+		m.resourceQueue.Add(ctx, event{action: triggerHealthCheck})
+	})
+	m.resourceQueue = worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
+		m.resourceQueueEvent(ctx, data.(event))
+	})
+	m.healthCheckQueue = worker.NewManyWorkers(2, 0, func(ctx context.Context, data any) {
+		m.healthCheckQueueEvent(ctx, data.(healthCheckData))
+	})
+	m.podMetricsQueue = worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
+		m.podMetricsQueueEvent(ctx, data.([]*podMetric))
+	})
+	m.podMetricQueue = worker.NewManyWorkers(podMetricWorkers, 0, func(ctx context.Context, data any) {
+		m.podMetricQueueEvent(ctx, data.(*podMetric))
+	})
+	m.instrumentationMetricsQueue = worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
+		m.instrumentationMetricsQueueEvent(ctx, data.([]*instrumentationMetric))
+	})
+	m.instrumentationMetricQueue = worker.NewManyWorkers(instrumentationsMetricWorkers, 0, func(ctx context.Context, data any) {
+		m.instrumentationMetricQueueEvent(ctx, data.(*instrumentationMetric))
+	})
+	m.instrumentationMetricPersistQueue = worker.NewManyWorkers(instrumentationsMetricPersistWorkers, 0, func(ctx context.Context, data any) {
+		m.instrumentationMetricPersistQueueEvent(ctx, data.(*instrumentationMetric))
+	})
 	return m
 }
 
-func (m *HealthMonitor) Shutdown(ctx context.Context) error {
-	m.shutdownOnce.Do(func() {
-		close(m.shutdownCh)
-	})
-	return m.waitUntilDone(ctx)
-}
-
-func (m *HealthMonitor) Stop(ctx context.Context) error {
-	m.stopOnce.Do(func() {
-		close(m.stopCh)
-	})
-	return m.waitUntilDone(ctx)
-}
-
-func (m *HealthMonitor) waitUntilDone(ctx context.Context) error {
-	// intentionally left here for predictable thread scheduling
-	select {
-	case <-m.doneCh:
-	default:
-	}
-
-	select {
-	case <-m.doneCh:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	return nil
-}
-
-func (m *HealthMonitor) PodSet(pod *corev1.Pod) {
-	m.sendEvent(event{pod: pod, action: podSet})
-}
-
-func (m *HealthMonitor) PodRemove(pod *corev1.Pod) {
-	m.sendEvent(event{pod: pod, action: podRemove})
-}
-
-func (m *HealthMonitor) NamespaceSet(ns *corev1.Namespace) {
-	m.sendEvent(event{ns: ns, action: nsSet})
-}
-
-func (m *HealthMonitor) NamespaceRemove(ns *corev1.Namespace) {
-	m.sendEvent(event{ns: ns, action: nsRemove})
-}
-
-func (m *HealthMonitor) InstrumentationSet(instrumentation *v1alpha2.Instrumentation) {
-	m.sendEvent(event{inst: instrumentation, action: instSet})
-}
-
-func (m *HealthMonitor) InstrumentationRemove(instrumentation *v1alpha2.Instrumentation) {
-	m.sendEvent(event{inst: instrumentation, action: instRemove})
-}
-
-func (m *HealthMonitor) triggerHealthCheckDone() {
-	m.sendEvent(event{action: healthChecksDone})
-}
-
-func (m *HealthMonitor) sendEvent(evt event) {
-	select {
-	case <-m.stopCh:
-		return
-	default:
-	}
-	atomic.AddInt64(&m.pending, 1)
-	defer atomic.AddInt64(&m.pending, -1)
-	select {
-	case <-m.stopCh:
-		return
-	default:
-	}
-	select {
-	case <-m.stopCh:
-		return
-	case m.events <- evt:
-	}
-}
-
-func (m *HealthMonitor) onNamespaceSet(ev event) {
-	m.namespaces[ev.ns.Name] = ev.ns
-}
-
-func (m *HealthMonitor) onNamespaceRemove(ev event) {
-	if ns, ok := m.namespaces[ev.ns.Name]; ok {
-		ns.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-	}
-	delete(m.namespaces, ev.ns.Name)
-}
-
-func (m *HealthMonitor) onPodSet(ev event) {
-	id := types.NamespacedName{Namespace: ev.pod.Namespace, Name: ev.pod.Name}.String()
-	m.pods[id] = ev.pod
-}
-
-func (m *HealthMonitor) onPodRemove(ev event) {
-	id := types.NamespacedName{Namespace: ev.pod.Namespace, Name: ev.pod.Name}.String()
-	if pod, ok := m.pods[id]; ok {
-		pod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-	}
-	delete(m.pods, id)
-}
-
-func (m *HealthMonitor) onInstrumentationSet(ev event) {
-	id := types.NamespacedName{Namespace: ev.inst.Namespace, Name: ev.inst.Name}.String()
-	m.instrumentations[id] = ev.inst
-}
-
-func (m *HealthMonitor) onInstrumentationRemove(ev event) {
-	id := types.NamespacedName{Namespace: ev.inst.Namespace, Name: ev.inst.Name}.String()
-	if inst, ok := m.instrumentations[id]; ok {
-		inst.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-	}
-	delete(m.instrumentations, id)
-}
-
-func (m *HealthMonitor) startInstrumentationMetricsCalculator(ctx context.Context) {
-	instrumentationMetricsPendingCh := make(chan *instrumentationMetric)
-	instrumentationMetricsReadyCh := make(chan *instrumentationMetric)
-
-	wg := sync.WaitGroup{}
-	for i := 0; i < m.instrumentationMetricWaiters; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			m.waitForPodMetricsForInstrumentationMetrics(ctx, instrumentationMetricsPendingCh, instrumentationMetricsReadyCh)
-		}()
-	}
-	go func() {
-		wg.Wait()
-		close(instrumentationMetricsReadyCh)
-	}()
-	defer close(instrumentationMetricsPendingCh)
-	for i := 0; i < m.instrumentationMetricWorkers; i++ {
-		go m.instrumentationMetricsCalculationWorker(ctx, instrumentationMetricsReadyCh)
-	}
-
-	for {
-		select {
-		case <-m.stopCh:
-			return
-		case instrumentationMetricsBatch := <-m.instrumentationMetricsBatchCh:
-			for _, instrumentationMetricItem := range instrumentationMetricsBatch {
-				select {
-				case <-m.stopCh:
-					return
-				case instrumentationMetricsPendingCh <- instrumentationMetricItem:
-				}
-			}
-		}
-	}
-}
-
-func (m *HealthMonitor) waitForPodMetricsForInstrumentationMetrics(ctx context.Context, instrumentationMetricsPendingCh chan *instrumentationMetric, instrumentationMetricsReadyCh chan *instrumentationMetric) {
-	for instrumentationMetricItem := range instrumentationMetricsPendingCh {
-		for _, podMetricItem := range instrumentationMetricItem.podMetrics {
-			select {
-			case <-m.stopCh:
-				return
-			case <-podMetricItem.doneCh:
-			}
-		}
-		select {
-		case <-m.stopCh:
-			return
-		case instrumentationMetricsReadyCh <- instrumentationMetricItem:
-		}
-	}
-}
-
-func (m *HealthMonitor) instrumentationMetricsCalculationWorker(ctx context.Context, instrumentationMetricsCh chan *instrumentationMetric) {
-	for {
-		select {
-		case <-m.stopCh:
-			return
-		case instrumentationMetricItem := <-instrumentationMetricsCh:
-			m.updateInstrumentation(ctx, instrumentationMetricItem)
-		}
-	}
-}
-
-func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *v1alpha2.Instrumentation) bool {
-	v, ok := pod.Annotations[instrumentationVersionAnnotation]
-	if !ok {
-		return true
-	}
-	instVersions := map[string]string{}
-	err := json.Unmarshal([]byte(v), &instVersions)
-	if err != nil {
-		return true
-	}
-	podInstVersion, ok := instVersions[types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()]
-	if !ok {
-		return true
-	}
-	if instVersion := fmt.Sprintf("%s/%d", inst.UID, inst.Generation); podInstVersion != instVersion {
-		return true
-	}
-	return false
-}
-
-func (m *HealthMonitor) updateInstrumentation(ctx context.Context, instrumentationMetric *instrumentationMetric) {
-	defer close(instrumentationMetric.doneCh)
+func (m *HealthMonitor) resourceQueueEvent(ctx context.Context, ev event) {
 	logger := log.FromContext(ctx)
-	for _, podMetricItem := range instrumentationMetric.podMetrics {
-		instrumentationMetric.podsMatching++
-		if !m.isPodInstrumented(podMetricItem.pod) {
+	logger.Info("event", "action", ev.action)
+	switch ev.action {
+	case nsSet:
+		m.namespaces[ev.ns.Name] = ev.ns
+	case nsRemove:
+		delete(m.namespaces, ev.ns.Name)
+	case podSet:
+		m.pods[ev.pod.Namespace+"/"+ev.pod.Name] = ev.pod
+	case podRemove:
+		delete(m.pods, ev.pod.Namespace+"/"+ev.pod.Name)
+	case instSet:
+		m.instrumentations[ev.inst.Namespace+"/"+ev.inst.Name] = ev.inst
+	case instRemove:
+		delete(m.instrumentations, ev.inst.Namespace+"/"+ev.inst.Name)
+	case triggerHealthCheck:
+		if atomic.LoadInt64(&m.healthCheckActive) == 1 {
+			return
+		}
+
+		logger.Info("health check start")
+		podMetrics := m.getPodMetrics(ctx)
+		if len(podMetrics) == 0 {
+			logger.Info("nothing to check the health of.  No pods")
+			return
+		}
+		instrumentationMetrics := m.getInstrumentationMetrics(ctx, podMetrics)
+		if len(instrumentationMetrics) == 0 {
+			logger.Info("nothing to report the health to.  No instrumentations")
+			return
+		}
+		m.healthCheckQueue.Add(ctx, healthCheckData{podMetrics: podMetrics, instrumentationMetrics: instrumentationMetrics})
+	}
+}
+
+func (m *HealthMonitor) healthCheckQueueEvent(ctx context.Context, event healthCheckData) {
+	// consume any extra ticks that might be waiting
+	if atomic.SwapInt64(&m.healthCheckActive, 1) == 1 {
+		fmt.Printf("health check active\n")
+		return
+	}
+	defer atomic.StoreInt64(&m.healthCheckActive, 0)
+
+	if m.checksToSkip > 0 {
+		m.checksToSkip--
+		return
+	}
+
+	logger := log.FromContext(ctx)
+	healthCheckStartTime := time.Now()
+
+	m.podMetricsQueue.Add(ctx, event.podMetrics)
+	m.instrumentationMetricsQueue.Add(ctx, event.instrumentationMetrics)
+	for _, eventInstrumentationMetric := range event.instrumentationMetrics {
+		eventInstrumentationMetric.wait(ctx)
+	}
+	for _, eventPodMetric := range event.podMetrics {
+		eventPodMetric.wait(ctx)
+	}
+
+	totalTime := time.Since(healthCheckStartTime)
+
+	// skip a tick (or more) if the time it takes exceeds our interval. round off the extra, otherwise we always skip at least 1
+	m.checksToSkip = int64(totalTime / m.tickInterval)
+	if m.checksToSkip > 0 {
+		logger.Info(fmt.Sprintf("Skipping %d ticks at a interval of %s", m.checksToSkip, m.tickInterval.String()))
+	}
+}
+
+func (m *HealthMonitor) podMetricsQueueEvent(ctx context.Context, event []*podMetric) {
+	for _, eventPodMetric := range event {
+		m.podMetricQueue.Add(ctx, eventPodMetric)
+	}
+}
+
+func (m *HealthMonitor) podMetricQueueEvent(ctx context.Context, event *podMetric) {
+	health := m.check(ctx, event)
+	event.resolve(health)
+}
+
+func (m *HealthMonitor) instrumentationMetricsQueueEvent(ctx context.Context, event []*instrumentationMetric) {
+	for _, eventInstrumentationMetric := range event {
+		m.instrumentationMetricQueue.Add(ctx, eventInstrumentationMetric)
+	}
+}
+
+func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, event *instrumentationMetric) {
+	for _, eventPodMetrics := range event.podMetrics {
+		eventPodMetrics.wait(ctx)
+		event.podsMatching++
+		if !m.isPodInstrumented(eventPodMetrics.pod) {
 			continue
 		}
-		if m.isPodOutdated(podMetricItem.pod, instrumentationMetric.instrumentation) {
-			instrumentationMetric.podsOutdated++
+		if m.isPodOutdated(eventPodMetrics.pod, event.instrumentation) {
+			event.podsOutdated++
 		}
-		instrumentationMetric.podsInjected++
-		if !m.isPodReady(podMetricItem.pod) {
-			instrumentationMetric.podsNotReady++
+		event.podsInjected++
+		if !m.isPodReady(eventPodMetrics.pod) {
+			event.podsNotReady++
 			continue
 		}
 
-		if podMetricItem.health.Healthy {
-			instrumentationMetric.podsHealthy++
+		if eventPodMetrics.health.Healthy {
+			event.podsHealthy++
 		} else {
-			instrumentationMetric.podsUnhealthy++
-			instrumentationMetric.unhealthyPods = append(instrumentationMetric.unhealthyPods, v1alpha2.UnhealthyPodError{
-				Pod:       podMetricItem.podID,
-				LastError: podMetricItem.health.LastError,
+			event.podsUnhealthy++
+			event.unhealthyPods = append(event.unhealthyPods, v1alpha2.UnhealthyPodError{
+				Pod:       eventPodMetrics.podID,
+				LastError: eventPodMetrics.health.LastError,
 			})
 		}
 	}
+	m.instrumentationMetricPersistQueue.Add(ctx, event)
+}
 
-	if instrumentationMetric.isDiff() {
-		instrumentationMetric.syncStatus()
-		instrumentationMetric.instrumentation.Status.LastUpdated = metav1.Now()
+func (m *HealthMonitor) instrumentationMetricPersistQueueEvent(ctx context.Context, event *instrumentationMetric) {
+	defer event.resolve()
+	logger := log.FromContext(ctx)
+	if event.isDiff() {
+		event.syncStatus()
+		event.instrumentation.Status.LastUpdated = metav1.Now()
 
 		select {
 		case <-m.stopCh:
@@ -415,221 +367,13 @@ func (m *HealthMonitor) updateInstrumentation(ctx context.Context, instrumentati
 		default:
 		}
 
-		if err := m.instrumentationStatusUpdater.UpdateInstrumentationStatus(ctx, instrumentationMetric.instrumentation); err != nil {
+		if err := m.instrumentationStatusUpdater.UpdateInstrumentationStatus(ctx, event.instrumentation); err != nil {
 			logger.Error(err, "failed to update status for instrumentation")
 		}
-		logger.Info("wrote status for instrumentation", "id", instrumentationMetric.instrumentationID)
+		logger.Info("wrote status for instrumentation", "id", event.instrumentationID)
 	} else {
-		logger.Info("no changes to status for instrumentation", "id", instrumentationMetric.instrumentationID)
+		logger.Info("no changes to status for instrumentation", "id", event.instrumentationID)
 	}
-}
-
-func (m *HealthMonitor) startPodMetricsCalculator(ctx context.Context) {
-	podMetricsCh := make(chan *podMetric)
-	defer close(podMetricsCh)
-	for i := 0; i < m.podMetricWorkers; i++ {
-		go m.podMetricsCalculationWorker(ctx, podMetricsCh)
-	}
-	for {
-		select {
-		case <-m.stopCh:
-			return
-		case podMetrics := <-m.podMetricsBatchCh:
-			for _, podMetricItem := range podMetrics {
-				select {
-				case <-m.stopCh:
-					return
-				case podMetricsCh <- podMetricItem:
-				}
-			}
-		}
-	}
-}
-
-func (m *HealthMonitor) podMetricsCalculationWorker(ctx context.Context, podMetricsCh chan *podMetric) {
-	for {
-		select {
-		case <-m.stopCh:
-			return
-		case podMetricItem := <-podMetricsCh:
-			m.check(ctx, podMetricItem)
-		}
-	}
-}
-
-func (m *HealthMonitor) startWaitForInstrumentationMetricsDoneWorker(ctx context.Context) {
-	for {
-		select {
-		case <-m.stopCh:
-			return
-		case instrumentationMetrics := <-m.waitForInstrumentationsMetricsBatchCh:
-			for _, instrumentationMetricItem := range instrumentationMetrics {
-				select {
-				case <-m.stopCh:
-					return
-				case <-instrumentationMetricItem.doneCh:
-				}
-			}
-			m.triggerHealthCheckDone()
-		}
-	}
-}
-
-func (m *HealthMonitor) start(ctx context.Context) {
-	wg := sync.WaitGroup{}
-	wg.Add(4)
-
-	go func() {
-		defer wg.Done()
-		defer close(m.podMetricsBatchCh)
-		m.startPodMetricsCalculator(ctx)
-	}()
-	go func() {
-		defer wg.Done()
-		defer close(m.instrumentationMetricsBatchCh)
-		m.startInstrumentationMetricsCalculator(ctx)
-	}()
-	go func() {
-		defer wg.Done()
-		defer close(m.waitForInstrumentationsMetricsBatchCh)
-		m.startWaitForInstrumentationMetricsDoneWorker(ctx)
-	}()
-	go func() {
-		defer wg.Done()
-		m.startEventLoop(ctx)
-	}()
-
-	go func() {
-		wg.Wait()
-		close(m.events)
-		close(m.doneCh)
-	}()
-
-	logger := log.FromContext(ctx)
-	logger.Info("started")
-}
-
-func (m *HealthMonitor) startEventLoop(ctx context.Context) {
-	logger := log.FromContext(ctx)
-	ticker := time.NewTicker(m.tickInterval)
-	defer ticker.Stop()
-	ticksToSkip := 0
-
-	healthCheckStart := time.Time{}
-	healthCheckIsActive := false
-
-	logger.Info("event loop started", "tick interval", m.tickInterval)
-	for {
-		select {
-		case <-m.stopCh:
-			return
-		case _ = <-ticker.C:
-			logger.Info("tick")
-			if ticksToSkip > 0 {
-				ticksToSkip--
-				continue
-			}
-			if healthCheckIsActive {
-				continue
-			}
-			logger.Info("health check start")
-			podMetrics := m.getPodMetrics(ctx)
-			if len(podMetrics) == 0 {
-				logger.Info("nothing to check the health of.  No pods")
-				continue
-			}
-			instrumentationMetrics := m.getInstrumentationMetrics(ctx, podMetrics)
-			if len(instrumentationMetrics) == 0 {
-				logger.Info("nothing to report the health to.  No instrumentations")
-				continue
-			}
-
-			logger.Info("starting the scheduling of health checks")
-			healthCheckStart = time.Now()
-			healthCheckIsActive = true
-
-			m.podMetricsBatchCh <- podMetrics
-			m.instrumentationMetricsBatchCh <- instrumentationMetrics
-			m.waitForInstrumentationsMetricsBatchCh <- instrumentationMetrics
-
-			logger.Info("finished scheduling health checks")
-
-		case ev := <-m.events:
-			logger.Info("event", "action", ev.action)
-			switch ev.action {
-			case healthChecksDone:
-				logger.Info("health check done")
-				healthCheckIsActive = false
-				totalTime := time.Since(healthCheckStart)
-
-				// skip a tick (or more) if the time it takes exceeds our interval. round off the extra, otherwise we always skip at least 1
-				ticksToSkip = int(totalTime / m.tickInterval)
-				if ticksToSkip > 0 {
-					logger.Info(fmt.Sprintf("Skipping %d ticks at a interval of %s", ticksToSkip, m.tickInterval.String()))
-				}
-
-				drainingTicker := true
-				for drainingTicker {
-					select {
-					case <-ticker.C:
-					default:
-						drainingTicker = false
-					}
-				}
-			case nsSet:
-				m.onNamespaceSet(ev)
-			case nsRemove:
-				m.onNamespaceRemove(ev)
-			case podSet:
-				m.onPodSet(ev)
-			case podRemove:
-				m.onPodRemove(ev)
-			case instSet:
-				m.onInstrumentationSet(ev)
-			case instRemove:
-				m.onInstrumentationRemove(ev)
-			}
-		}
-	}
-}
-
-func (m *HealthMonitor) check(ctx context.Context, podMetricItem *podMetric) {
-	logger := log.FromContext(ctx)
-	defer func() {
-		logger.Info("closing pod metric", "pod", podMetricItem.podID)
-		close(podMetricItem.doneCh)
-	}()
-	if !m.isPodInstrumented(podMetricItem.pod) {
-		return
-	}
-	if !m.isPodReady(podMetricItem.pod) {
-		return
-	}
-	logger.Info("checking health for pod", "pod", podMetricItem.podID)
-
-	pod := podMetricItem.pod
-	podHealthUrl, err := m.getHealthUrlFromPod(*pod)
-	if err != nil {
-		podMetricItem.health = Health{
-			Healthy:   false,
-			LastError: fmt.Sprintf("failed to identify health url > %s", err.Error()),
-		}
-		return
-	}
-
-	healthCtx, healthCtxCancel := context.WithTimeout(ctx, m.healthCheckTimeout)
-	defer healthCtxCancel()
-	health, err := m.healthApi.GetHealth(healthCtx, podHealthUrl)
-	if err != nil {
-		podMetricItem.health = Health{
-			Healthy:   false,
-			LastError: fmt.Sprintf("failed while retrieving health > %s", err.Error()),
-		}
-		return
-	}
-	logger.Info("collected health for pod", "pod", podMetricItem.podID, "health", health)
-	podMetricItem.health = health
-
 }
 
 func (m *HealthMonitor) getPodMetrics(ctx context.Context) []*podMetric {
@@ -695,7 +439,7 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 	return instrumentationMetrics[0:i]
 }
 
-func (m *HealthMonitor) getHealthUrlFromPod(pod corev1.Pod) (string, error) {
+func (m *HealthMonitor) getHealthUrlFromPod(pod *corev1.Pod) (string, error) {
 	var sidecars []corev1.Container
 	for _, container := range pod.Spec.InitContainers {
 		if container.RestartPolicy == nil {
@@ -726,6 +470,26 @@ func (m *HealthMonitor) isPodReady(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodRunning
 }
 
+func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *v1alpha2.Instrumentation) bool {
+	v, ok := pod.Annotations[instrumentationVersionAnnotation]
+	if !ok {
+		return true
+	}
+	instVersions := map[string]string{}
+	err := json.Unmarshal([]byte(v), &instVersions)
+	if err != nil {
+		return true
+	}
+	podInstVersion, ok := instVersions[types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()]
+	if !ok {
+		return true
+	}
+	if instVersion := fmt.Sprintf("%s/%d", inst.UID, inst.Generation); podInstVersion != instVersion {
+		return true
+	}
+	return false
+}
+
 func (m *HealthMonitor) isPodInstrumented(pod *corev1.Pod) bool {
 	if pod.Annotations == nil {
 		return false
@@ -739,4 +503,110 @@ func (m *HealthMonitor) isPodInstrumented(pod *corev1.Pod) bool {
 		return false
 	}
 	return bv
+}
+
+func (m *HealthMonitor) check(ctx context.Context, podMetricItem *podMetric) Health {
+	logger := log.FromContext(ctx)
+	if !m.isPodInstrumented(podMetricItem.pod) {
+		return Health{}
+	}
+	if !m.isPodReady(podMetricItem.pod) {
+		return Health{}
+	}
+	logger.Info("checking health for pod", "pod", podMetricItem.podID)
+
+	podHealthUrl, err := m.getHealthUrlFromPod(podMetricItem.pod)
+	if err != nil {
+		return Health{
+			Healthy:   false,
+			LastError: fmt.Sprintf("failed to identify health url > %s", err.Error()),
+		}
+	}
+
+	healthCtx, healthCtxCancel := context.WithTimeout(ctx, m.healthCheckTimeout)
+	defer healthCtxCancel()
+	health, err := m.healthApi.GetHealth(healthCtx, podHealthUrl)
+	if err != nil {
+		return Health{
+			Healthy:   false,
+			LastError: fmt.Sprintf("failed while retrieving health > %s", err.Error()),
+		}
+	}
+	logger.Info("collected health for pod", "pod", podMetricItem.podID, "health", health)
+	return health
+}
+
+func (m *HealthMonitor) Shutdown(ctx context.Context) error {
+	m.shutdownOnce.Do(func() {
+		go func() {
+			defer m.doneOnce.Do(func() { close(m.doneCh) })
+			ctxStop := context.Background()
+			m.ticker.Stop(ctxStop)
+			m.resourceQueue.Stop(ctxStop)
+			m.healthCheckQueue.Shutdown(ctxStop)
+			m.podMetricsQueue.Stop(ctxStop)
+			m.podMetricQueue.Stop(ctxStop)
+			m.instrumentationMetricsQueue.Stop(ctxStop)
+			m.instrumentationMetricQueue.Stop(ctxStop)
+			m.instrumentationMetricPersistQueue.Stop(ctxStop)
+		}()
+	})
+	return m.waitUntilDone(ctx)
+}
+
+func (m *HealthMonitor) Stop(ctx context.Context) error {
+	m.stopOnce.Do(func() {
+		go func() {
+			defer m.doneOnce.Do(func() { close(m.doneCh) })
+			ctxStop := context.Background()
+			m.ticker.Stop(ctxStop)
+			m.resourceQueue.Stop(ctxStop)
+			m.healthCheckQueue.Stop(ctxStop)
+			m.podMetricsQueue.Stop(ctxStop)
+			m.podMetricQueue.Stop(ctxStop)
+			m.instrumentationMetricsQueue.Stop(ctxStop)
+			m.instrumentationMetricQueue.Stop(ctxStop)
+			m.instrumentationMetricPersistQueue.Stop(ctxStop)
+		}()
+	})
+	return m.waitUntilDone(ctx)
+}
+
+func (m *HealthMonitor) waitUntilDone(ctx context.Context) error {
+	// intentionally left here for predictable thread scheduling
+	select {
+	case <-m.doneCh:
+	default:
+	}
+
+	select {
+	case <-m.doneCh:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	return nil
+}
+
+func (m *HealthMonitor) PodSet(pod *corev1.Pod) {
+	m.resourceQueue.Add(context.Background(), event{pod: pod, action: podSet})
+}
+
+func (m *HealthMonitor) PodRemove(pod *corev1.Pod) {
+	m.resourceQueue.Add(context.Background(), event{pod: pod, action: podRemove})
+}
+
+func (m *HealthMonitor) NamespaceSet(ns *corev1.Namespace) {
+	m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsSet})
+}
+
+func (m *HealthMonitor) NamespaceRemove(ns *corev1.Namespace) {
+	m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsRemove})
+}
+
+func (m *HealthMonitor) InstrumentationSet(instrumentation *v1alpha2.Instrumentation) {
+	m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instSet})
+}
+
+func (m *HealthMonitor) InstrumentationRemove(instrumentation *v1alpha2.Instrumentation) {
+	m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instRemove})
 }

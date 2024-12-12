@@ -83,7 +83,8 @@ func TestHealthInjector_Inject(t *testing.T) {
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name: "newrelic-apm-health-sidecar",
+						Name:  "newrelic-apm-health-sidecar",
+						Image: "health",
 						VolumeMounts: []corev1.VolumeMount{{
 							Name:      "newrelic-apm-health-volume",
 							MountPath: "/health/this",
@@ -131,7 +132,8 @@ func TestHealthInjector_Inject(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"newrelic.com/apm-health": "true"}},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name: "newrelic-apm-health-sidecar",
+						Name:  "newrelic-apm-health-sidecar",
+						Image: "health",
 						VolumeMounts: []corev1.VolumeMount{{
 							Name:      "newrelic-apm-health-volume",
 							MountPath: "/health/this",

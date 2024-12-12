@@ -340,8 +340,8 @@ func TestHealthMonitor(t *testing.T) {
 				instrumentationStatus = instrumentation.Status
 				return nil
 			})
-			hm := NewHealthMonitor(ctx, waitForUpdateInstrumentationStatus, test.fnHealthCheck, time.Millisecond*2)
-			toCtx, toCtxCancel := context.WithTimeout(ctx, time.Millisecond*6)
+			hm := NewHealthMonitor(waitForUpdateInstrumentationStatus, test.fnHealthCheck, time.Millisecond*3, 50, 50, 2)
+			toCtx, toCtxCancel := context.WithTimeout(ctx, time.Millisecond*5000)
 			defer toCtxCancel()
 			for _, namespace := range test.namespaces {
 				hm.NamespaceSet(namespace)
@@ -354,10 +354,11 @@ func TestHealthMonitor(t *testing.T) {
 			}
 			select {
 			case <-doneCh:
+				hm.Shutdown(context.Background())
 			case <-toCtx.Done():
+				hm.Stop(toCtx)
 				t.Fatal("toCtx timed out")
 			}
-			hm.Stop(toCtx)
 			if diff := cmp.Diff(test.expectedInstrumentationStatus, instrumentationStatus, cmpopts.IgnoreFields(v1alpha2.InstrumentationStatus{}, "LastUpdated")); diff != "" {
 				t.Errorf("unexpected status, got, want: %v", diff)
 			}

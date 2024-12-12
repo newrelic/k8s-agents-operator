@@ -77,7 +77,7 @@ func (r *InstrumentationValidator) validate(inst *v1alpha2.Instrumentation) (adm
 	if inst.Spec.Agent.IsEmpty() {
 		return nil, fmt.Errorf("instrumentation %q agent is empty", inst.Name)
 	}
-	if len(inst.Spec.HealthAgent.Env) > 0 && inst.Spec.HealthAgent.Image != "" {
+	if len(inst.Spec.HealthAgent.Env) > 0 && inst.Spec.HealthAgent.Image == "" {
 		return nil, fmt.Errorf("instrumentation %q healthAgent.image is empty, meanwhile the environment is not", inst.Name)
 	}
 

@@ -227,22 +227,19 @@ func main() {
 
 	instrumentationStatusUpdater := instrumentation.NewInstrumentationStatusUpdater(mgr.GetClient())
 	healthApi := instrumentation.NewHealthCheckApi(http.DefaultClient)
-	healthCtx, healthCtxCancel := context.WithCancel(context.Background())
 	healthMonitor := instrumentation.NewHealthMonitor(
-		healthCtx, instrumentationStatusUpdater, healthApi, healthCheckTickInterval,
+		instrumentationStatusUpdater, healthApi, healthCheckTickInterval, 50, 50, 2,
 	)
 	go func() {
 		<-ctx.Done()
 		logger.Info("Shutting down health checker")
 		stopCtx, stopCtxCancel := context.WithTimeout(context.Background(), 25*time.Second)
-		err := healthMonitor.Stop(stopCtx)
-		if err != nil {
-			setupLog.Error(err, "failed to stop health checker")
+		defer stopCtxCancel()
+		if err := healthMonitor.Shutdown(stopCtx); err != nil {
+			setupLog.Error(err, "failed to shutdown health checker")
 		} else {
 			logger.Info("Shut down health checker")
 		}
-		stopCtxCancel()
-		healthCtxCancel()
 	}()
 
 	if err = (&controller.NamespaceReconciler{

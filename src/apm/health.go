@@ -120,7 +120,7 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst v1alpha2.Instrumen
 		restartAlways := corev1.ContainerRestartPolicyAlways
 		sidecarContainer := corev1.Container{
 			Name:          healthSidecarContainerName,
-			Image:         inst.Spec.Agent.Image,
+			Image:         inst.Spec.HealthAgent.Image,
 			RestartPolicy: &restartAlways,
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      healthVolumeName,
