@@ -25,7 +25,7 @@ import (
 
 const (
 	instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
-	healthSidecarContainerName       = "newrelic-apm-health"
+	healthSidecarContainerName       = "newrelic-apm-health-sidecar"
 	healthUrlFormat                  = "http://%s:%d/healthz"
 )
 
