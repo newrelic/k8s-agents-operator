@@ -10,13 +10,12 @@ import (
 )
 
 type Health struct {
-	Healthy            bool               `json:"healthy"`
-	Status             string             `json:"status"`
-	StartTime          string             `json:"start_time_unix_nano"`
-	StatusTime         string             `json:"status_time_unix_nano"`
-	AgentRunID         string             `json:"agent_run_id"`
-	LastError          string             `json:"last_error"`
-	ComponentHealthMap map[string]*Health `json:"component_health_map"`
+	Healthy            bool               `yaml:"healthy"`
+	Status             string             `yaml:"status"`
+	StartTime          int64              `yaml:"start_time_unix_nano"`
+	StatusTime         int64              `yaml:"status_time_unix_nano"`
+	LastError          string             `yaml:"last_error"`
+	ComponentHealthMap map[string]*Health `yaml:"component_health_map"`
 }
 
 type HealthCheck interface {
