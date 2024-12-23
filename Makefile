@@ -1,5 +1,4 @@
 # Directories
-GO_DIR = ./src
 BIN_DIR = ./bin
 TMP_DIR = $(shell pwd)/tmp
 
@@ -160,10 +159,10 @@ go-format: ## Format all go files
 
 .PHONY: build
 build: ## Build the go binary
-	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/src/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/src/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator $(GO_DIR)
+	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/src/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/src/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator cmd/main.go
 
-.PHONY: dockerbuild
-dockerbuild: ## Build the docker image
+.PHONY: docker-build
+docker-build: ## Build the docker image
 	DOCKER_BUILDKIT=1 docker build -t k8s-agent-operator:latest \
 	  --platform=linux/amd64,linux/arm64,linux/arm \
       .
@@ -237,5 +236,4 @@ manifests: generate controller-gen
 run-helmify: manifests helmify kustomize ## Generate the CRD with kustomize and helmify from the manifests
 	@# could we do more here?
 	$(KUSTOMIZE) build config/default | $(HELMIFY) tmp/k8s-agents-operator
-	cp ./tmp/k8s-agents-operator/templates/instrumentation-crd.yaml ./charts/k8s-agents-operator/templates/instrumentation-crd.yaml
 	printf "\nIMPORTANT: The generated chart needs to be transformed!\n- deployment.yaml is split into deployment.yaml and service-account.yaml\n- mutating-webhook-configuration.yaml and validating-webhook-configuration.yaml are merged into service-account.yaml\n- Documents generated are missing several config options (i.e. labels)\n"

@@ -9,8 +9,10 @@ namespace: k8s-agents-operator-system
 namePrefix: k8s-agents-operator-
 
 # Labels to add to all resources and selectors.
-commonLabels:
-  app.kubernetes.io/name: k8s-agents-operator
+#labels:
+#- includeSelectors: true
+#  pairs:
+#    someName: someValue
 
 resources:
 - ../crd
@@ -24,22 +26,17 @@ resources:
 - metrics_service.yaml
 
 patches:
-  # Protect the /metrics endpoint by putting it behind auth.
-  # If you want your controller-manager to expose the /metrics
-  # endpoint w/o any authn/z, please comment the following line.
-- path: manager_auth_proxy_patch.yaml
+# [METRICS] The following patch will enable the metrics endpoint using HTTPS and the port :8443.
+# More info: https://book.kubebuilder.io/reference/metrics
+- path: manager_metrics_patch.yaml
   target:
-   kind: Deployment
+    kind: Deployment
 - path: manager_webhook_patch.yaml
   target:
     kind: Deployment
-- path: mutatingwebhook_patch.yaml
-  target:
-    kind: MutatingWebhookConfiguration
-- path: validatingwebhook_patch.yaml
-  target:
-    kind: ValidatingWebhookConfiguration
+- path: webhookcainjection_patch.yaml
 
+# TODO: Investigate replacing vars
 # the following config is for teaching kustomize how to do var substitution
 vars:
 - name: CERTIFICATE_NAMESPACE # namespace of the certificate CR

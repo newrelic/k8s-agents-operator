@@ -1,3 +1,4 @@
-## This file is auto-generated, do not modify ##
+## Append samples of your project ##
 resources:
 - instrumentation_v1alpha2_instrumentation.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
