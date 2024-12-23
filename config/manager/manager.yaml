@@ -35,7 +35,7 @@ spec:
         #   type: RuntimeDefault
       containers:
         - command:
-            - /manager
+            - /bin/operator
           args:
             - --leader-elect
             - --health-probe-bind-address=:8081
@@ -65,5 +65,12 @@ spec:
             requests:
               cpu: 100m
               memory: 64Mi
+          env:
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: ENABLE_WEBHOOKS
+              value: "true"
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

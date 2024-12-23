@@ -32,7 +32,7 @@ var (
 // PodMutationHandler is a webhook handler for mutating Pods
 type PodMutationHandler struct {
 	client   client.Client
-	decoder  *admission.Decoder
+	decoder  admission.Decoder
 	mutators []PodMutator
 }
 
@@ -43,16 +43,10 @@ type PodMutator interface {
 
 var podMutatorLog = ctrl.Log.WithName("pod-mutator")
 
-// InjectDecoder injects the decoder
-func (m *PodMutationHandler) InjectDecoder(d *admission.Decoder) error {
-	m.decoder = d
-	return nil
-}
-
 // Handle manages Pod mutations
 func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := corev1.Pod{}
-	err := (*m.decoder).Decode(req, &pod)
+	err := m.decoder.Decode(req, &pod)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
@@ -105,7 +99,8 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 
 	hookServer := mgr.GetWebhookServer()
 	hookServer.Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodMutationHandler{
-		client: mgr.GetClient(),
+		client:  mgr.GetClient(),
+		decoder: admission.NewDecoder(mgr.GetScheme()),
 		mutators: []PodMutator{
 			instrumentation.NewMutator(
 				logger,
