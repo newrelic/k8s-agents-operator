@@ -225,7 +225,7 @@ generate: controller-gen ## Generate stuff
 	$(CONTROLLER_GEN) object:headerFile="boilerplate.txt"  paths="./..."
 
 .PHONY: manifests
-manifests: generate controller-gen
+manifests: generate controller-gen ## Generate manifests
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." \
 	  rbac:roleName=manager-role output:rbac:artifacts:config=config/rbac \
 	  output:webhook:artifacts:config=config/webhook \
