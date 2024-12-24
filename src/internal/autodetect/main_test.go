@@ -18,7 +18,7 @@ package autodetect_test
 
 import (
 	"encoding/json"
-	autodetect2 "github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
+	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,11 +32,11 @@ import (
 func TestDetectPlatformBasedOnAvailableAPIGroups(t *testing.T) {
 	for _, tt := range []struct {
 		apiGroupList *metav1.APIGroupList
-		expected     autodetect2.OpenShiftRoutesAvailability
+		expected     autodetect.OpenShiftRoutesAvailability
 	}{
 		{
 			&metav1.APIGroupList{},
-			autodetect2.OpenShiftRoutesNotAvailable,
+			autodetect.OpenShiftRoutesNotAvailable,
 		},
 		{
 			&metav1.APIGroupList{
@@ -46,7 +46,7 @@ func TestDetectPlatformBasedOnAvailableAPIGroups(t *testing.T) {
 					},
 				},
 			},
-			autodetect2.OpenShiftRoutesAvailable,
+			autodetect.OpenShiftRoutesAvailable,
 		},
 	} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -60,7 +60,7 @@ func TestDetectPlatformBasedOnAvailableAPIGroups(t *testing.T) {
 		}))
 		defer server.Close()
 
-		autoDetect, err := autodetect2.New(&rest.Config{Host: server.URL})
+		autoDetect, err := autodetect.New(&rest.Config{Host: server.URL})
 		require.NoError(t, err)
 
 		// test
@@ -73,13 +73,13 @@ func TestDetectPlatformBasedOnAvailableAPIGroups(t *testing.T) {
 }
 
 func TestAutoscalingVersionToString(t *testing.T) {
-	assert.Equal(t, "v2", autodetect2.AutoscalingVersionV2.String())
-	assert.Equal(t, "v2beta2", autodetect2.AutoscalingVersionV2Beta2.String())
-	assert.Equal(t, "unknown", autodetect2.AutoscalingVersionUnknown.String())
+	assert.Equal(t, "v2", autodetect.AutoscalingVersionV2.String())
+	assert.Equal(t, "v2beta2", autodetect.AutoscalingVersionV2Beta2.String())
+	assert.Equal(t, "unknown", autodetect.AutoscalingVersionUnknown.String())
 }
 
 func TestToAutoScalingVersion(t *testing.T) {
-	assert.Equal(t, autodetect2.AutoscalingVersionV2, autodetect2.ToAutoScalingVersion("v2"))
-	assert.Equal(t, autodetect2.AutoscalingVersionV2Beta2, autodetect2.ToAutoScalingVersion("v2beta2"))
-	assert.Equal(t, autodetect2.AutoscalingVersionUnknown, autodetect2.ToAutoScalingVersion("fred"))
+	assert.Equal(t, autodetect.AutoscalingVersionV2, autodetect.ToAutoScalingVersion("v2"))
+	assert.Equal(t, autodetect.AutoscalingVersionV2Beta2, autodetect.ToAutoScalingVersion("v2beta2"))
+	assert.Equal(t, autodetect.AutoscalingVersionUnknown, autodetect.ToAutoScalingVersion("fred"))
 }

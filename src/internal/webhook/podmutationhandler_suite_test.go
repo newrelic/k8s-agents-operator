@@ -21,14 +21,14 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
-	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
-	instrumentation2 "github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
+	"github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
 	"github.com/newrelic/k8s-agents-operator/src/internal/webhook"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sync"
 	"testing"
 	"time"
@@ -38,8 +38,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/internal/config"
-	"github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -154,30 +152,19 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	restConfig := cfg
 	operatorNamespace := "newrelic"
-	ad, err := autodetect.New(restConfig)
-	if err != nil {
-		fmt.Printf("failed to setup auto-detect routine: %v", err)
-		os.Exit(1)
-	}
-	v := version.Get()
-	hcfg := config.New(
-		config.WithLogger(ctrl.Log.WithName("config")),
-		config.WithVersion(v),
-		config.WithAutoDetect(ad),
-	)
-	client := mgr.GetClient()
-	injector := instrumentation2.NewNewrelicSdkInjector(logger, client, injectorRegistry)
-	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
+	mgrClient := mgr.GetClient()
+	injector := instrumentation.NewNewrelicSdkInjector(logger, mgrClient, injectorRegistry)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, mgrClient)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, mgrClient, operatorNamespace)
 	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
 		Handler: &webhook.PodMutationHandler{
-			client: client,
-			mutators: []webhook.PodMutator{
+			Client:  mgrClient,
+			Decoder: admission.NewDecoder(mgr.GetScheme()),
+			Mutators: []webhook.PodMutator{
 				instrumentation.NewMutator(
 					logger,
-					client,
+					mgrClient,
 					injector,
 					secretReplicator,
 					instrumentationLocator,
@@ -253,7 +240,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			},
 			initSecrets: []corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: instrumentation2.DefaultLicenseKeySecretName, Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: instrumentation.DefaultLicenseKeySecretName, Namespace: "newrelic"},
 					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
 				},
 			},
@@ -338,7 +325,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			},
 			initSecrets: []corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: instrumentation2.DefaultLicenseKeySecretName, Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: instrumentation.DefaultLicenseKeySecretName, Namespace: "newrelic"},
 					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
 				},
 			},

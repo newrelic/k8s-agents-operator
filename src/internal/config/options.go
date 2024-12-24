@@ -17,7 +17,7 @@ limitations under the License.
 package config
 
 import (
-	autodetect2 "github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
+	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -29,17 +29,17 @@ import (
 type Option func(c *options)
 
 type options struct {
-	autoDetect              autodetect2.AutoDetect
+	autoDetect              autodetect.AutoDetect
 	version                 version.Version
 	logger                  logr.Logger
 	onOpenShiftRoutesChange changeHandler
 	labelsFilter            []string
 	openshiftRoutes         openshiftRoutesStore
 	autoDetectFrequency     time.Duration
-	autoscalingVersion      autodetect2.AutoscalingVersion
+	autoscalingVersion      autodetect.AutoscalingVersion
 }
 
-func WithAutoDetect(a autodetect2.AutoDetect) Option {
+func WithAutoDetect(a autodetect.AutoDetect) Option {
 	return func(o *options) {
 		o.autoDetect = a
 	}
@@ -62,7 +62,7 @@ func WithOnOpenShiftRoutesChangeCallback(f func() error) Option {
 		o.onOpenShiftRoutesChange.Register(f)
 	}
 }
-func WithPlatform(ora autodetect2.OpenShiftRoutesAvailability) Option {
+func WithPlatform(ora autodetect.OpenShiftRoutesAvailability) Option {
 	return func(o *options) {
 		o.openshiftRoutes.Set(ora)
 	}

@@ -11,19 +11,18 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 .DEFAULT_GOAL := help
 
 # Go packages to test
-TEST_PACKAGES = ./src/internal/config \
+TEST_PACKAGES = ./src/internal/apm \
+                ./src/internal/autodetect \
+				./src/internal/config \
+				./src/internal/instrumentation/ \
                 ./src/internal/version \
-                ./src/internal/webhookhandler \
-				./src/api/v1alpha2 \
-				./src/autodetect \
-				./src/instrumentation/ \
-				./src/instrumentation/upgrade \
-                ./src/apm
+                ./src/internal/webhook \
+                ./src/api/v1alpha2
 
 # Kubebuilder variables
 SETUP_ENVTEST             = $(LOCALBIN)/setup-envtest
 SETUP_ENVTEST_VERSION     ?= release-0.19
-SETUP_ENVTEST_K8S_VERSION ?= 1.29.0
+SETUP_ENVTEST_K8S_VERSION ?= 1.30.0
 ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.30.0 1.29.3 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
 
 ## Tool Versions

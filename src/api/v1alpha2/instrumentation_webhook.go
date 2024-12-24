@@ -19,32 +19,30 @@ package v1alpha2
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"slices"
 
-	//"github.com/newrelic/k8s-agents-operator/src/apm"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strings"
 )
 
 // log is for logging in this package.
-var instrumentationlog = logf.Log.WithName("instrumentation-resource")
+var instrumentationLog logr.Logger
 
-// SetupWebhookWithManager will setup the manager to manage the webhooks
-func (r *Instrumentation) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// SetupWebhookWithManager will set up the manager to manage the webhooks
+func (r *Instrumentation) SetupWebhookWithManager(mgr ctrl.Manager, logger logr.Logger) error {
+	instrumentationLog = logger
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		WithValidator(r).
 		WithDefaulter(r).
 		Complete()
 }
-
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 //+kubebuilder:webhook:path=/mutate-newrelic-com-v1alpha2-instrumentation,mutating=true,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1alpha2,name=minstrumentation.kb.io,admissionReviewVersions=v1
 
@@ -57,7 +55,7 @@ func (r *Instrumentation) Default(ctx context.Context, obj runtime.Object) error
 		return fmt.Errorf("expected an Instrumentation object but got %T", obj)
 	}
 
-	instrumentationlog.Info("Defaulting for Instrumentation", "name", inst.GetName())
+	instrumentationLog.Info("Defaulting for Instrumentation", "name", inst.GetName())
 	if inst.Labels == nil {
 		inst.Labels = map[string]string{}
 	}
@@ -88,21 +86,21 @@ var _ webhook.CustomValidator = &Instrumentation{}
 // ValidateCreate to validate the creation operation
 func (r *Instrumentation) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	instrumentationlog.Info("validate create", "name", inst.Name)
+	instrumentationLog.Info("validate create", "name", inst.Name)
 	return r.validate(inst)
 }
 
 // ValidateUpdate to validate the update operation
 func (r *Instrumentation) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
 	inst := newObj.(*Instrumentation)
-	instrumentationlog.Info("validate update", "name", inst.Name)
+	instrumentationLog.Info("validate update", "name", inst.Name)
 	return r.validate(inst)
 }
 
 // ValidateDelete to validate the deletion operation
 func (r *Instrumentation) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	instrumentationlog.Info("validate delete", "name", inst.Name)
+	instrumentationLog.Info("validate delete", "name", inst.Name)
 	return r.validate(inst)
 }
 

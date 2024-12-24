@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	apm2 "github.com/newrelic/k8s-agents-operator/src/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -140,7 +140,7 @@ func TestMutatePod(t *testing.T) {
 			initSecrets: []*corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: DefaultLicenseKeySecretName, Namespace: "gns1-op"},
-					Data:       map[string][]byte{apm2.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
+					Data:       map[string][]byte{apm.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
 				},
 			},
 			pod:        corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "java-app"}}}},
@@ -213,7 +213,7 @@ func TestMutatePod(t *testing.T) {
 			initSecrets: []*corev1.Secret{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: DefaultLicenseKeySecretName, Namespace: "gns5-op"},
-					Data:       map[string][]byte{apm2.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
+					Data:       map[string][]byte{apm.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
 				},
 			},
 			operatorNs: "gns5-op",
@@ -273,15 +273,15 @@ func TestMutatePod(t *testing.T) {
 			// by default, we'll use the real implementation
 			injector := test.injector
 			if injector == nil {
-				injectorRegistry := apm2.NewInjectorRegistry()
-				apmInjectors := []apm2.Injector{
-					&apm2.DotnetInjector{},
-					&apm2.GoInjector{},
-					&apm2.JavaInjector{},
-					&apm2.NodejsInjector{},
-					&apm2.PhpInjector{},
-					&apm2.PythonInjector{},
-					&apm2.RubyInjector{},
+				injectorRegistry := apm.NewInjectorRegistry()
+				apmInjectors := []apm.Injector{
+					&apm.DotnetInjector{},
+					&apm.GoInjector{},
+					&apm.JavaInjector{},
+					&apm.NodejsInjector{},
+					&apm.PhpInjector{},
+					&apm.PythonInjector{},
+					&apm.RubyInjector{},
 				}
 				for _, apmInjector := range apmInjectors {
 					injectorRegistry.MustRegister(apmInjector)

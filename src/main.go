@@ -223,8 +223,7 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		// TODO: Inject logger: logger.WithName("instrumentation-validator")
-		if err = (&v1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&v1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, ctrl.Log.WithName("instrumentation-validator")); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
