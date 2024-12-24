@@ -31,10 +31,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -134,12 +133,16 @@ func TestMain(m *testing.M) {
 			CertDir: webhookInstallOptions.LocalServingCertDir,
 		}),
 		LeaderElection: false,
-		Metrics:        metricsserver.Options{BindAddress: "0"},
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
 	})
 	if mgrErr != nil {
 		fmt.Printf("failed to start webhook server: %v", mgrErr)
 		os.Exit(1)
 	}
+
+	operatorNamespace := "newrelic"
 
 	injectorRegistry := apm.DefaultInjectorRegistry
 
@@ -149,6 +152,7 @@ func TestMain(m *testing.M) {
 	instValidator := &instrumentation.InstrumentationValidator{
 		Logger:            logger.WithName("instrumentation-validator"),
 		InjectorRegistery: injectorRegistry,
+		OperatorNamespace: operatorNamespace,
 	}
 	err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha2.Instrumentation{}).
@@ -161,7 +165,6 @@ func TestMain(m *testing.M) {
 	}
 
 	restConfig := cfg
-	operatorNamespace := "newrelic"
 	var labelsFilter []string
 	ad, err := autodetect.New(restConfig)
 	if err != nil {
@@ -460,6 +463,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			"CreationTimestamp",
 			"ManagedFields",
 			"ResourceVersion",
+			"Annotations",
 			"UID",
 		),
 		cmpopts.IgnoreFields(corev1.Container{},

@@ -17,6 +17,9 @@ import (
 	"github.com/newrelic/k8s-agents-operator/src/apm"
 )
 
+//+kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1alpha2-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1alpha2,name=vinstrumentationcreateupdate.kb.io,sideEffects=none,admissionReviewVersions=v1
+//+kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1alpha2-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1alpha2,name=vinstrumentationdelete.kb.io,sideEffects=none,admissionReviewVersions=v1
+
 const (
 	envNewRelicPrefix = "NEW_RELIC_"
 	envOtelPrefix     = "OTEL_"
@@ -31,6 +34,7 @@ var _ webhook.CustomValidator = (*InstrumentationValidator)(nil)
 type InstrumentationValidator struct {
 	Logger            logr.Logger
 	InjectorRegistery *apm.InjectorRegistery
+	OperatorNamespace string
 }
 
 // ValidateCreate to validate the creation operation
@@ -56,6 +60,10 @@ func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, obj runti
 
 // validate to validate all the fields
 func (r *InstrumentationValidator) validate(inst *v1alpha2.Instrumentation) (admission.Warnings, error) {
+	if r.OperatorNamespace != inst.Namespace {
+		return nil, fmt.Errorf("instrumentation must be in operator namespace")
+	}
+
 	acceptableLangs := r.InjectorRegistery.GetInjectors().Names()
 	agentLang := inst.Spec.Agent.Language
 	if !slices.Contains(acceptableLangs, agentLang) {
@@ -68,6 +76,22 @@ func (r *InstrumentationValidator) validate(inst *v1alpha2.Instrumentation) (adm
 
 	if inst.Spec.Agent.IsEmpty() {
 		return nil, fmt.Errorf("instrumentation %q agent is empty", inst.Name)
+	}
+	if len(inst.Spec.HealthAgent.Env) > 0 && inst.Spec.HealthAgent.Image == "" {
+		return nil, fmt.Errorf("instrumentation %q healthAgent.image is empty, meanwhile the environment is not", inst.Name)
+	}
+
+	if !inst.Spec.HealthAgent.IsEmpty() {
+		hasRequiredKey := false
+		for _, e := range inst.Spec.HealthAgent.Env {
+			if e.Name == "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH" && e.Value != "" {
+				hasRequiredKey = true
+				break
+			}
+		}
+		if !hasRequiredKey {
+			return nil, fmt.Errorf("missing NEW_RELIC_FLEET_CONTROL_HEALTH_PATH in healthAgent.env")
+		}
 	}
 
 	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector); err != nil {

@@ -116,7 +116,7 @@ func GetLanguageInstrumentations(instCandidates []*v1alpha2.Instrumentation) ([]
 	i := 0
 	for _, candidate := range instCandidates {
 		if currentInst, ok := languages[candidate.Spec.Agent.Language]; ok {
-			if !currentInst.Spec.Agent.IsEqual(candidate.Spec.Agent) {
+			if !currentInst.Spec.Agent.IsEqual(candidate.Spec.Agent) || !currentInst.Spec.HealthAgent.IsEqual(candidate.Spec.HealthAgent) {
 				return nil, errMultipleInstancesPossible
 			}
 		} else {

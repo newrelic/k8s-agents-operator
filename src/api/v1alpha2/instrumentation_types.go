@@ -62,6 +62,9 @@ type InstrumentationSpec struct {
 
 	// Agent defines configuration for agent instrumentation.
 	Agent Agent `json:"agent,omitempty"`
+
+	// HealthAgent defines configuration for healthAgent instrumentation.
+	HealthAgent HealthAgent `json:"healthAgent,omitempty"`
 }
 
 // Resource is the attributes that are added to the resource
@@ -143,8 +146,44 @@ func (a *Agent) IsEqual(b Agent) bool {
 	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) && reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) && reflect.DeepEqual(a.Resources, b.Resources)
 }
 
+// HealthAgent is the configuration for the healthAgent
+type HealthAgent struct {
+	// Image is a container image with Go SDK and auto-instrumentation.
+	Image string `json:"image,omitempty"`
+
+	// Env defines Go specific env vars. There are four layers for env vars' definitions and
+	// the precedence order is: `original container env vars` > `language specific env vars` > `common env vars` > `instrument spec configs' vars`.
+	// If the former var had been defined, then the other vars would be ignored.
+	// +optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+}
+
+// IsEmpty is used to check if the health agent is empty
+func (a *HealthAgent) IsEmpty() bool {
+	return a.Image == "" &&
+		len(a.Env) == 0
+}
+
+// IsEqual is used to compare if a health agent is equal to another
+func (a *HealthAgent) IsEqual(b HealthAgent) bool {
+	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env)
+}
+
+type UnhealthyPodError struct {
+	Pod       string `json:"pod,omitempty"`
+	LastError string `json:"lastError,omitempty"`
+}
+
 // InstrumentationStatus defines the observed state of Instrumentation
 type InstrumentationStatus struct {
+	PodsMatching        int64               `json:"podsMatching,omitempty"`
+	PodsInjected        int64               `json:"podsInjected,omitempty"`
+	PodsNotReady        int64               `json:"podsNotReady,omitempty"`
+	PodsOutdated        int64               `json:"podsOutdated,omitempty"`
+	PodsHealthy         int64               `json:"podsHealthy,omitempty"`
+	PodsUnhealthy       int64               `json:"podsUnhealthy,omitempty"`
+	UnhealthyPodsErrors []UnhealthyPodError `json:"unhealthyPodsErrors,omitempty"`
+	LastUpdated         metav1.Time         `json:"lastUpdated,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -153,6 +192,9 @@ type InstrumentationStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:displayName="New Relic Instrumentation"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1}}
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:object:resource:scope=Namespaced
 
 // Instrumentation is the Schema for the instrumentations API
 type Instrumentation struct {

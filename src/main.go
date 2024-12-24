@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -48,6 +49,7 @@ import (
 	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
 	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/instrumentation/upgrade"
 	"github.com/newrelic/k8s-agents-operator/src/internal/config"
+	"github.com/newrelic/k8s-agents-operator/src/internal/controller"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
 
@@ -58,6 +60,8 @@ var (
 	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+var healthCheckTickInterval = time.Second * 15
 
 type tlsConfig struct {
 	minVersion   string
@@ -71,6 +75,11 @@ func init() {
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
+
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
+// +kubebuilder:rbac:groups="apps",resources=replicasets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete;deletecollection;patch;update;watch
 
 func main() {
 	// registers any flags that underlying libraries might use
@@ -187,13 +196,14 @@ func main() {
 			SecureServing: secureMetrics,
 			TLSOpts:       tlsOpts,
 		},
-		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "9f7554c3.newrelic.com",
-		LeaseDuration:          &leaseDuration,
-		RenewDeadline:          &renewDeadline,
-		RetryPeriod:            &retryPeriod,
+		WebhookServer:                 webhookServer,
+		HealthProbeBindAddress:        probeAddr,
+		LeaderElection:                enableLeaderElection,
+		LeaderElectionID:              "9f7554c3.newrelic.com",
+		LeaseDuration:                 &leaseDuration,
+		RenewDeadline:                 &renewDeadline,
+		RetryPeriod:                   &retryPeriod,
+		LeaderElectionReleaseOnCancel: true,
 	}
 
 	if watchNamespace != "" {
@@ -217,6 +227,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	instrumentationStatusUpdater := instrumentation.NewInstrumentationStatusUpdater(mgr.GetClient())
+	healthApi := instrumentation.NewHealthCheckApi(http.DefaultClient)
+	healthMonitor := instrumentation.NewHealthMonitor(
+		instrumentationStatusUpdater, healthApi, healthCheckTickInterval, 50, 50, 2,
+	)
+	go func() {
+		<-ctx.Done()
+		logger.Info("Shutting down health checker")
+		stopCtx, stopCtxCancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer stopCtxCancel()
+		if err := healthMonitor.Shutdown(stopCtx); err != nil {
+			setupLog.Error(err, "failed to shutdown health checker")
+		} else {
+			logger.Info("Shut down health checker")
+		}
+	}()
+
+	if err = (&controller.NamespaceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithHealthMonitor(healthMonitor).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Namespace")
+		os.Exit(1)
+	}
+	if err = (&controller.PodReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithHealthMonitor(healthMonitor).SetupWithOperatorNamespace(operatorNamespace).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Pod")
+		os.Exit(1)
+	}
+	if err = (&controller.InstrumentationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithHealthMonitor(healthMonitor).SetupWithOperatorNamespace(operatorNamespace).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Instrumentation")
+		os.Exit(1)
+	}
+
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		//configure injectors that we accept.  go, dotnet, etc..
 		injectorRegistry := apm.DefaultInjectorRegistry
@@ -227,6 +276,7 @@ func main() {
 		instValidator := &instrumentation.InstrumentationValidator{
 			Logger:            logger.WithName("instrumentation-validator"),
 			InjectorRegistery: injectorRegistry,
+			OperatorNamespace: operatorNamespace,
 		}
 		err = ctrl.NewWebhookManagedBy(mgr).
 			For(&v1alpha2.Instrumentation{}).
