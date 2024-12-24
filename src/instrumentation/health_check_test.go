@@ -12,7 +12,7 @@ import (
 func TestHealthCheckApi_GetHealth(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`
+		_, _ = w.Write([]byte(`
 healthy: true
 status: "not ready"
 status_time_unix_nano: 1734559668210947000

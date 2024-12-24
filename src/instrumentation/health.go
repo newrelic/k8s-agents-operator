@@ -119,12 +119,7 @@ func (im *instrumentationMetric) isDiff() bool {
 	if im.instrumentation.Status.PodsUnhealthy != im.podsUnhealthy {
 		return true
 	}
-	sort.Slice(im.unhealthyPods, func(i, j int) bool {
-		if im.unhealthyPods[i].Pod < im.unhealthyPods[j].Pod {
-			return true
-		}
-		return false
-	})
+	sort.Slice(im.unhealthyPods, func(i, j int) bool { return im.unhealthyPods[i].Pod < im.unhealthyPods[j].Pod })
 	return !reflect.DeepEqual(im.unhealthyPods, im.instrumentation.Status.UnhealthyPodsErrors)
 }
 
@@ -233,7 +228,7 @@ func NewHealthMonitor(
 		tickInterval:       tickInterval,
 	}
 	m.ticker = ticker.NewTicker(tickInterval, func(ctx context.Context, _ time.Time) {
-		m.resourceQueue.Add(ctx, event{action: triggerHealthCheck})
+		_ = m.resourceQueue.Add(ctx, event{action: triggerHealthCheck})
 	})
 	m.resourceQueue = worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
 		m.resourceQueueEvent(ctx, data.(event))
@@ -297,7 +292,7 @@ func (m *HealthMonitor) resourceQueueEvent(ctx context.Context, ev event) {
 			logger.Info("nothing to report the health to.  No instrumentations")
 			return
 		}
-		m.healthCheckQueue.Add(ctx, healthCheckData{podMetrics: podMetrics, instrumentationMetrics: instrumentationMetrics})
+		_ = m.healthCheckQueue.Add(ctx, healthCheckData{podMetrics: podMetrics, instrumentationMetrics: instrumentationMetrics})
 	}
 }
 
@@ -316,13 +311,13 @@ func (m *HealthMonitor) healthCheckQueueEvent(ctx context.Context, event healthC
 	logger := log.FromContext(ctx)
 	healthCheckStartTime := time.Now()
 
-	m.podMetricsQueue.Add(ctx, event.podMetrics)
-	m.instrumentationMetricsQueue.Add(ctx, event.instrumentationMetrics)
+	_ = m.podMetricsQueue.Add(ctx, event.podMetrics)
+	_ = m.instrumentationMetricsQueue.Add(ctx, event.instrumentationMetrics)
 	for _, eventInstrumentationMetric := range event.instrumentationMetrics {
-		eventInstrumentationMetric.wait(ctx)
+		_ = eventInstrumentationMetric.wait(ctx)
 	}
 	for _, eventPodMetric := range event.podMetrics {
-		eventPodMetric.wait(ctx)
+		_ = eventPodMetric.wait(ctx)
 	}
 
 	totalTime := time.Since(healthCheckStartTime)
@@ -338,7 +333,7 @@ func (m *HealthMonitor) healthCheckQueueEvent(ctx context.Context, event healthC
 
 func (m *HealthMonitor) podMetricsQueueEvent(ctx context.Context, event []*podMetric) {
 	for _, eventPodMetric := range event {
-		m.podMetricQueue.Add(ctx, eventPodMetric)
+		_ = m.podMetricQueue.Add(ctx, eventPodMetric)
 	}
 }
 
@@ -349,13 +344,13 @@ func (m *HealthMonitor) podMetricQueueEvent(ctx context.Context, event *podMetri
 
 func (m *HealthMonitor) instrumentationMetricsQueueEvent(ctx context.Context, event []*instrumentationMetric) {
 	for _, eventInstrumentationMetric := range event {
-		m.instrumentationMetricQueue.Add(ctx, eventInstrumentationMetric)
+		_ = m.instrumentationMetricQueue.Add(ctx, eventInstrumentationMetric)
 	}
 }
 
 func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, event *instrumentationMetric) {
 	for _, eventPodMetrics := range event.podMetrics {
-		eventPodMetrics.wait(ctx)
+		_ = eventPodMetrics.wait(ctx)
 		event.podsMatching++
 		if !m.isPodInstrumented(eventPodMetrics.pod) {
 			continue
@@ -379,7 +374,7 @@ func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, eve
 			})
 		}
 	}
-	m.instrumentationMetricPersistQueue.Add(ctx, event)
+	_ = m.instrumentationMetricPersistQueue.Add(ctx, event)
 }
 
 func (m *HealthMonitor) instrumentationMetricPersistQueueEvent(ctx context.Context, event *instrumentationMetric) {
@@ -478,7 +473,7 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 }
 
 func (m *HealthMonitor) getHealthUrlFromPod(pod *corev1.Pod) (string, error) {
-	var sidecars []corev1.Container
+	var sidecars = make([]corev1.Container, 0, 1)
 	for _, container := range pod.Spec.InitContainers {
 		if container.RestartPolicy == nil {
 			continue
@@ -579,14 +574,14 @@ func (m *HealthMonitor) Shutdown(ctx context.Context) error {
 		go func() {
 			defer m.doneOnce.Do(func() { close(m.doneCh) })
 			ctxStop := context.Background()
-			m.ticker.Stop(ctxStop)
-			m.resourceQueue.Stop(ctxStop)
-			m.healthCheckQueue.Shutdown(ctxStop)
-			m.podMetricsQueue.Stop(ctxStop)
-			m.podMetricQueue.Stop(ctxStop)
-			m.instrumentationMetricsQueue.Stop(ctxStop)
-			m.instrumentationMetricQueue.Stop(ctxStop)
-			m.instrumentationMetricPersistQueue.Stop(ctxStop)
+			_ = m.ticker.Stop(ctxStop)
+			_ = m.resourceQueue.Stop(ctxStop)
+			_ = m.healthCheckQueue.Shutdown(ctxStop)
+			_ = m.podMetricsQueue.Stop(ctxStop)
+			_ = m.podMetricQueue.Stop(ctxStop)
+			_ = m.instrumentationMetricsQueue.Stop(ctxStop)
+			_ = m.instrumentationMetricQueue.Stop(ctxStop)
+			_ = m.instrumentationMetricPersistQueue.Stop(ctxStop)
 		}()
 	})
 	return m.waitUntilDone(ctx)
@@ -597,14 +592,14 @@ func (m *HealthMonitor) Stop(ctx context.Context) error {
 		go func() {
 			defer m.doneOnce.Do(func() { close(m.doneCh) })
 			ctxStop := context.Background()
-			m.ticker.Stop(ctxStop)
-			m.resourceQueue.Stop(ctxStop)
-			m.healthCheckQueue.Stop(ctxStop)
-			m.podMetricsQueue.Stop(ctxStop)
-			m.podMetricQueue.Stop(ctxStop)
-			m.instrumentationMetricsQueue.Stop(ctxStop)
-			m.instrumentationMetricQueue.Stop(ctxStop)
-			m.instrumentationMetricPersistQueue.Stop(ctxStop)
+			_ = m.ticker.Stop(ctxStop)
+			_ = m.resourceQueue.Stop(ctxStop)
+			_ = m.healthCheckQueue.Stop(ctxStop)
+			_ = m.podMetricsQueue.Stop(ctxStop)
+			_ = m.podMetricQueue.Stop(ctxStop)
+			_ = m.instrumentationMetricsQueue.Stop(ctxStop)
+			_ = m.instrumentationMetricQueue.Stop(ctxStop)
+			_ = m.instrumentationMetricPersistQueue.Stop(ctxStop)
 		}()
 	})
 	return m.waitUntilDone(ctx)
@@ -626,25 +621,25 @@ func (m *HealthMonitor) waitUntilDone(ctx context.Context) error {
 }
 
 func (m *HealthMonitor) PodSet(pod *corev1.Pod) {
-	m.resourceQueue.Add(context.Background(), event{pod: pod, action: podSet})
+	_ = m.resourceQueue.Add(context.Background(), event{pod: pod, action: podSet})
 }
 
 func (m *HealthMonitor) PodRemove(pod *corev1.Pod) {
-	m.resourceQueue.Add(context.Background(), event{pod: pod, action: podRemove})
+	_ = m.resourceQueue.Add(context.Background(), event{pod: pod, action: podRemove})
 }
 
 func (m *HealthMonitor) NamespaceSet(ns *corev1.Namespace) {
-	m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsSet})
+	_ = m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsSet})
 }
 
 func (m *HealthMonitor) NamespaceRemove(ns *corev1.Namespace) {
-	m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsRemove})
+	_ = m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsRemove})
 }
 
 func (m *HealthMonitor) InstrumentationSet(instrumentation *v1alpha2.Instrumentation) {
-	m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instSet})
+	_ = m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instSet})
 }
 
 func (m *HealthMonitor) InstrumentationRemove(instrumentation *v1alpha2.Instrumentation) {
-	m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instRemove})
+	_ = m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instRemove})
 }
