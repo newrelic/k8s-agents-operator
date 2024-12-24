@@ -13,7 +13,6 @@ type Health struct {
 	Status             string             `json:"status" yaml:"status"`
 	StartTime          int64              `json:"start_time_unix_nano" yaml:"start_time_unix_nano"`
 	StatusTime         int64              `json:"status_time_unix_nano" yaml:"status_time_unix_nano"`
-	AgentRunID         string             `json:"agent_run_id" yaml:"agent_run_id"`
 	LastError          string             `json:"last_error" yaml:"last_error"`
 	ComponentHealthMap map[string]*Health `json:"component_health_map,omitempty" yaml:"component_health_map,omitempty"`
 }
