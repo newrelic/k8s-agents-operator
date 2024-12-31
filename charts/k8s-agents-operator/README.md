@@ -245,18 +245,13 @@ If you want to see a list of all available charts and releases, check [index.yam
 | admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
 | affinity | object | `{}` | Sets all pods' affinities. Can be configured also with `global.affinity` |
 | containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
-| controllerManager.kubeRbacProxy.containerSecurityContext | object | `{}` | Sets security context (at container level) for kubeRbacProxy. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
-| controllerManager.kubeRbacProxy.image.repository | string | `"gcr.io/kubebuilder/kube-rbac-proxy"` | Sets the repository and image to use for kube-rbac-proxy. Please ensure you're using a trusted image. |
-| controllerManager.kubeRbacProxy.image.version | string | `"sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea"` | Sets the kube-rbac-proxy image version to retrieve. Could be a tag i.e. "v0.16.0" or a SHA digest i.e. "sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea" |
-| controllerManager.kubeRbacProxy.resources.limits.cpu | string | `"500m"` |  |
-| controllerManager.kubeRbacProxy.resources.limits.memory | string | `"128Mi"` |  |
-| controllerManager.kubeRbacProxy.resources.requests.cpu | string | `"5m"` |  |
-| controllerManager.kubeRbacProxy.resources.requests.memory | string | `"64Mi"` |  |
-| controllerManager.manager.containerSecurityContext | object | `{}` | Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
+| controllerManager.manager.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
 | controllerManager.manager.image.pullPolicy | string | `nil` |  |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` | Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images. |
 | controllerManager.manager.image.version | string | `nil` | Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e" |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
+| controllerManager.manager.resources.limits.cpu | string | `"500m"` |  |
+| controllerManager.manager.resources.limits.memory | string | `"192Mi"` |  |
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
 | controllerManager.replicas | int | `1` |  |
@@ -267,12 +262,12 @@ If you want to see a list of all available charts and releases, check [index.yam
 | metricsService.ports[0].name | string | `"https"` |  |
 | metricsService.ports[0].port | int | `8443` |  |
 | metricsService.ports[0].protocol | string | `"TCP"` |  |
-| metricsService.ports[0].targetPort | string | `"https"` |  |
+| metricsService.ports[0].targetPort | int | `8443` |  |
 | metricsService.type | string | `"ClusterIP"` |  |
 | nodeSelector | object | `{}` | Sets all pods' node selector. Can be configured also with `global.nodeSelector` |
 | podAnnotations | object | `{}` | Annotations to be added to the deployment. |
 | podLabels | object | `{}` | Additional labels for chart pods |
-| podSecurityContext | object | `{"fsGroup":65532,"runAsGroup":65532,"runAsNonRoot":true,"runAsUser":65532}` | SecurityContext holds pod-level security attributes and common container settings |
+| podSecurityContext | object | `{"runAsNonRoot":true}` | SecurityContext holds pod-level security attributes and common container settings |
 | priorityClassName | string | `""` | Sets pod's priorityClassName. Can be configured also with `global.priorityClassName` |
 | serviceAccount | object | See `values.yaml` | Settings controlling ServiceAccount creation |
 | serviceAccount.create | bool | `true` | Specifies whether a ServiceAccount should be created |
