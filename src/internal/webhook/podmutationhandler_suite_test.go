@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
-	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	instrumentation2 "github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
 	"github.com/newrelic/k8s-agents-operator/src/internal/webhook"
 	"io"
@@ -29,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sync"
 	"testing"
 	"time"
@@ -38,7 +38,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/internal/config"
 	"github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -140,10 +139,14 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	operatorNamespace := "newrelic"
+
 	injectorRegistry := apm.DefaultInjectorRegistry
 
-	instDefaulter := &v1alpha2.Instrumentation{}
-	instValidator := &v1alpha2.Instrumentation{}
+	instDefaulter := &v1alpha2.InstrumentationDefaulter{}
+	instValidator := &v1alpha2.InstrumentationValidator{
+		OperatorNamespace: operatorNamespace,
+	}
 	err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha2.Instrumentation{}).
 		WithValidator(instValidator).
@@ -154,27 +157,15 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	restConfig := cfg
-	operatorNamespace := "newrelic"
-	ad, err := autodetect.New(restConfig)
-	if err != nil {
-		fmt.Printf("failed to setup auto-detect routine: %v", err)
-		os.Exit(1)
-	}
-	v := version.Get()
-	hcfg := config.New(
-		config.WithLogger(ctrl.Log.WithName("config")),
-		config.WithVersion(v),
-		config.WithAutoDetect(ad),
-	)
 	client := mgr.GetClient()
 	injector := instrumentation2.NewNewrelicSdkInjector(logger, client, injectorRegistry)
 	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
 	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
 	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
 		Handler: &webhook.PodMutationHandler{
-			client: client,
-			mutators: []webhook.PodMutator{
+			Client:  client,
+			Decoder: admission.NewDecoder(mgr.GetScheme()),
+			Mutators: []webhook.PodMutator{
 				instrumentation.NewMutator(
 					logger,
 					client,
@@ -284,9 +275,13 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: "alpine1", Namespace: "default", Labels: map[string]string{
-					"inject":                                 "python",
-					apm.DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "alpine1",
+					Namespace: "default",
+					Labels: map[string]string{
+						"inject":                                 "python",
+						apm.DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
+					},
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
@@ -451,6 +446,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			"CreationTimestamp",
 			"ManagedFields",
 			"ResourceVersion",
+			"Annotations",
 			"UID",
 		),
 		cmpopts.IgnoreFields(corev1.Container{},

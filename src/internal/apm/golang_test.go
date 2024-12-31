@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 )
@@ -64,6 +65,9 @@ func TestGoInjector_Inject(t *testing.T) {
 			name: "a container, instrumentation",
 			pod:  corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "test"}}}},
 			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"newrelic.com/instrumentation-versions": `{"/":"/0"}`},
+				},
 				Spec: corev1.PodSpec{
 					ShareProcessNamespace: &vtrue,
 					Containers: []corev1.Container{

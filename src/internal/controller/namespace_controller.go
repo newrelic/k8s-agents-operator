@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,21 +29,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
 	"github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
 )
 
-// InstrumentationReconciler reconciles a Instrumentation object
-type InstrumentationReconciler struct {
+// NamespaceReconciler reconciles a Pod object
+type NamespaceReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	healthMonitor     *instrumentation.HealthMonitor
-	operatorNamespace string
+	Scheme        *runtime.Scheme
+	healthMonitor *instrumentation.HealthMonitor
 }
 
-//+kubebuilder:rbac:groups=newrelic.com,resources=instrumentations,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=newrelic.com,resources=instrumentations/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=newrelic.com,resources=instrumentations/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=namespaces/status,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -53,69 +51,70 @@ type InstrumentationReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
-func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
-	logger.V(2).Info("start instrumentation reconciliation")
+func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithValues("name", req.Name)
+	logger.Info("start namespace reconciliation")
 
-	if req.Namespace != r.operatorNamespace {
+	if req.Namespace == "kube-system" {
 		return ctrl.Result{}, nil
 	}
 
-	inst := v1alpha2.Instrumentation{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &inst)
-	logger.V(2).Info("instrumentation reconciliation; get", "error", err)
+	ns := corev1.Namespace{}
+	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name}, &ns)
+	logger.Info("namespace reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
-		inst.Name = req.Name
-		inst.Namespace = req.Namespace
-		logger.V(2).Info("instrumentation reconciliation; instrumentation deleted event")
-		r.healthMonitor.InstrumentationRemove(&inst)
+		ns.Name = req.Name
+		logger.Info("namespace reconciliation; namespace deleted event")
+		r.healthMonitor.NamespaceRemove(&ns)
 		return ctrl.Result{}, nil
 	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if inst.DeletionTimestamp != nil {
-		logger.V(2).Info("instrumentation reconciliation; instrumentation deleting event")
-		r.healthMonitor.InstrumentationRemove(&inst)
+	if ns.DeletionTimestamp != nil {
+		logger.Info("namespace reconciliation; namespace deleting event")
+		r.healthMonitor.NamespaceSet(&ns)
 		return ctrl.Result{}, nil
 	}
 
-	logger.V(2).Info("instrumentation reconciliation; instrumentation created event")
-	r.healthMonitor.InstrumentationSet(&inst)
+	logger.Info("namespace reconciliation; namespace created event")
+	r.healthMonitor.NamespaceSet(&ns)
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *InstrumentationReconciler) SetupWithManager(mgr ctrl.Manager, healthMonitor *instrumentation.HealthMonitor, operatorNamespace string) error {
+func (r *NamespaceReconciler) SetupWithManager(mgr ctrl.Manager, healthMonitor *instrumentation.HealthMonitor) error {
 	r.healthMonitor = healthMonitor
-	r.operatorNamespace = operatorNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 100}).
-		For(&v1alpha2.Instrumentation{}).
+		For(&corev1.Namespace{}).
 		WithEventFilter(
 			predicate.Funcs{
 				DeleteFunc: func(e event.DeleteEvent) bool {
-					return r.isInOperatorNamespace(e.Object)
+					return r.isNamespace(e.Object)
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					return r.isInOperatorNamespace(e.ObjectNew)
+					return r.isNamespace(e.ObjectNew)
 				},
 				GenericFunc: func(e event.GenericEvent) bool {
-					return r.isInOperatorNamespace(e.Object)
+					return r.isNamespace(e.Object)
 				},
 				CreateFunc: func(e event.CreateEvent) bool {
-					return r.isInOperatorNamespace(e.Object)
+					return r.isNamespace(e.Object)
 				},
 			},
 		).
 		Complete(r)
 }
 
-func (r *InstrumentationReconciler) isInOperatorNamespace(object client.Object) bool {
-	inst, ok := object.(*v1alpha2.Instrumentation)
+func (r *NamespaceReconciler) isNamespace(object client.Object) bool {
+	ns, ok := object.(*corev1.Namespace)
 	if !ok {
 		return false
 	}
-	return inst.Namespace == r.operatorNamespace
+	if ns.Name == "kube-system" {
+		return false
+	}
+	return true
 }

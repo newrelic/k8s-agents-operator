@@ -172,7 +172,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			for _, apmInjector := range apmInjectors {
 				injectorRegistry.MustRegister(apmInjector)
 			}
-			defaulter := v1alpha2.Instrumentation{}
+			defaulter := v1alpha2.InstrumentationDefaulter{}
 			for _, langInst := range test.langInsts {
 				_ = defaulter.Default(ctx, langInst)
 			}

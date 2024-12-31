@@ -31,9 +31,9 @@ var (
 
 // PodMutationHandler is a webhook handler for mutating Pods
 type PodMutationHandler struct {
-	client   client.Client
-	decoder  admission.Decoder
-	mutators []PodMutator
+	Client   client.Client
+	Decoder  admission.Decoder
+	Mutators []PodMutator
 }
 
 // PodMutator mutates a pod.
@@ -46,7 +46,7 @@ var podMutatorLog = ctrl.Log.WithName("pod-mutator")
 // Handle manages Pod mutations
 func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := corev1.Pod{}
-	err := m.decoder.Decode(req, &pod)
+	err := m.Decoder.Decode(req, &pod)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
@@ -55,7 +55,7 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 
 	// we use the req.Namespace here because the pod might have not been created yet
 	ns := corev1.Namespace{}
-	err = m.client.Get(ctx, types.NamespacedName{Name: req.Namespace, Namespace: ""}, &ns)
+	err = m.Client.Get(ctx, types.NamespacedName{Name: req.Namespace, Namespace: ""}, &ns)
 	if err != nil {
 		res := admission.Errored(http.StatusInternalServerError, err)
 		// By default, admission.Errored sets Allowed to false which blocks pod creation even though the failurePolicy=ignore.
@@ -67,7 +67,7 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 		return res
 	}
 
-	for _, mutator := range m.mutators {
+	for _, mutator := range m.Mutators {
 		pod, err = mutator.Mutate(ctx, ns, pod)
 		if err != nil {
 			//@todo: actually print the error message
@@ -99,9 +99,9 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 
 	hookServer := mgr.GetWebhookServer()
 	hookServer.Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodMutationHandler{
-		client:  mgr.GetClient(),
-		decoder: admission.NewDecoder(mgr.GetScheme()),
-		mutators: []PodMutator{
+		Client:  mgr.GetClient(),
+		Decoder: admission.NewDecoder(mgr.GetScheme()),
+		Mutators: []PodMutator{
 			instrumentation.NewMutator(
 				logger,
 				mgrClient,
