@@ -88,7 +88,7 @@ metadata:
     {{- include "newrelic.common.labels" . | nindent 4 }}
 webhooks:
 - admissionReviewVersions:
-    - v1
+  - v1
   clientConfig:
     {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
     caBundle: {{ $tls.caCert }}
@@ -100,18 +100,18 @@ webhooks:
   failurePolicy: Fail
   name: vinstrumentationcreateupdate.kb.io
   rules:
-    - apiGroups:
-        - newrelic.com
-      apiVersions:
-        - v1alpha2
-      operations:
-        - CREATE
-        - UPDATE
-      resources:
-        - instrumentations
+  - apiGroups:
+    - newrelic.com
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - instrumentations
   sideEffects: None
 - admissionReviewVersions:
-    - v1
+  - v1
   clientConfig:
     {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
     caBundle: {{ $tls.caCert }}
@@ -123,12 +123,12 @@ webhooks:
   failurePolicy: Ignore
   name: vinstrumentationdelete.kb.io
   rules:
-    - apiGroups:
-        - newrelic.com
-      apiVersions:
-        - v1alpha2
-      operations:
-        - DELETE
-      resources:
-        - instrumentations
+  - apiGroups:
+    - newrelic.com
+    apiVersions:
+    - v1alpha2
+    operations:
+    - DELETE
+    resources:
+    - instrumentations
   sideEffects: None

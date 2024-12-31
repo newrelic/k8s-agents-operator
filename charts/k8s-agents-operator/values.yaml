@@ -28,10 +28,10 @@ affinity: {}
 # -- Source: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 # -- SecurityContext holds pod-level security attributes and common container settings
 podSecurityContext:
-  runAsGroup: 65532
+#  runAsGroup: 65532
   runAsNonRoot: true
-  runAsUser: 65532
-  fsGroup: 65532
+#  runAsUser: 65532
+#  fsGroup: 65532
 # -- Sets all security context (at container level). Can be configured also with `global.securityContext.container`
 containerSecurityContext: {}
 

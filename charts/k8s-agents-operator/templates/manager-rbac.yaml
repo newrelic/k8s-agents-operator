@@ -12,23 +12,25 @@ rules:
   verbs:
   - create
   - patch
-- apiGroups: [ "" ]
-  resources: ["secrets"]
-  verbs:
-    - get
-    - list
-    - create
-    - delete
-    - deletecollection
-    - patch
-    - update
-    - watch
 - apiGroups:
   - ""
   resources:
   - namespaces
   verbs:
   - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - apps
@@ -39,24 +41,31 @@ rules:
   - list
   - watch
 - apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - get
-  - list
-  - update
-- apiGroups:
   - newrelic.com
   resources:
   - instrumentations
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
   - update
   - watch
+- apiGroups:
+  - newrelic.com
+  resources:
+  - instrumentations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - newrelic.com
+  resources:
+  - instrumentations/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - route.openshift.io
   resources:
