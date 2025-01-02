@@ -28,7 +28,6 @@ import (
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sync"
 	"testing"
 	"time"
@@ -138,40 +137,16 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	injectorRegistry := apm.DefaultInjectorRegistry
-
-	instDefaulter := &v1alpha2.Instrumentation{}
-	instValidator := &v1alpha2.Instrumentation{}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.Instrumentation{}).
-		WithValidator(instValidator).
-		WithDefaulter(instDefaulter).
-		Complete()
-	if err != nil {
-		fmt.Printf("failed to register instrumentation webhook: %v", mgrErr)
+	if err = (&v1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, logger); err != nil {
+		logger.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 		os.Exit(1)
 	}
 
 	operatorNamespace := "newrelic"
-	mgrClient := mgr.GetClient()
-	injector := instrumentation.NewNewrelicSdkInjector(logger, mgrClient, injectorRegistry)
-	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, mgrClient)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, mgrClient, operatorNamespace)
-	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
-		Handler: &webhook.PodMutationHandler{
-			Client:  mgrClient,
-			Decoder: admission.NewDecoder(mgr.GetScheme()),
-			Mutators: []webhook.PodMutator{
-				instrumentation.NewMutator(
-					logger,
-					mgrClient,
-					injector,
-					secretReplicator,
-					instrumentationLocator,
-					operatorNamespace,
-				),
-			},
-		}})
+	if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, logger); err != nil {
+		logger.Error(err, "unable to register pod mutate webhook")
+		os.Exit(1)
+	}
 
 	go func() {
 		if err = mgr.Start(ctx); err != nil {
