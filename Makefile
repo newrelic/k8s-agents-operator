@@ -14,7 +14,8 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 TEST_PACKAGES = ./src/internal/apm \
                 ./src/internal/autodetect \
 				./src/internal/config \
-				./src/internal/instrumentation/ \
+				./src/internal/instrumentation \
+				./src/internal/migrate/upgrade \
                 ./src/internal/version \
                 ./src/internal/webhook \
                 ./src/api/v1alpha2
