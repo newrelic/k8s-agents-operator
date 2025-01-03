@@ -5,6 +5,7 @@
 *.so
 *.dylib
 bin/*
+tmp/*
 Dockerfile.cross
 
 # Test binary, built with `go test -c`
@@ -25,9 +26,6 @@ go.work
 *.swp
 *.swo
 *~
-
-bin/
-tmp/
 
 # Downloaded chart dependencies
 **/charts/*.tgz
