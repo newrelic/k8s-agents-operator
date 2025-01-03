@@ -94,7 +94,7 @@ go-test: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified 
 go-test-race: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION with race detector
 	@chmod -R 755 $(LOCALBIN)/k8s
 	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-		go test -v -race -cover -covermode=atomic -coverprofile=$(TMP_DIR)/cover.out -coverpkg=./... $(TEST_PACKAGES)
+		go test -v -race -cover -covermode=atomic -coverprofile=$(TMP_DIR)/cover.out -coverpkg=./src/... $(TEST_PACKAGES)
 
 .PHONY: all-go-tests
 all-go-tests: ## Run go tests with all k8s versions specified by $ALL_SETUP_ENVTEST_K8S_VERSIONS
