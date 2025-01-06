@@ -18,7 +18,7 @@ resources:
   domain: newrelic.com
   group: newrelic.com
   kind: Instrumentation
-  path: github.com/newrelic/k8s-agents-operator/src/api/v1alpha2
+  path: github.com/newrelic/k8s-agents-operator/api/v1alpha2
   version: v1alpha2
   webhooks:
     defaulting: true
