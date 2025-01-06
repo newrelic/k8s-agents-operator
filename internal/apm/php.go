@@ -56,7 +56,7 @@ var phpApiMap = map[acceptVersion]string{
 	php81: "20210902",
 	php82: "20220829",
 	php83: "20230831",
-	php84: "20240925",
+	php84: "20240924",
 }
 
 var phpAcceptVersions = []acceptVersion{php72, php73, php74, php80, php81, php82, php83, php84}
