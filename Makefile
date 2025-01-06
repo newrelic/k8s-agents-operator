@@ -159,7 +159,7 @@ go-format: ## Format all go files
 
 .PHONY: build
 build: ## Build the go binary
-	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/src/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/src/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator src/main.go
+	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/src/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/src/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator src/cmd/main.go
 
 .PHONY: docker-build
 docker-build: ## Build the docker image
