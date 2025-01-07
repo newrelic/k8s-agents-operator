@@ -190,6 +190,12 @@ type InstrumentationStatus struct {
 // +kubebuilder:resource:shortName=nragent;nragents
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="PodsMatching",type="integer",JSONPath=".status.podsMatching"
+// +kubebuilder:printcolumn:name="PodsInjected",type="integer",JSONPath=".status.podsInjected"
+// +kubebuilder:printcolumn:name="PodsNotReady",type="integer",JSONPath=".status.podsNotReady"
+// +kubebuilder:printcolumn:name="PodsOutdated",type="integer",JSONPath=".status.podsOutdated"
+// +kubebuilder:printcolumn:name="PodsHealthy",type="integer",JSONPath=".status.podsHealthy"
+// +kubebuilder:printcolumn:name="PodsUnhealthy",type="integer",JSONPath=".status.podsUnhealthy"
 // +operator-sdk:csv:customresourcedefinitions:displayName="New Relic Instrumentation"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1}}
 // +kubebuilder:object:root=true

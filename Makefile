@@ -22,29 +22,29 @@ TEST_PACKAGES = ./src/internal/config \
                 ./src/apm
 
 # Kubebuilder variables
-SETUP_ENVTEST             = $(LOCALBIN)/setup-envtest
-SETUP_ENVTEST_VERSION     ?= release-0.19
-SETUP_ENVTEST_K8S_VERSION ?= 1.29.0
-ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.30.0 1.29.3 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
+SETUP_ENVTEST             = $(LOCALBIN)/setup-envtest #https://github.com/kubernetes-sigs/controller-runtime/releases
+SETUP_ENVTEST_VERSION     ?= v0.19.3
+SETUP_ENVTEST_K8S_VERSION ?= 1.29.0 #https://github.com/kubernetes-sigs/controller-tools/releases
+ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.32.0 1.31.0 1.30.0 1.29.3 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
 
 ## Tool Versions
-KUSTOMIZE                ?= $(LOCALBIN)/kustomize
-KUSTOMIZE_VERSION        ?= v5.4.3
-CONTROLLER_GEN           ?= $(LOCALBIN)/controller-gen
-CONTROLLER_TOOLS_VERSION ?= v0.14.0
-HELMIFY                  ?= $(LOCALBIN)/helmify
-HELMIFY_VERSION          ?= v0.3.34
-GOLANGCI_LINT            ?= $(LOCALBIN)/golangci-lint
-GOLANGCI_LINT_VERSION    ?= v1.61.0
-HELM                     ?= $(LOCALBIN)/helm
-HELM_VERSION             ?= v3.16.1
-HELM_DOCS                ?= $(LOCALBIN)/helm-docs
+KUSTOMIZE                ?= $(LOCALBIN)/kustomize #https://github.com/kubernetes-sigs/kustomize
+KUSTOMIZE_VERSION        ?= v5.5.0
+CONTROLLER_GEN           ?= $(LOCALBIN)/controller-gen #https://github.com/kubernetes-sigs/controller-tools/releases
+CONTROLLER_TOOLS_VERSION ?= v0.16.5
+HELMIFY                  ?= $(LOCALBIN)/helmify #https://github.com/arttor/helmify
+HELMIFY_VERSION          ?= v0.4.17
+GOLANGCI_LINT            ?= $(LOCALBIN)/golangci-lint #https://github.com/golangci/golangci-lint
+GOLANGCI_LINT_VERSION    ?= v1.62.2
+HELM                     ?= $(LOCALBIN)/helm #https://github.com/helm/helm
+HELM_VERSION             ?= v3.16.4
+HELM_DOCS                ?= $(LOCALBIN)/helm-docs #https://github.com/norwoodj/helm-docs
 HELM_DOCS_VERSION        ?= v1.14.2
 HELM_DOCS_VERSION_ST     ?= $(subst v,,$(HELM_DOCS_VERSION))
-CT                       ?= $(LOCALBIN)/ct
+CT                       ?= $(LOCALBIN)/ct #https://github.com/helm/chart-testing
 CT_VERSION               ?= v3.11.0
-HELM_UNITTEST            ?= $(LOCALBIN)/helm-unittest
-HELM_UNITTEST_VERSION    ?= v0.6.2
+HELM_UNITTEST            ?= $(LOCALBIN)/helm-unittest #https://github.com/helm-unittest/helm-unittest
+HELM_UNITTEST_VERSION    ?= v0.7.0
 
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 

@@ -22,6 +22,24 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.podsMatching
+      name: PodsMatching
+      type: integer
+    - jsonPath: .status.podsInjected
+      name: PodsInjected
+      type: integer
+    - jsonPath: .status.podsNotReady
+      name: PodsNotReady
+      type: integer
+    - jsonPath: .status.podsOutdated
+      name: PodsOutdated
+      type: integer
+    - jsonPath: .status.podsHealthy
+      name: PodsHealthy
+      type: integer
+    - jsonPath: .status.podsUnhealthy
+      name: PodsUnhealthy
+      type: integer
     name: v1alpha2
     schema:
       openAPIV3Schema:
