@@ -21,19 +21,21 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
-	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/internal/migrate/upgrade"
-	"github.com/newrelic/k8s-agents-operator/internal/webhook"
 	"os"
 	"runtime"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	"strings"
 	"time"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
+
+	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
+	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/internal/migrate/upgrade"
+	"github.com/newrelic/k8s-agents-operator/internal/webhook"
+
+	routev1 "github.com/openshift/api/route/v1"
+
 	"github.com/newrelic/k8s-agents-operator/internal/config"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
-	routev1 "github.com/openshift/api/route/v1"
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -46,6 +48,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -62,7 +66,7 @@ type tlsConfig struct {
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(v1alpha2.AddToScheme(scheme))
+	utilruntime.Must(newreliccomv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme)) // TODO: Update this to not use a deprecated method
 	// +kubebuilder:scaffold:scheme
 }
@@ -223,7 +227,7 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&v1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, ctrl.Log.WithName("instrumentation-validator")); err != nil {
+		if err = (&newreliccomv1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, ctrl.Log.WithName("instrumentation-validator")); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}

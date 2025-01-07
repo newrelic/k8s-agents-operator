@@ -16,7 +16,6 @@ resources:
     namespaced: true
   controller: true
   domain: newrelic.com
-  group: newrelic.com
   kind: Instrumentation
   path: github.com/newrelic/k8s-agents-operator/api/v1alpha2
   version: v1alpha2
