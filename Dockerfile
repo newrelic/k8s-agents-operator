@@ -11,7 +11,9 @@ COPY ./interop/ ./interop/
 RUN go mod download
 
 # Copy the go source
-COPY ./src/ ./src/
+COPY cmd/main.go cmd/main.go
+COPY api/ api/
+COPY internal/ internal/
 COPY Makefile .
 
 ARG TARGETOS

@@ -11,14 +11,14 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 .DEFAULT_GOAL := help
 
 # Go packages to test
-TEST_PACKAGES = ./src/internal/apm \
-                ./src/internal/autodetect \
-				./src/internal/config \
-				./src/internal/instrumentation \
-				./src/internal/migrate/upgrade \
-                ./src/internal/version \
-                ./src/internal/webhook \
-                ./src/api/v1alpha2
+TEST_PACKAGES = ./internal/apm \
+                ./internal/autodetect \
+				./internal/config \
+				./internal/instrumentation \
+				./internal/migrate/upgrade \
+                ./internal/version \
+                ./internal/webhook \
+                ./api/v1alpha2
 
 # Kubebuilder variables
 SETUP_ENVTEST             = $(LOCALBIN)/setup-envtest
@@ -88,13 +88,13 @@ coverprofile: $(TMP_DIR)/cover.out ## Generate coverage report
 go-test: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION
 	@chmod -R 755 $(LOCALBIN)/k8s
 	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-		go test -v -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out -coverpkg=./src/... $(TEST_PACKAGES)
+		go test -v -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out -coverpkg=./... $(TEST_PACKAGES)
 
 .PHONY: go-test-race
 go-test-race: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION with race detector
 	@chmod -R 755 $(LOCALBIN)/k8s
 	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-		go test -v -race -cover -covermode=atomic -coverprofile=$(TMP_DIR)/cover.out -coverpkg=./src/... $(TEST_PACKAGES)
+		go test -v -race -cover -covermode=atomic -coverprofile=$(TMP_DIR)/cover.out -coverpkg=./... $(TEST_PACKAGES)
 
 .PHONY: all-go-tests
 all-go-tests: ## Run go tests with all k8s versions specified by $ALL_SETUP_ENVTEST_K8S_VERSIONS
@@ -159,7 +159,7 @@ go-format: ## Format all go files
 
 .PHONY: build
 build: ## Build the go binary
-	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator src/cmd/main.go
+	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator cmd/main.go
 
 .PHONY: docker-build
 docker-build: ## Build the docker image
