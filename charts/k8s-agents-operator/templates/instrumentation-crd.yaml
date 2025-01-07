@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   name: instrumentations.newrelic.com
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.14.0
   labels:
     {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
