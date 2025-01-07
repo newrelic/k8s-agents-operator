@@ -23,7 +23,6 @@ TEST_PACKAGES = ./src/api/v1alpha2 \
 				./src/internal/version \
 				./src/internal/webhook
 
-TEST_PACKAGES2 = ./src/internal/instrumentation
 ## Tool Versions
 SETUP_ENVTEST            ?= $(LOCALBIN)/setup-envtest
 KUSTOMIZE                ?= $(LOCALBIN)/kustomize

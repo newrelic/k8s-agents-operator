@@ -52,7 +52,7 @@ type InstrumentationReconciler struct {
 // the user.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
 	logger.V(2).Info("start instrumentation reconciliation")

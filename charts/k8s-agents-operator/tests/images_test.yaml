@@ -25,10 +25,6 @@ tests:
           image:
             repository: nr/test-1
             version: "1.1.1"
-        kubeRbacProxy:
-          image:
-            repository: nr/test-2
-            version: "1.1.2"
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
@@ -46,10 +42,6 @@ tests:
           image:
             repository: nr/test-1
             version: "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e"
-        kubeRbacProxy:
-          image:
-            repository: nr/test-2
-            version: "sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea"
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image

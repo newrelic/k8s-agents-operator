@@ -20,40 +20,39 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
-	instrumentation2 "github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
-	"github.com/newrelic/k8s-agents-operator/src/internal/webhook"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
-	stdruntime "runtime"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
-	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
+	stdruntime "runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
+	"github.com/newrelic/k8s-agents-operator/src/internal/version"
+	"github.com/newrelic/k8s-agents-operator/src/internal/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -158,7 +157,7 @@ func TestMain(m *testing.M) {
 	}
 
 	client := mgr.GetClient()
-	injector := instrumentation2.NewNewrelicSdkInjector(logger, client, injectorRegistry)
+	injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
 	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
 	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
 	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
@@ -244,7 +243,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			},
 			initSecrets: []corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: instrumentation2.DefaultLicenseKeySecretName, Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: instrumentation.DefaultLicenseKeySecretName, Namespace: "newrelic"},
 					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
 				},
 			},
@@ -333,7 +332,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			},
 			initSecrets: []corev1.Secret{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: instrumentation2.DefaultLicenseKeySecretName, Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: instrumentation.DefaultLicenseKeySecretName, Namespace: "newrelic"},
 					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
 				},
 			},

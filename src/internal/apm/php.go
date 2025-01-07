@@ -120,7 +120,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 	pod = i.injectNewrelicEnvConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, nodejsInitContainerName) {
+	if isInitContainerMissing(pod, phpInitContainerName) {
 		if isPodVolumeMissing(pod, volumeName) {
 			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 				Name: volumeName,

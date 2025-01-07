@@ -34,6 +34,7 @@ type PodMutationHandler struct {
 	Client   client.Client
 	Decoder  admission.Decoder
 	Mutators []PodMutator
+	Logger   logr.Logger
 }
 
 // PodMutator mutates a pod.
@@ -41,7 +42,7 @@ type PodMutator interface {
 	Mutate(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
 }
 
-var podMutatorLog = ctrl.Log.WithName("pod-mutator")
+//var podMutatorLog = ctrl.Log.WithName("pod-mutator")
 
 // Handle manages Pod mutations
 func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -51,7 +52,7 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	podMutatorLog.Info("Mutating Pod", "name", pod.Name)
+	m.Logger.Info("Mutating Pod", "name", pod.Name)
 
 	// we use the req.Namespace here because the pod might have not been created yet
 	ns := corev1.Namespace{}
@@ -79,7 +80,7 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 
 	marshaledPod, err := json.Marshal(pod)
 	if err != nil {
-		podMutatorLog.Error(err, "failed to marshal pod")
+		m.Logger.Error(err, "failed to marshal pod")
 		res := admission.Errored(http.StatusInternalServerError, err)
 		res.Allowed = true
 		return res
@@ -111,6 +112,7 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 				operatorNamespace,
 			),
 		},
+		Logger: logger,
 	}})
 
 	return nil
