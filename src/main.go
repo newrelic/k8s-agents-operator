@@ -21,36 +21,31 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
+	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/internal/migrate/upgrade"
+	"github.com/newrelic/k8s-agents-operator/src/internal/webhook"
 	"os"
 	"runtime"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	"strings"
 	"time"
 
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/internal/config"
+	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/spf13/pflag"
+
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	k8sapiflag "k8s.io/component-base/cli/flag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
-	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
-	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/src/instrumentation/upgrade"
-	"github.com/newrelic/k8s-agents-operator/src/internal/config"
-	"github.com/newrelic/k8s-agents-operator/src/internal/version"
-	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
-
+	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -68,50 +63,49 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(v1alpha2.AddToScheme(scheme))
-	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(routev1.AddToScheme(scheme)) // TODO: Update this to not use a deprecated method
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
-	// registers any flags that underlying libraries might use
-	opts := zap.Options{}
-	opts.BindFlags(flag.CommandLine)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-
-	v := version.Get()
-
-	// add flags related to this operator
-	var (
-		metricsAddr          string
-		probeAddr            string
-		enableLeaderElection bool
-		labelsFilter         []string
-		webhookPort          int
-		tlsOpt               tlsConfig
-		secureMetrics        bool
-		enableHTTP2          bool
-	)
-
-	pflag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	pflag.StringVar(&probeAddr, "health-probe-addr", ":8081", "The address the probe endpoint binds to.")
-	pflag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
+	var metricsAddr string
+	var enableLeaderElection bool
+	var probeAddr string
+	var secureMetrics bool
+	var enableHTTP2 bool
+	var tlsOpts []func(*tls.Config)
+	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
+		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&secureMetrics, "metrics-secure", true,
+		"If set, the\tflag.BoolVar(&enableHTTP2, \"enable-http2\", false,\n\t\t\"If set, HTTP/2 will be enabled for the metrics and webhook servers\")\n metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
+	opts := zap.Options{}
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
 
-	pflag.StringArrayVar(&labelsFilter, "labels", []string{}, "Labels to filter away from propagating onto deploys")
-	pflag.IntVar(&webhookPort, "webhook-port", 9443, "The port the webhook endpoint binds to.")
-	pflag.StringVar(&tlsOpt.minVersion, "tls-min-version", "VersionTLS12", "Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
-	pflag.StringSliceVar(&tlsOpt.cipherSuites, "tls-cipher-suites", nil, "Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used")
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	flag.BoolVar(&secureMetrics, "metrics-secure", false,
-		"If set the metrics endpoint is served securely")
-	flag.BoolVar(&enableHTTP2, "enable-http2", false,
-		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	// if the enable-http2 flag is false (the default), http/2 should be disabled
+	// due to its vulnerabilities. More specifically, disabling http/2 will
+	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
+	// Rapid Reset CVEs. For more information see:
+	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
+	// - https://github.com/advisories/GHSA-4374-p667-p6c8
+	disableHTTP2 := func(c *tls.Config) {
+		setupLog.Info("disabling http/2")
+		c.NextProtos = []string{"http/1.1"}
+	}
 
-	pflag.Parse()
+	if !enableHTTP2 {
+		tlsOpts = append(tlsOpts, disableHTTP2)
+	}
 
-	logger := zap.New(zap.UseFlagOptions(&opts))
-	ctrl.SetLogger(logger)
+	webhookServer := webhookruntime.NewServer(webhookruntime.Options{
+		TLSOpts: tlsOpts,
+	})
 
 	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
 	if operatorNamespace == "" {
@@ -119,18 +113,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("Starting the Kubernetes Agents Operator",
+	v := version.Get()
+
+	setupLog.Info("Starting the Kubernetes Agents Operator",
 		"k8s-agents-operator", v.Operator,
 		"running-namespace", operatorNamespace,
 		"build-date", v.BuildDate,
 		"go-version", v.Go,
 		"go-arch", runtime.GOARCH,
 		"go-os", runtime.GOOS,
-		"labels-filter", labelsFilter,
 	)
 
-	logger.Info("Working!")
-
+	// TODO: Start determine usage
 	restConfig := ctrl.GetConfigOrDie()
 
 	// builds the operator's configuration
@@ -144,14 +138,31 @@ func main() {
 		config.WithLogger(ctrl.Log.WithName("config")),
 		config.WithVersion(v),
 		config.WithAutoDetect(ad),
-		config.WithLabelFilters(labelsFilter),
 	)
+	// End determine usage
 
-	watchNamespace, found := os.LookupEnv("WATCH_NAMESPACE")
-	if found {
-		setupLog.Info("watching namespace(s)", "namespaces", watchNamespace)
-	} else {
-		setupLog.Info("the env var WATCH_NAMESPACE isn't set, watching all namespaces")
+	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
+	// More info:
+	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/metrics/server
+	// - https://book.kubebuilder.io/reference/metrics.html
+	metricsServerOptions := metricsserver.Options{
+		BindAddress:   metricsAddr,
+		SecureServing: secureMetrics,
+		// TODO(user): TLSOpts is used to allow configuring the TLS config used for the server. If certificates are
+		// not provided, self-signed certificates will be generated by default. This option is not recommended for
+		// production environments as self-signed certificates do not offer the same level of trust and security
+		// as certificates issued by a trusted Certificate Authority (CA). The primary risk is potentially allowing
+		// unauthorized access to sensitive metrics data. Consider replacing with CertDir, CertName, and KeyName
+		// to provide certificates, ensuring the server communicates using trusted and secure certificates.
+		TLSOpts: tlsOpts,
+	}
+
+	if secureMetrics {
+		// FilterProvider is used to protect the metrics endpoint with authn/authz.
+		// These configurations ensure that only authorized users and service accounts
+		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
+		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/metrics/filters#WithAuthenticationAndAuthorization
+		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
 	// see https://github.com/openshift/library-go/blob/4362aa519714a4b62b00ab8318197ba2bba51cb7/pkg/config/leaderelection/leaderelection.go#L104
@@ -159,41 +170,34 @@ func main() {
 	renewDeadline := time.Second * 107
 	retryPeriod := time.Second * 26
 
-	// if the enable-http2 flag is false (the default), http/2 should be disabled
-	// due to its vulnerabilities. More specifically, disabling http/2 will
-	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
-	// Rapid Reset CVEs. For more information see:
-	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
-	// - https://github.com/advisories/GHSA-4374-p667-p6c8
-	disableHTTP2 := func(c *tls.Config) {
-		setupLog.Info("disabling http/2")
-		c.NextProtos = []string{"http/1.1"}
-	}
-
-	tlsOpts := []func(*tls.Config){}
-	if !enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
-	}
-
-	webhookServer := webhook.NewServer(webhook.Options{
-		TLSOpts: tlsOpts,
-		Port:    webhookPort,
-	})
-
 	mgrOptions := ctrl.Options{
-		Scheme: scheme,
-		Metrics: metricsserver.Options{
-			BindAddress:   metricsAddr,
-			SecureServing: secureMetrics,
-			TLSOpts:       tlsOpts,
-		},
+		Scheme:                 scheme,
+		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "9f7554c3.newrelic.com",
-		LeaseDuration:          &leaseDuration,
-		RenewDeadline:          &renewDeadline,
-		RetryPeriod:            &retryPeriod,
+		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
+		// when the Manager ends. This requires the binary to immediately end when the
+		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
+		// speeds up voluntary leader transitions as the new leader don't have to wait
+		// LeaseDuration time first.
+		//
+		// In the default scaffold provided, the program ends immediately after
+		// the manager stops, so would be fine to enable this option. However,
+		// if you are doing or is intended to do any operation such as perform cleanups
+		// after the manager stops then its usage might be unsafe.
+		// LeaderElectionReleaseOnCancel: true,
+		LeaseDuration: &leaseDuration,
+		RenewDeadline: &renewDeadline,
+		RetryPeriod:   &retryPeriod,
+	}
+
+	watchNamespace, found := os.LookupEnv("WATCH_NAMESPACE")
+	if found {
+		setupLog.Info("watching namespace(s)", "namespaces", watchNamespace)
+	} else {
+		setupLog.Info("the env var WATCH_NAMESPACE isn't set, watching all namespaces")
 	}
 
 	if watchNamespace != "" {
@@ -204,12 +208,13 @@ func main() {
 		mgrOptions.Cache = cache.Options{DefaultNamespaces: nsDefaults}
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOptions)
+	mgr, err := ctrl.NewManager(restConfig, mgrOptions)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
+	// TODO: Use controller paradigm & investigate below
 	ctx := ctrl.SetupSignalHandler()
 	err = addDependencies(ctx, mgr, cfg)
 	if err != nil {
@@ -218,45 +223,16 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		//configure injectors that we accept.  go, dotnet, etc..
-		injectorRegistry := apm.DefaultInjectorRegistry
-
-		instDefaulter := &instrumentation.InstrumentationDefaulter{
-			Logger: logger.WithName("instrumentation-defaulter"),
-		}
-		instValidator := &instrumentation.InstrumentationValidator{
-			Logger:            logger.WithName("instrumentation-validator"),
-			InjectorRegistery: injectorRegistry,
-		}
-		err = ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha2.Instrumentation{}).
-			WithValidator(instValidator).
-			WithDefaulter(instDefaulter).
-			Complete()
-		if err != nil {
+		if err = (&v1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, ctrl.Log.WithName("instrumentation-validator")); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
 
-		client := mgr.GetClient()
-		injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
-		secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
-		instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
-		mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{
-			Handler: webhookhandler.NewWebhookHandler(
-				cfg, ctrl.Log.WithName("pod-webhook"), mgr.GetClient(), admission.NewDecoder(mgr.GetScheme()),
-				[]webhookhandler.PodMutator{
-					instrumentation.NewMutator(
-						logger,
-						client,
-						injector,
-						secretReplicator,
-						instrumentationLocator,
-						operatorNamespace,
-					),
-				},
-			),
-		})
+		// Register the Pod mutation webhook
+		if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, ctrl.Log.WithName("mutation-webhook")); err != nil {
+			setupLog.Error(err, "unable to register pod mutate webhook")
+			os.Exit(1)
+		}
 	} else {
 		ctrl.Log.Info("Webhooks are disabled, operator is running an unsupported mode", "ENABLE_WEBHOOKS", "false")
 	}
@@ -299,23 +275,4 @@ func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config) err
 		return fmt.Errorf("failed to upgrade Instrumentation instances: %w", err)
 	}
 	return nil
-}
-
-// This function get the option from command argument (tlsConfig), check the validity through k8sapiflag
-// and set the config for webhook server.
-// refer to https://pkg.go.dev/k8s.io/component-base/cli/flag
-func tlsConfigSetting(cfg *tls.Config, tlsOpt tlsConfig) {
-	// TLSVersion helper function returns the TLS Version ID for the version name passed.
-	version, err := k8sapiflag.TLSVersion(tlsOpt.minVersion)
-	if err != nil {
-		setupLog.Error(err, "TLS version invalid")
-	}
-	cfg.MinVersion = version
-
-	// TLSCipherSuites helper function returns a list of cipher suite IDs from the cipher suite names passed.
-	cipherSuiteIDs, err := k8sapiflag.TLSCipherSuites(tlsOpt.cipherSuites)
-	if err != nil {
-		setupLog.Error(err, "Failed to convert TLS cipher suite name to ID")
-	}
-	cfg.CipherSuites = cipherSuiteIDs
 }

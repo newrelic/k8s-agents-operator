@@ -18,6 +18,7 @@ package autodetect_test
 
 import (
 	"encoding/json"
+	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,8 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 )
 
 func TestDetectPlatformBasedOnAvailableAPIGroups(t *testing.T) {

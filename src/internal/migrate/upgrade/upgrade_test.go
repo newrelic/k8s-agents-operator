@@ -17,7 +17,6 @@ package upgrade
 
 import (
 	"context"
-	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
 	"strings"
 	"testing"
 
@@ -31,7 +30,6 @@ import (
 )
 
 func TestUpgrade(t *testing.T) {
-	logger := logr.Discard()
 	ctx := context.Background()
 	nsName := strings.ToLower(t.Name())
 	err := k8sClient.Create(context.Background(), &corev1.Namespace{
@@ -47,7 +45,7 @@ func TestUpgrade(t *testing.T) {
 			Namespace: nsName,
 		},
 	}
-	defaulter := instrumentation.InstrumentationDefaulter{Logger: logger}
+	defaulter := v1alpha2.Instrumentation{}
 	_ = defaulter.Default(ctx, inst)
 	err = k8sClient.Create(context.Background(), inst)
 	require.NoError(t, err)

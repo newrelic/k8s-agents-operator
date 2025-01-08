@@ -14,12 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhookhandler_test
+package webhook_test
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/src/internal/instrumentation"
+	"github.com/newrelic/k8s-agents-operator/src/internal/webhook"
 	"io"
 	"net"
 	"os"
@@ -33,6 +36,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,16 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
-	"github.com/newrelic/k8s-agents-operator/src/instrumentation"
-	"github.com/newrelic/k8s-agents-operator/src/internal/config"
-	"github.com/newrelic/k8s-agents-operator/src/internal/version"
-	"github.com/newrelic/k8s-agents-operator/src/internal/webhookhandler"
+	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -128,7 +124,7 @@ func TestMain(m *testing.M) {
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
 	mgr, mgrErr := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: testScheme,
-		WebhookServer: webhook.NewServer(webhook.Options{
+		WebhookServer: webhookruntime.NewServer(webhookruntime.Options{
 			Host:    webhookInstallOptions.LocalServingHost,
 			Port:    webhookInstallOptions.LocalServingPort,
 			CertDir: webhookInstallOptions.LocalServingCertDir,
@@ -141,59 +137,16 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	injectorRegistry := apm.DefaultInjectorRegistry
-
-	instDefaulter := &instrumentation.InstrumentationDefaulter{
-		Logger: logger.WithName("instrumentation-defaulter"),
-	}
-	instValidator := &instrumentation.InstrumentationValidator{
-		Logger:            logger.WithName("instrumentation-validator"),
-		InjectorRegistery: injectorRegistry,
-	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.Instrumentation{}).
-		WithValidator(instValidator).
-		WithDefaulter(instDefaulter).
-		Complete()
-	if err != nil {
-		fmt.Printf("failed to register instrumentation webhook: %v", mgrErr)
+	if err = (&v1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, logger); err != nil {
+		logger.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 		os.Exit(1)
 	}
 
-	restConfig := cfg
 	operatorNamespace := "newrelic"
-	var labelsFilter []string
-	ad, err := autodetect.New(restConfig)
-	if err != nil {
-		fmt.Printf("failed to setup auto-detect routine: %v", err)
+	if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, logger); err != nil {
+		logger.Error(err, "unable to register pod mutate webhook")
 		os.Exit(1)
 	}
-	v := version.Get()
-	hcfg := config.New(
-		config.WithLogger(ctrl.Log.WithName("config")),
-		config.WithVersion(v),
-		config.WithAutoDetect(ad),
-		config.WithLabelFilters(labelsFilter),
-	)
-	client := mgr.GetClient()
-	injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
-	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
-	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{
-		Handler: webhookhandler.NewWebhookHandler(
-			hcfg, ctrl.Log.WithName("pod-webhook"), mgr.GetClient(), admission.NewDecoder(mgr.GetScheme()),
-			[]webhookhandler.PodMutator{
-				instrumentation.NewMutator(
-					logger,
-					client,
-					injector,
-					secretReplicator,
-					instrumentationLocator,
-					operatorNamespace,
-				),
-			},
-		),
-	})
 
 	go func() {
 		if err = mgr.Start(ctx); err != nil {

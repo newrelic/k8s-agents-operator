@@ -2,7 +2,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: manager-role
 rules:
 - apiGroups:
@@ -20,6 +19,19 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - apps
   resources:
   - replicasets
@@ -28,24 +40,31 @@ rules:
   - list
   - watch
 - apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - create
-  - get
-  - list
-  - update
-- apiGroups:
   - newrelic.com
   resources:
   - instrumentations
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
   - update
   - watch
+- apiGroups:
+  - newrelic.com
+  resources:
+  - instrumentations/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - newrelic.com
+  resources:
+  - instrumentations/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - route.openshift.io
   resources:

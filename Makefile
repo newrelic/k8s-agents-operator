@@ -1,5 +1,4 @@
 # Directories
-GO_DIR = ./src
 BIN_DIR = ./bin
 TMP_DIR = $(shell pwd)/tmp
 
@@ -12,19 +11,19 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 .DEFAULT_GOAL := help
 
 # Go packages to test
-TEST_PACKAGES = ./src/internal/config \
+TEST_PACKAGES = ./src/internal/apm \
+                ./src/internal/autodetect \
+				./src/internal/config \
+				./src/internal/instrumentation \
+				./src/internal/migrate/upgrade \
                 ./src/internal/version \
-                ./src/internal/webhookhandler \
-				./src/api/v1alpha2 \
-				./src/autodetect \
-				./src/instrumentation/ \
-				./src/instrumentation/upgrade \
-                ./src/apm
+                ./src/internal/webhook \
+                ./src/api/v1alpha2
 
 # Kubebuilder variables
 SETUP_ENVTEST             = $(LOCALBIN)/setup-envtest
 SETUP_ENVTEST_VERSION     ?= release-0.19
-SETUP_ENVTEST_K8S_VERSION ?= 1.29.0
+SETUP_ENVTEST_K8S_VERSION ?= 1.30.0
 ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.30.0 1.29.3 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
 
 ## Tool Versions
@@ -89,13 +88,13 @@ coverprofile: $(TMP_DIR)/cover.out ## Generate coverage report
 go-test: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION
 	@chmod -R 755 $(LOCALBIN)/k8s
 	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-		go test -v -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
+		go test -v -cover -covermode=count -coverprofile=$(TMP_DIR)/cover.out -coverpkg=./src/... $(TEST_PACKAGES)
 
 .PHONY: go-test-race
 go-test-race: $(SETUP_ENVTEST) $(TMP_DIR) ## Run Go tests with k8s version specified by $SETUP_ENVTEST_K8S_VERSION with race detector
 	@chmod -R 755 $(LOCALBIN)/k8s
 	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(SETUP_ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-		go test -v -race -cover -covermode=atomic -coverprofile=$(TMP_DIR)/cover.out $(TEST_PACKAGES)
+		go test -v -race -cover -covermode=atomic -coverprofile=$(TMP_DIR)/cover.out -coverpkg=./src/... $(TEST_PACKAGES)
 
 .PHONY: all-go-tests
 all-go-tests: ## Run go tests with all k8s versions specified by $ALL_SETUP_ENVTEST_K8S_VERSIONS
@@ -160,10 +159,10 @@ go-format: ## Format all go files
 
 .PHONY: build
 build: ## Build the go binary
-	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/src/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/src/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator $(GO_DIR)
+	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/src/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/src/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator src/main.go
 
-.PHONY: dockerbuild
-dockerbuild: ## Build the docker image
+.PHONY: docker-build
+docker-build: ## Build the docker image
 	DOCKER_BUILDKIT=1 docker build -t k8s-agent-operator:latest \
 	  --platform=linux/amd64,linux/arm64,linux/arm \
       .
@@ -226,7 +225,7 @@ generate: controller-gen ## Generate stuff
 	$(CONTROLLER_GEN) object:headerFile="boilerplate.txt"  paths="./..."
 
 .PHONY: manifests
-manifests: generate controller-gen
+manifests: generate controller-gen ## Generate manifests
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." \
 	  rbac:roleName=manager-role output:rbac:artifacts:config=config/rbac \
 	  output:webhook:artifacts:config=config/webhook \
@@ -237,5 +236,4 @@ manifests: generate controller-gen
 run-helmify: manifests helmify kustomize ## Generate the CRD with kustomize and helmify from the manifests
 	@# could we do more here?
 	$(KUSTOMIZE) build config/default | $(HELMIFY) tmp/k8s-agents-operator
-	cp ./tmp/k8s-agents-operator/templates/instrumentation-crd.yaml ./charts/k8s-agents-operator/templates/instrumentation-crd.yaml
 	printf "\nIMPORTANT: The generated chart needs to be transformed!\n- deployment.yaml is split into deployment.yaml and service-account.yaml\n- mutating-webhook-configuration.yaml and validating-webhook-configuration.yaml are merged into service-account.yaml\n- Documents generated are missing several config options (i.e. labels)\n"

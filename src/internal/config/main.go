@@ -17,13 +17,13 @@ limitations under the License.
 package config
 
 import (
+	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 )
 

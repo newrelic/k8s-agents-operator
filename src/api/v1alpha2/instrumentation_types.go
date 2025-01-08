@@ -163,7 +163,7 @@ type Instrumentation struct {
 	Status InstrumentationStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // InstrumentationList contains a list of Instrumentation
 type InstrumentationList struct {

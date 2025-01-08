@@ -3,6 +3,7 @@ package instrumentation
 import (
 	"context"
 	"fmt"
+	"github.com/newrelic/k8s-agents-operator/src/internal/apm"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -12,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/src/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/src/apm"
 )
 
 var _ apm.Injector = (*ErrorInjector)(nil)
@@ -172,7 +172,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			for _, apmInjector := range apmInjectors {
 				injectorRegistry.MustRegister(apmInjector)
 			}
-			defaulter := InstrumentationDefaulter{Logger: logger}
+			defaulter := v1alpha2.Instrumentation{}
 			for _, langInst := range test.langInsts {
 				_ = defaulter.Default(ctx, langInst)
 			}

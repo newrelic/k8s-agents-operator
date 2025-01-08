@@ -7,6 +7,10 @@
 {{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "webhook-service") -}}
 {{- end -}}
 
+{{- define "k8s-agents-operator.metricsService.name" -}}
+{{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "controller-manager-metrics-service") -}}
+{{- end -}}
+
 {{- define "k8s-agents-operator.webhook.mutating.name" -}}
 {{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "mutation") -}}
 {{- end -}}
@@ -23,12 +27,12 @@
 {{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "serving-cert") -}}
 {{- end -}}
 
-{{- define "k8s-agents-operator.rbac.proxy.role.name" -}}
-{{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "proxy-role") -}}
+{{- define "k8s-agents-operator.rbac.metricsAuth.role.name" -}}
+{{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "metrics-auth-role") -}}
 {{- end -}}
 
-{{- define "k8s-agents-operator.rbac.proxy.roleBinding.name" -}}
-{{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "proxy-rolebinding") -}}
+{{- define "k8s-agents-operator.rbac.metricsAuth.roleBinding.name" -}}
+{{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "metrics-auth-rolebinding") -}}
 {{- end -}}
 
 {{- define "k8s-agents-operator.rbac.manager.role.name" -}}
@@ -49,4 +53,12 @@
 
 {{- define "k8s-agents-operator.rbac.metricsReader.role.name" -}}
 {{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "metrics-reader") -}}
+{{- end -}}
+
+{{- define "k8s-agents-operator.rbac.instrumentationEditor.role.name" -}}
+{{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "instrumentation-editor-role") -}}
+{{- end -}}
+
+{{- define "k8s-agents-operator.rbac.instrumentationViewer.role.name" -}}
+{{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "instrumentation-viewer-role") -}}
 {{- end -}}

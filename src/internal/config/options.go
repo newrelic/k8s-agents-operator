@@ -17,13 +17,11 @@ limitations under the License.
 package config
 
 import (
-	"regexp"
-	"strings"
+	"github.com/newrelic/k8s-agents-operator/src/internal/autodetect"
 	"time"
 
 	"github.com/go-logr/logr"
 
-	"github.com/newrelic/k8s-agents-operator/src/autodetect"
 	"github.com/newrelic/k8s-agents-operator/src/internal/version"
 )
 
@@ -72,30 +70,5 @@ func WithPlatform(ora autodetect.OpenShiftRoutesAvailability) Option {
 func WithVersion(v version.Version) Option {
 	return func(o *options) {
 		o.version = v
-	}
-}
-
-func WithLabelFilters(labelFilters []string) Option {
-	return func(o *options) {
-
-		filters := []string{}
-		for _, pattern := range labelFilters {
-			var result strings.Builder
-
-			for i, literal := range strings.Split(pattern, "*") {
-
-				// Replace * with .*
-				if i > 0 {
-					result.WriteString(".*")
-				}
-
-				// Quote any regular expression meta characters in the
-				// literal text.
-				result.WriteString(regexp.QuoteMeta(literal))
-			}
-			filters = append(filters, result.String())
-		}
-
-		o.labelsFilter = filters
 	}
 }
