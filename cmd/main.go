@@ -66,8 +66,8 @@ type tlsConfig struct {
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(newreliccomv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme)) // TODO: Update this to not use a deprecated method
+	utilruntime.Must(newreliccomv1alpha2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
