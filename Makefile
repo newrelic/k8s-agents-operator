@@ -222,7 +222,7 @@ gen-helm-docs: helm-docs ## Generate Helm Docs from templates
 
 .PHONY: generate
 generate: controller-gen ## Generate stuff
-	$(CONTROLLER_GEN) object:headerFile="boilerplate.txt"  paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt"  paths="./..."
 
 .PHONY: manifests
 manifests: generate controller-gen ## Generate manifests
