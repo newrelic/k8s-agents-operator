@@ -1,4 +1,4 @@
 ## Append samples of your project ##
 resources:
-- instrumentation_v1alpha2_instrumentation.yaml
+- v1alpha2_instrumentation.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
