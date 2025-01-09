@@ -151,9 +151,9 @@ go-format: ## Format all go files
 	go vet ./...
 
 .PHONY: fix-goimports
-fix-goimports:
+fix-goimports: $(GOIMPORTS)
 	@for i in ./api ./internal ./cmd; do \
-	  find $$i -type f -name '*.go' -exec goimports -d -local github.com/newrelic/ {} \; \
+	  find $$i -type f -name '*.go' -exec $(GOIMPORTS) -d -local github.com/newrelic/ -w {} +; \
 	done
 
 ##@ Builds

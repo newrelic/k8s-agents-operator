@@ -19,7 +19,6 @@ package instrumentation
 import (
 	"context"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/internal/apm"
 	"runtime/debug"
 
 	"github.com/go-logr/logr"
@@ -27,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/internal/apm"
 )
 
 const (

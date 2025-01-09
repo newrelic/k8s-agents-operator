@@ -3,17 +3,18 @@ package webhook
 import (
 	"context"
 	"encoding/json"
-	"github.com/go-logr/logr"
-	"github.com/newrelic/k8s-agents-operator/internal/apm"
-	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
-	"k8s.io/apimachinery/pkg/types"
 	"net/http"
+
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	corev1 "k8s.io/api/core/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"github.com/newrelic/k8s-agents-operator/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
 )
 
 // compile time type assertion
