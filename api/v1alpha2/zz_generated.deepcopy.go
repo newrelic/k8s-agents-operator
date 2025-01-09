@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/newrelic/k8s-agents-operator/api/common"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -134,7 +135,7 @@ func (in *InstrumentationSpec) DeepCopyInto(out *InstrumentationSpec) {
 	in.Resource.DeepCopyInto(&out.Resource)
 	if in.Propagators != nil {
 		in, out := &in.Propagators, &out.Propagators
-		*out = make([]Propagator, len(*in))
+		*out = make([]common.Propagator, len(*in))
 		copy(*out, *in)
 	}
 	out.Sampler = in.Sampler

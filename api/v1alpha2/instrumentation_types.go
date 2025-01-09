@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/newrelic/k8s-agents-operator/api/common"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +42,7 @@ type InstrumentationSpec struct {
 	// Values in this list will be set in the OTEL_PROPAGATORS env var.
 	// Enum=tracecontext;none
 	// +optional
-	Propagators []Propagator `json:"propagators,omitempty"`
+	Propagators []common.Propagator `json:"propagators,omitempty"`
 
 	// Sampler defines sampling configuration.
 	// +optional
@@ -94,7 +95,7 @@ type Sampler struct {
 	// The value will be set in the OTEL_TRACES_SAMPLER env var.
 	// The value can be for instance parentbased_always_on, parentbased_always_off, parentbased_traceidratio...
 	// +optional
-	Type SamplerType `json:"type,omitempty"`
+	Type common.SamplerType `json:"type,omitempty"`
 
 	// Argument defines sampler argument.
 	// The value depends on the sampler type.

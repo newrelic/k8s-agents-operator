@@ -1,4 +1,4 @@
-package v1alpha2
+package common
 
 type (
 	// SamplerType represents sampler type.
