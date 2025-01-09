@@ -12,16 +12,16 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 
 # Go packages to test
 TEST_PACKAGES = ./api/v1alpha2 \
-                ./internal/apm \
-				./internal/autodetect \
-                ./internal/config \
-                ./internal/controller \
-				./internal/instrumentation \
-				./internal/instrumentation/util/ticker \
-				./internal/instrumentation/util/worker \
-				./internal/migrate/upgrade \
-				./internal/version \
-				./internal/webhook
+	./internal/apm \
+	./internal/autodetect \
+	./internal/config \
+	./internal/controller \
+	./internal/instrumentation \
+	./internal/instrumentation/util/ticker \
+	./internal/instrumentation/util/worker \
+	./internal/migrate/upgrade \
+	./internal/version \
+	./internal/webhook
 
 ## Tool Versions
 SETUP_ENVTEST            ?= $(LOCALBIN)/setup-envtest
