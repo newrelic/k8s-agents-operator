@@ -301,7 +301,7 @@ func encodeAttributes(m map[string]string, fieldSeparator string, valueSeparator
 	str := ""
 	i := 0
 	keys := make([]string, len(m))
-	for key, _ := range m {
+	for key := range m {
 		keys[i] = key
 		i++
 	}

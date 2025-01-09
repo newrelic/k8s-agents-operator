@@ -351,9 +351,9 @@ func TestHealthMonitor(t *testing.T) {
 			}
 			select {
 			case <-doneCh:
-				hm.Shutdown(context.Background())
+				_ = hm.Shutdown(context.Background())
 			case <-toCtx.Done():
-				hm.Stop(toCtx)
+				_ = hm.Stop(toCtx)
 				t.Fatal("toCtx timed out")
 			}
 			if diff := cmp.Diff(test.expectedInstrumentationStatus, instrumentationStatus, cmpopts.IgnoreFields(v1alpha2.InstrumentationStatus{}, "LastUpdated")); diff != "" {

@@ -19,7 +19,7 @@ func TestManyWorkers(t *testing.T) {
 	go func() {
 		// add these in a go routine, because otherwise it will block until a worker can pick it up
 		for i := 0; i < 50; i++ {
-			w.Add(context.Background(), nil)
+			_ = w.Add(context.Background(), nil)
 			atomic.AddInt64(&jobsSent, 1)
 		}
 	}()
