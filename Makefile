@@ -11,17 +11,17 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 .DEFAULT_GOAL := help
 
 # Go packages to test
-TEST_PACKAGES = ./src/api/v1alpha2 \
-                ./src/internal/apm \
-				./src/internal/autodetect \
-                ./src/internal/config \
-                ./src/internal/controller \
-				./src/internal/instrumentation \
-				./src/internal/instrumentation/util/ticker \
-				./src/internal/instrumentation/util/worker \
-				./src/internal/migrate/upgrade \
-				./src/internal/version \
-				./src/internal/webhook
+TEST_PACKAGES = ./api/v1alpha2 \
+                ./internal/apm \
+				./internal/autodetect \
+                ./internal/config \
+                .internal/controller \
+				./internal/instrumentation \
+				./internal/instrumentation/util/ticker \
+				./internal/instrumentation/util/worker \
+				./internal/migrate/upgrade \
+				./internal/version \
+				./internal/webhook
 
 ## Tool Versions
 SETUP_ENVTEST            ?= $(LOCALBIN)/setup-envtest
@@ -152,13 +152,15 @@ go-format: ## Format all go files
 
 .PHONY: fix-goimports
 fix-goimports:
-	@find ./src -type f -name '*.go' -exec goimports -d -local github.com/newrelic/ {} \;
+	@for i in ./api ./internal ./cmd; do \
+	  find $$i -type f -name '*.go' -exec goimports -d -local github.com/newrelic/ {} \; \
+	done
 
 ##@ Builds
 
 .PHONY: build
 build: ## Build the go binary
-	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/src/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/src/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator src/main.go
+	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator ./cmd/main.go
 
 .PHONY: docker-build
 docker-build: ## Build the docker image
@@ -233,11 +235,11 @@ gen-helm-docs: helm-docs ## Generate Helm Docs from templates
 
 .PHONY: generate
 generate: controller-gen ## Generate stuff
-	$(CONTROLLER_GEN) object:headerFile="boilerplate.txt"  paths="./src/..."
+	$(CONTROLLER_GEN) object:headerFile="boilerplate.txt"  paths="[]{'./api...','./internal/...','./cmd/...'}"
 
 .PHONY: manifests
 manifests: generate controller-gen ## Generate manifests
-	$(CONTROLLER_GEN) paths="./src/..." \
+	$(CONTROLLER_GEN) paths="[]{'./api...','./internal/...','./cmd/...'}" \
 	  rbac:roleName=manager-role output:rbac:artifacts:config=config/rbac \
 	  webhook output:webhook:artifacts:config=config/webhook \
 	  $(CRD_OPTIONS) output:crd:artifacts:config=config/crd/bases \
