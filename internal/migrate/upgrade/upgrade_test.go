@@ -45,7 +45,7 @@ func TestUpgrade(t *testing.T) {
 			Namespace: nsName,
 		},
 	}
-	defaulter := v1alpha2.Instrumentation{}
+	defaulter := v1alpha2.InstrumentationDefaulter{}
 	_ = defaulter.Default(ctx, inst)
 	err = k8sClient.Create(context.Background(), inst)
 	require.NoError(t, err)

@@ -19,43 +19,41 @@ package v1alpha2
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"strings"
 )
 
-// log is for logging in this package.
-var instrumentationLog logr.Logger
-
-// SetupWebhookWithManager will set up the manager to manage the webhooks
-func (r *Instrumentation) SetupWebhookWithManager(mgr ctrl.Manager, logger logr.Logger) error {
-	instrumentationLog = logger
+// SetupWebhookWithManager will setup the manager to manage the webhooks
+func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
-		WithValidator(r).
-		WithDefaulter(r).
+		For(&Instrumentation{}).
+		WithValidator(&InstrumentationValidator{OperatorNamespace: operatorNamespace}).
+		WithDefaulter(&InstrumentationDefaulter{}).
 		Complete()
 }
 
+// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+
 //+kubebuilder:webhook:path=/mutate-newrelic-com-v1alpha2-instrumentation,mutating=true,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1alpha2,name=minstrumentation.kb.io,admissionReviewVersions=v1
 
-var _ webhook.CustomDefaulter = &Instrumentation{}
+var _ webhook.CustomDefaulter = (*InstrumentationDefaulter)(nil)
 
-// Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Instrumentation) Default(ctx context.Context, obj runtime.Object) error {
-	inst, ok := obj.(*Instrumentation)
-	if !ok {
-		return fmt.Errorf("expected an Instrumentation object but got %T", obj)
-	}
+// InstrumentationDefaulter is used to set defaults for instrumentation
+type InstrumentationDefaulter struct {
+}
 
-	instrumentationLog.Info("Defaulting for Instrumentation", "name", inst.GetName())
+// Default to set the default values for Instrumentation
+func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	inst := obj.(*Instrumentation)
+	log.FromContext(ctx).V(1).Info("default", "name", inst.GetName())
 	if inst.Labels == nil {
 		inst.Labels = map[string]string{}
 	}
@@ -81,33 +79,50 @@ const (
 var validEnvPrefixes = []string{envNewRelicPrefix, envOtelPrefix}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
-var _ webhook.CustomValidator = &Instrumentation{}
+var _ webhook.CustomValidator = &InstrumentationValidator{}
+
+// InstrumentationValidator is used to validate instrumentations
+type InstrumentationValidator struct {
+	OperatorNamespace string
+}
 
 // ValidateCreate to validate the creation operation
-func (r *Instrumentation) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (r *InstrumentationValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	instrumentationLog.Info("validate create", "name", inst.Name)
+	log.FromContext(ctx).V(1).Info("validate_create", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // ValidateUpdate to validate the update operation
-func (r *Instrumentation) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
+func (r *InstrumentationValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
 	inst := newObj.(*Instrumentation)
-	instrumentationLog.Info("validate update", "name", inst.Name)
+	log.FromContext(ctx).V(1).Info("validate_update", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // ValidateDelete to validate the deletion operation
-func (r *Instrumentation) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	instrumentationLog.Info("validate delete", "name", inst.Name)
+	log.FromContext(ctx).V(1).Info("validate_delete", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // validate to validate all the fields
-func (r *Instrumentation) validate(inst *Instrumentation) (admission.Warnings, error) {
+func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Warnings, error) {
+	if r.OperatorNamespace != inst.Namespace {
+		return nil, fmt.Errorf("instrumentation must be in operator namespace")
+	}
+
 	// TODO: Maybe improve this
-	acceptableLangs := []string{"dotnet", "go", "java", "nodejs", "php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "python", "ruby"}
+	acceptableLangs := []string{
+		"dotnet",
+		"go",
+		"java",
+		"nodejs",
+		"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3",
+		"python",
+		"ruby",
+	}
 	agentLang := inst.Spec.Agent.Language
 	if !slices.Contains(acceptableLangs, agentLang) {
 		return nil, fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
@@ -119,6 +134,22 @@ func (r *Instrumentation) validate(inst *Instrumentation) (admission.Warnings, e
 
 	if inst.Spec.Agent.IsEmpty() {
 		return nil, fmt.Errorf("instrumentation %q agent is empty", inst.Name)
+	}
+	if len(inst.Spec.HealthAgent.Env) > 0 && inst.Spec.HealthAgent.Image == "" {
+		return nil, fmt.Errorf("instrumentation %q healthAgent.image is empty, meanwhile the environment is not", inst.Name)
+	}
+
+	if !inst.Spec.HealthAgent.IsEmpty() {
+		hasRequiredKey := false
+		for _, e := range inst.Spec.HealthAgent.Env {
+			if e.Name == "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH" && e.Value != "" {
+				hasRequiredKey = true
+				break
+			}
+		}
+		if !hasRequiredKey {
+			return nil, fmt.Errorf("missing NEW_RELIC_FLEET_CONTROL_HEALTH_PATH in healthAgent.env")
+		}
 	}
 
 	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector); err != nil {
@@ -132,7 +163,7 @@ func (r *Instrumentation) validate(inst *Instrumentation) (admission.Warnings, e
 }
 
 // validateEnv to validate the environment variables used all start with the required prefixes
-func (r *Instrumentation) validateEnv(envs []corev1.EnvVar) error {
+func (r *InstrumentationValidator) validateEnv(envs []corev1.EnvVar) error {
 	var invalidNames []string
 	for _, env := range envs {
 		var valid bool

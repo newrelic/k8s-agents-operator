@@ -63,11 +63,23 @@ func TestApplyLabel(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actualPod := ApplyLabel(test.pod, "foo", "bar")
+			actualPod := applyLabelToPod(test.pod, "foo", "bar")
 
 			if diff := cmp.Diff(test.expectedPod, actualPod); diff != "" {
 				assert.Fail(t, diff)
 			}
 		})
+	}
+}
+
+func TestEncodeDecodeAttributes(t *testing.T) {
+	var diff string
+	diff = cmp.Diff(map[string]string{"a": "b", "c": "d", "e": "f"}, decodeAttributes("a:b;c:d;e:f", ";", ":"))
+	if diff != "" {
+		assert.Fail(t, diff)
+	}
+	diff = cmp.Diff("a:b;c:d;e:f", encodeAttributes(map[string]string{"a": "b", "c": "d", "e": "f"}, ";", ":"))
+	if diff != "" {
+		assert.Fail(t, diff)
 	}
 }

@@ -76,7 +76,10 @@ func TestPhpInjector_Inject(t *testing.T) {
 			},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"},
+					Annotations: map[string]string{
+						"instrumentation.newrelic.com/php-version": "8.3",
+						"newrelic.com/instrumentation-versions":    `{"/":"/0"}`,
+					},
 					Labels: map[string]string{
 						DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
 				},

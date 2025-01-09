@@ -69,7 +69,11 @@ func TestPythonInjector_Inject(t *testing.T) {
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
+						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
+					},
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
 				}, Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name: "test",

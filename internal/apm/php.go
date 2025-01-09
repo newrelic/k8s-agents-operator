@@ -18,6 +18,7 @@ package apm
 import (
 	"context"
 	"errors"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
@@ -145,6 +146,15 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation,
 		}
 		initContainer = i.injectNewrelicLicenseKeyIntoContainer(initContainer, inst.Spec.LicenseKeySecret)
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
+	}
+
+	pod = i.injectNewrelicEnvConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer)
+
+	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
+
+	var err error
+	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+		return pod, err
 	}
 
 	return pod, nil
