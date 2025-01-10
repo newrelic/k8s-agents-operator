@@ -18,7 +18,8 @@ TEST_PACKAGES = ./internal/apm \
 				./internal/migrate/upgrade \
                 ./internal/version \
                 ./internal/webhook \
-                ./api/v1alpha2
+                ./api/v1alpha2 \
+                ./api/v1beta1
 
 # Kubebuilder variables
 SETUP_ENVTEST             = $(LOCALBIN)/setup-envtest

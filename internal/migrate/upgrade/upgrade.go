@@ -24,7 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 type InstrumentationUpgrade struct {
@@ -43,7 +43,7 @@ func (u *InstrumentationUpgrade) ManagedInstances(ctx context.Context) error {
 			"app.kubernetes.io/managed-by": "k8s-agents-operator",
 		}),
 	}
-	list := &v1alpha2.InstrumentationList{}
+	list := &v1beta1.InstrumentationList{}
 	if err := u.Client.List(ctx, list, opts...); err != nil {
 		return fmt.Errorf("failed to list: %w", err)
 	}
@@ -66,6 +66,6 @@ func (u *InstrumentationUpgrade) ManagedInstances(ctx context.Context) error {
 	return nil
 }
 
-func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1alpha2.Instrumentation) v1alpha2.Instrumentation {
+func (u *InstrumentationUpgrade) upgrade(_ context.Context, inst v1beta1.Instrumentation) v1beta1.Instrumentation {
 	return inst
 }

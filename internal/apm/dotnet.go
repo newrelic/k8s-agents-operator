@@ -21,7 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 const (
@@ -50,7 +50,7 @@ func (i *DotnetInjector) Language() string {
 	return "dotnet"
 }
 
-func (i *DotnetInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+func (i *DotnetInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod) bool {
 	if inst.Spec.Agent.Language != i.Language() {
 		return false
 	}
@@ -60,7 +60,7 @@ func (i *DotnetInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Po
 	return true
 }
 
-func (i DotnetInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i DotnetInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
 	}

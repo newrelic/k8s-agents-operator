@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -66,15 +65,6 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,
-
-		// The BinaryAssetsDirectory is only required if you want to run the tests directly
-		// without call the makefile target test. If not informed it will look for the
-		// default path defined in controller-runtime which is /usr/local/kubebuilder/.
-		// Note that you must have the required binaries setup under the bin directory to perform
-		// the tests directly. When we run make test it will be setup and used automatically.
-		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
-			fmt.Sprintf("1.30.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
-
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
 		},
@@ -113,7 +103,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&Instrumentation{}).SetupWebhookWithManager(mgr)
+	err = ctrl.NewWebhookManagedBy(mgr).For(&Instrumentation{}).Complete()
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:webhook
@@ -132,7 +122,8 @@ var _ = BeforeSuite(func() {
 		if err != nil {
 			return err
 		}
-		return conn.Close()
+		conn.Close()
+		return nil
 	}).Should(Succeed())
 
 })

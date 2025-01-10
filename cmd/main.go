@@ -234,6 +234,11 @@ func main() {
 			os.Exit(1)
 		}
 
+		if err = (&newreliccomv1beta1.Instrumentation{}).SetupWebhookWithManager(mgr, ctrl.Log.WithName("instrumentation-validator")); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
+			os.Exit(1)
+		}
+
 		// Register the Pod mutation webhook
 		if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, ctrl.Log.WithName("mutation-webhook")); err != nil {
 			setupLog.Error(err, "unable to register pod mutate webhook")

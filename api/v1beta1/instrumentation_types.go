@@ -192,6 +192,7 @@ type InstrumentationStatus struct {
 	LastUpdated         metav1.Time         `json:"lastUpdated,omitempty"`
 }
 
+// +kubebuilder:storageversion
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=nragent;nragents
 // +kubebuilder:subresource:status

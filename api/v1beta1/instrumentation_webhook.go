@@ -17,63 +17,137 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
+	"fmt"
+	"github.com/go-logr/logr"
+	"slices"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"strings"
 )
 
 // log is for logging in this package.
-var instrumentationlog = logf.Log.WithName("instrumentation-resource")
+var instrumentationLog logr.Logger
 
-// SetupWebhookWithManager will setup the manager to manage the webhooks
-func (r *Instrumentation) SetupWebhookWithManager(mgr ctrl.Manager) error {
+// SetupWebhookWithManager will set up the manager to manage the webhooks
+func (r *Instrumentation) SetupWebhookWithManager(mgr ctrl.Manager, logger logr.Logger) error {
+	instrumentationLog = logger
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithValidator(r).
+		WithDefaulter(r).
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
 // +kubebuilder:webhook:path=/mutate-newrelic-com-v1beta1-instrumentation,mutating=true,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1beta1,name=minstrumentation.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Instrumentation{}
+var _ webhook.CustomDefaulter = &Instrumentation{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Instrumentation) Default() {
-	instrumentationlog.Info("default", "name", r.Name)
+func (r *Instrumentation) Default(ctx context.Context, obj runtime.Object) error {
+	inst, ok := obj.(*Instrumentation)
+	if !ok {
+		return fmt.Errorf("expected an Instrumentation object but got %T", obj)
+	}
 
-	// TODO(user): fill in your defaulting logic.
+	instrumentationLog.Info("Defaulting for Instrumentation", "name", inst.GetName())
+	if inst.Labels == nil {
+		inst.Labels = map[string]string{}
+	}
+	if inst.Labels["app.kubernetes.io/managed-by"] == "" {
+		inst.Labels["app.kubernetes.io/managed-by"] = "k8s-agents-operator"
+	}
+	if inst.Spec.LicenseKeySecret == "" {
+		inst.Spec.LicenseKeySecret = "newrelic-key-secret"
+	}
+	return nil
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:path=/validate-newrelic-com-v1beta1-instrumentation,mutating=false,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1beta1,name=vinstrumentation.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1beta1-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1beta1,name=vinstrumentationcreateupdate.kb.io,sideEffects=none,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1beta1-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1beta1,name=vinstrumentationdelete.kb.io,sideEffects=none,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Instrumentation{}
+const (
+	envNewRelicPrefix = "NEW_RELIC_"
+	envOtelPrefix     = "OTEL_"
+)
 
-// ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Instrumentation) ValidateCreate() (admission.Warnings, error) {
-	instrumentationlog.Info("validate create", "name", r.Name)
+var validEnvPrefixes = []string{envNewRelicPrefix, envOtelPrefix}
+var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
-	// TODO(user): fill in your validation logic upon object creation.
+var _ webhook.CustomValidator = &Instrumentation{}
+
+// ValidateCreate to validate the creation operation
+func (r *Instrumentation) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	inst := obj.(*Instrumentation)
+	instrumentationLog.Info("validate create", "name", inst.Name)
+	return r.validate(inst)
+}
+
+// ValidateUpdate to validate the update operation
+func (r *Instrumentation) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
+	inst := newObj.(*Instrumentation)
+	instrumentationLog.Info("validate update", "name", inst.Name)
+	return r.validate(inst)
+}
+
+// ValidateDelete to validate the deletion operation
+func (r *Instrumentation) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	inst := obj.(*Instrumentation)
+	instrumentationLog.Info("validate delete", "name", inst.Name)
+	return r.validate(inst)
+}
+
+// validate to validate all the fields
+func (r *Instrumentation) validate(inst *Instrumentation) (admission.Warnings, error) {
+	// TODO: Maybe improve this
+	acceptableLangs := []string{"dotnet", "go", "java", "nodejs", "php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "python", "ruby"}
+	agentLang := inst.Spec.Agent.Language
+	if !slices.Contains(acceptableLangs, agentLang) {
+		return nil, fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
+	}
+
+	if err := r.validateEnv(inst.Spec.Agent.Env); err != nil {
+		return nil, err
+	}
+
+	if inst.Spec.Agent.IsEmpty() {
+		return nil, fmt.Errorf("instrumentation %q agent is empty", inst.Name)
+	}
+
+	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector); err != nil {
+		return nil, err
+	}
+	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.NamespaceLabelSelector); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Instrumentation) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	instrumentationlog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
-	return nil, nil
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Instrumentation) ValidateDelete() (admission.Warnings, error) {
-	instrumentationlog.Info("validate delete", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object deletion.
-	return nil, nil
+// validateEnv to validate the environment variables used all start with the required prefixes
+func (r *Instrumentation) validateEnv(envs []corev1.EnvVar) error {
+	var invalidNames []string
+	for _, env := range envs {
+		var valid bool
+		for _, validEnvPrefix := range validEnvPrefixes {
+			if strings.HasPrefix(env.Name, validEnvPrefix) {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			invalidNames = append(invalidNames, env.Name)
+		}
+	}
+	if len(invalidNames) > 0 {
+		return fmt.Errorf("env name should start with %s; found these invalid names %s", validEnvPrefixesStr, strings.Join(invalidNames, ", "))
+	}
+	return nil
 }
