@@ -27,9 +27,6 @@ import (
 
 // InstrumentationSpec defines the desired state of Instrumentation
 type InstrumentationSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// Exporter defines exporter configuration.
 	// +optional
 	Exporter `json:"exporter,omitempty"`
