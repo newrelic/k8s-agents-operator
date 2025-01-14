@@ -55,7 +55,7 @@ func (r *Instrumentation) Default(ctx context.Context, obj runtime.Object) error
 		return fmt.Errorf("expected an Instrumentation object but got %T", obj)
 	}
 
-	instrumentationLog.Info("Defaulting for Instrumentation", "name", inst.GetName())
+	instrumentationLog.Info("Setting defaults for v1alpha2.Instrumentation", "name", inst.GetName())
 	if inst.Labels == nil {
 		inst.Labels = map[string]string{}
 	}
@@ -86,21 +86,21 @@ var _ webhook.CustomValidator = &Instrumentation{}
 // ValidateCreate to validate the creation operation
 func (r *Instrumentation) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	instrumentationLog.Info("validate create", "name", inst.Name)
+	instrumentationLog.Info("Validating creation of v1alpha2.Instrumentation", "name", inst.Name)
 	return r.validate(inst)
 }
 
 // ValidateUpdate to validate the update operation
 func (r *Instrumentation) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
 	inst := newObj.(*Instrumentation)
-	instrumentationLog.Info("validate update", "name", inst.Name)
+	instrumentationLog.Info("Validating update of v1alpha2.Instrumentation", "name", inst.Name)
 	return r.validate(inst)
 }
 
 // ValidateDelete to validate the deletion operation
 func (r *Instrumentation) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	instrumentationLog.Info("validate delete", "name", inst.Name)
+	instrumentationLog.Info("Validating deletion of v1alpha2.Instrumentation", "name", inst.Name)
 	return r.validate(inst)
 }
 

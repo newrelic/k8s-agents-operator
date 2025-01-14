@@ -237,4 +237,4 @@ manifests: generate controller-gen ## Generate manifests
 run-helmify: manifests helmify kustomize ## Generate the CRD with kustomize and helmify from the manifests
 	@# could we do more here?
 	$(KUSTOMIZE) build config/default | $(HELMIFY) tmp/k8s-agents-operator
-	printf "\nIMPORTANT: The generated chart needs to be transformed!\n- deployment.yaml is split into deployment.yaml and service-account.yaml\n- mutating-webhook-configuration.yaml and validating-webhook-configuration.yaml are merged into service-account.yaml\n- Documents generated are missing several config options (i.e. labels)\n"
+	printf "\nIMPORTANT: The generated chart needs to be transformed!\n- deployment.yaml is split into deployment.yaml and service-account.yaml\n- mutating-webhook-configuration.yaml, validating-webhook-configuration.yaml, and instrumentation-crd.yaml are merged into instrumentation-crd.yaml\n- Documents generated are missing several config options (i.e. labels)\n"

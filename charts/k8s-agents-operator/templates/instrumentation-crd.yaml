@@ -1,14 +1,163 @@
+{{- $tls := fromYaml (include "k8s-agents-operator.webhookCert" .) }}
+{{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/tls
+metadata:
+  name: {{ include "k8s-agents-operator.certificateSecret.name" . }}
+  annotations:
+    "helm.sh/hook": "pre-install,pre-upgrade"
+    "helm.sh/hook-delete-policy": "before-hook-creation"
+  labels:
+    {{- include "newrelic.common.labels" . | nindent 4 }}
+    app.kubernetes.io/component: webhook
+  namespace: {{ .Release.Namespace }}
+data:
+  tls.crt: {{ $tls.clientCert }}
+  tls.key: {{ $tls.clientKey }}
+  ca.crt: {{ $tls.caCert }}
+{{- end }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "k8s-agents-operator.webhook.mutating.name" . }}
+  {{- if .Values.admissionWebhooks.certManager.enabled }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "k8s-agents-operator.cert-manager.certificate.name" . }}
+  {{- end }}
+  labels:
+    {{- include "newrelic.common.labels" . | nindent 4 }}
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+      caBundle: {{ $tls.caCert }}
+      {{- end }}
+      service:
+        name: {{ include "k8s-agents-operator.webhook.service.name" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-newrelic-com-v1beta1-instrumentation
+    failurePolicy: Fail
+    name: minstrumentation.kb.io
+    rules:
+      - apiGroups:
+          - newrelic.com
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - instrumentations
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+      caBundle: {{ $tls.caCert }}
+      {{- end }}
+      service:
+        name: {{ include "k8s-agents-operator.webhook.service.name" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-v1-pod
+    failurePolicy: Ignore
+    name: mpod.kb.io
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - pods
+    sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "k8s-agents-operator.webhook.validating.name" . }}
+  {{- if .Values.admissionWebhooks.certManager.enabled }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "k8s-agents-operator.cert-manager.certificate.name" . }}
+  {{- end }}
+  labels:
+    {{- include "newrelic.common.labels" . | nindent 4 }}
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+      caBundle: {{ $tls.caCert }}
+      {{- end }}
+      service:
+        name: {{ include "k8s-agents-operator.webhook.service.name" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-newrelic-com-v1beta1-instrumentation
+    failurePolicy: Fail
+    name: vinstrumentationcreateupdate.kb.io
+    rules:
+      - apiGroups:
+          - newrelic.com
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - instrumentations
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+      caBundle: {{ $tls.caCert }}
+      {{- end }}
+      service:
+        name: {{ include "k8s-agents-operator.webhook.service.name" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-newrelic-com-v1beta1-instrumentation
+    failurePolicy: Ignore
+    name: vinstrumentationdelete.kb.io
+    rules:
+      - apiGroups:
+          - newrelic.com
+        apiVersions:
+          - v1beta1
+        operations:
+          - DELETE
+        resources:
+          - instrumentations
+    sideEffects: None
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: instrumentations.newrelic.com
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
+    {{- if .Values.admissionWebhooks.certManager.enabled }}
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "k8s-agents-operator.cert-manager.certificate.name" . }}
+    {{- end }}
   labels:
     {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
   conversion:
-    strategy: None
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+        caBundle: {{ $tls.caCert }}
+        {{- end }}
+        service:
+          name: {{ include "k8s-agents-operator.webhook.service.name" . }}
+          namespace: {{ .Release.Namespace }}
+          path: /convert
+      conversionReviewVersions:
+      - v1beta1
   group: newrelic.com
   names:
     kind: Instrumentation
@@ -186,10 +335,10 @@ spec:
                         description: |-
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
-
+  
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
+  
                           This field is immutable. It can only be set for containers.
                         items:
                           description: ResourceClaim references one entry in PodSpec.ResourceClaims.
@@ -416,27 +565,27 @@ spec:
     subresources:
       status: {}
   - additionalPrinterColumns:
-      - jsonPath: .metadata.creationTimestamp
-        name: Age
-        type: date
-      - jsonPath: .status.podsMatching
-        name: PodsMatching
-        type: integer
-      - jsonPath: .status.podsInjected
-        name: PodsInjected
-        type: integer
-      - jsonPath: .status.podsNotReady
-        name: PodsNotReady
-        type: integer
-      - jsonPath: .status.podsOutdated
-        name: PodsOutdated
-        type: integer
-      - jsonPath: .status.podsHealthy
-        name: PodsHealthy
-        type: integer
-      - jsonPath: .status.podsUnhealthy
-        name: PodsUnhealthy
-        type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.podsMatching
+      name: PodsMatching
+      type: integer
+    - jsonPath: .status.podsInjected
+      name: PodsInjected
+      type: integer
+    - jsonPath: .status.podsNotReady
+      name: PodsNotReady
+      type: integer
+    - jsonPath: .status.podsOutdated
+      name: PodsOutdated
+      type: integer
+    - jsonPath: .status.podsHealthy
+      name: PodsHealthy
+      type: integer
+    - jsonPath: .status.podsUnhealthy
+      name: PodsUnhealthy
+      type: integer
     name: v1beta1
     schema:
       openAPIV3Schema:
@@ -513,7 +662,7 @@ spec:
                                     key must be defined
                                   type: boolean
                               required:
-                                - key
+                              - key
                               type: object
                               x-kubernetes-map-type: atomic
                             fieldRef:
@@ -530,7 +679,7 @@ spec:
                                     API version.
                                   type: string
                               required:
-                                - fieldPath
+                              - fieldPath
                               type: object
                               x-kubernetes-map-type: atomic
                             resourceFieldRef:
@@ -540,12 +689,12 @@ spec:
                               properties:
                                 containerName:
                                   description: 'Container name: required for volumes,
-                                  optional for env vars'
+                                    optional for env vars'
                                   type: string
                                 divisor:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   description: Specifies the output format of the exposed
                                     resources, defaults to "1"
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
@@ -554,7 +703,7 @@ spec:
                                   description: 'Required: resource to select'
                                   type: string
                               required:
-                                - resource
+                              - resource
                               type: object
                               x-kubernetes-map-type: atomic
                             secretKeyRef:
@@ -578,12 +727,12 @@ spec:
                                     must be defined
                                   type: boolean
                               required:
-                                - key
+                              - key
                               type: object
                               x-kubernetes-map-type: atomic
                           type: object
                       required:
-                        - name
+                      - name
                       type: object
                     type: array
                   image:
@@ -599,10 +748,10 @@ spec:
                         description: |-
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
-
+  
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
+  
                           This field is immutable. It can only be set for containers.
                         items:
                           description: ResourceClaim references one entry in PodSpec.ResourceClaims.
@@ -620,17 +769,17 @@ spec:
                                 only the result of this request.
                               type: string
                           required:
-                            - name
+                          - name
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
-                          - name
+                        - name
                         x-kubernetes-list-type: map
                       limits:
                         additionalProperties:
                           anyOf:
-                            - type: integer
-                            - type: string
+                          - type: integer
+                          - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: |-
@@ -640,8 +789,8 @@ spec:
                       requests:
                         additionalProperties:
                           anyOf:
-                            - type: integer
-                            - type: string
+                          - type: integer
+                          - type: string
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: |-
@@ -653,8 +802,8 @@ spec:
                     type: object
                   volumeLimitSize:
                     anyOf:
-                      - type: integer
-                      - type: string
+                    - type: integer
+                    - type: string
                     description: |-
                       VolumeSizeLimit defines size limit for volume used for auto-instrumentation.
                       The default size is 200Mi.
@@ -724,7 +873,7 @@ spec:
                                     key must be defined
                                   type: boolean
                               required:
-                                - key
+                              - key
                               type: object
                               x-kubernetes-map-type: atomic
                             fieldRef:
@@ -741,7 +890,7 @@ spec:
                                     API version.
                                   type: string
                               required:
-                                - fieldPath
+                              - fieldPath
                               type: object
                               x-kubernetes-map-type: atomic
                             resourceFieldRef:
@@ -751,12 +900,12 @@ spec:
                               properties:
                                 containerName:
                                   description: 'Container name: required for volumes,
-                                  optional for env vars'
+                                    optional for env vars'
                                   type: string
                                 divisor:
                                   anyOf:
-                                    - type: integer
-                                    - type: string
+                                  - type: integer
+                                  - type: string
                                   description: Specifies the output format of the exposed
                                     resources, defaults to "1"
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
@@ -765,7 +914,7 @@ spec:
                                   description: 'Required: resource to select'
                                   type: string
                               required:
-                                - resource
+                              - resource
                               type: object
                               x-kubernetes-map-type: atomic
                             secretKeyRef:
@@ -789,12 +938,12 @@ spec:
                                     must be defined
                                   type: boolean
                               required:
-                                - key
+                              - key
                               type: object
                               x-kubernetes-map-type: atomic
                           type: object
                       required:
-                        - name
+                      - name
                       type: object
                     type: array
                   image:
@@ -838,8 +987,8 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                       required:
-                        - key
-                        - operator
+                      - key
+                      - operator
                       type: object
                     type: array
                     x-kubernetes-list-type: atomic
@@ -885,8 +1034,8 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                       required:
-                        - key
-                        - operator
+                      - key
+                      - operator
                       type: object
                     type: array
                     x-kubernetes-list-type: atomic
@@ -908,8 +1057,8 @@ spec:
                 items:
                   description: Propagator represents the propagation type.
                   enum:
-                    - tracecontext
-                    - none
+                  - tracecontext
+                  - none
                   type: string
                 type: array
               resource:
@@ -944,12 +1093,12 @@ spec:
                       The value will be set in the OTEL_TRACES_SAMPLER env var.
                       The value can be for instance parentbased_always_on, parentbased_always_off, parentbased_traceidratio...
                     enum:
-                      - always_on
-                      - always_off
-                      - traceidratio
-                      - parentbased_always_on
-                      - parentbased_always_off
-                      - parentbased_traceidratio
+                    - always_on
+                    - always_off
+                    - traceidratio
+                    - parentbased_always_on
+                    - parentbased_always_off
+                    - parentbased_traceidratio
                     type: string
                 type: object
             type: object
