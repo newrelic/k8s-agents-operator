@@ -32,7 +32,7 @@ type InstrumentationUpgrade struct {
 	Logger logr.Logger
 }
 
-//+kubebuilder:rbac:groups=newrelic.com,resources=instrumentations,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=newrelic.com,resources=instrumentations,verbs=get;list;watch;update;patch
 
 // ManagedInstances upgrades managed instances by the k8s-agents-operator.
 func (u *InstrumentationUpgrade) ManagedInstances(ctx context.Context) error {

@@ -12,7 +12,7 @@ webhooks:
       namespace: system
       path: /mutate-newrelic-com-v1beta1-instrumentation
   failurePolicy: Fail
-  name: minstrumentation.kb.io
+  name: minstrumentation-v1beta1.kb.io
   rules:
   - apiGroups:
     - newrelic.com
@@ -32,7 +32,7 @@ webhooks:
       namespace: system
       path: /mutate-newrelic-com-v1alpha2-instrumentation
   failurePolicy: Fail
-  name: minstrumentation.kb.io
+  name: minstrumentation-v1alpha2.kb.io
   rules:
   - apiGroups:
     - newrelic.com
@@ -78,7 +78,7 @@ webhooks:
       namespace: system
       path: /validate-newrelic-com-v1beta1-instrumentation
   failurePolicy: Fail
-  name: vinstrumentationcreateupdate.kb.io
+  name: vinstrumentationcreateupdate-v1beta1.kb.io
   rules:
   - apiGroups:
     - newrelic.com
@@ -98,7 +98,7 @@ webhooks:
       namespace: system
       path: /validate-newrelic-com-v1beta1-instrumentation
   failurePolicy: Ignore
-  name: vinstrumentationdelete.kb.io
+  name: vinstrumentationdelete-v1beta1.kb.io
   rules:
   - apiGroups:
     - newrelic.com
@@ -117,7 +117,7 @@ webhooks:
       namespace: system
       path: /validate-newrelic-com-v1alpha2-instrumentation
   failurePolicy: Fail
-  name: vinstrumentationcreateupdate.kb.io
+  name: vinstrumentationcreateupdate-v1alpha2.kb.io
   rules:
   - apiGroups:
     - newrelic.com
@@ -137,7 +137,7 @@ webhooks:
       namespace: system
       path: /validate-newrelic-com-v1alpha2-instrumentation
   failurePolicy: Ignore
-  name: vinstrumentationdelete.kb.io
+  name: vinstrumentationdelete-v1alpha2.kb.io
   rules:
   - apiGroups:
     - newrelic.com

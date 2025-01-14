@@ -40,12 +40,35 @@ webhooks:
         namespace: {{ .Release.Namespace }}
         path: /mutate-newrelic-com-v1beta1-instrumentation
     failurePolicy: Fail
-    name: minstrumentation.kb.io
+    name: minstrumentation-v1beta1.kb.io
     rules:
       - apiGroups:
           - newrelic.com
         apiVersions:
           - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - instrumentations
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+      caBundle: {{ $tls.caCert }}
+      {{- end }}
+      service:
+        name: {{ include "k8s-agents-operator.webhook.service.name" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-newrelic-com-v1alpha2-instrumentation
+    failurePolicy: Fail
+    name: minstrumentation-v1alpha2.kb.io
+    rules:
+      - apiGroups:
+          - newrelic.com
+        apiVersions:
+          - v1alpha2
         operations:
           - CREATE
           - UPDATE
@@ -98,7 +121,7 @@ webhooks:
         namespace: {{ .Release.Namespace }}
         path: /validate-newrelic-com-v1beta1-instrumentation
     failurePolicy: Fail
-    name: vinstrumentationcreateupdate.kb.io
+    name: vinstrumentationcreateupdate-v1beta1.kb.io
     rules:
       - apiGroups:
           - newrelic.com
@@ -121,12 +144,57 @@ webhooks:
         namespace: {{ .Release.Namespace }}
         path: /validate-newrelic-com-v1beta1-instrumentation
     failurePolicy: Ignore
-    name: vinstrumentationdelete.kb.io
+    name: vinstrumentationdelete-v1beta1.kb.io
     rules:
       - apiGroups:
           - newrelic.com
         apiVersions:
           - v1beta1
+        operations:
+          - DELETE
+        resources:
+          - instrumentations
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+      caBundle: {{ $tls.caCert }}
+      {{- end }}
+      service:
+        name: {{ include "k8s-agents-operator.webhook.service.name" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-newrelic-com-v1alpha2-instrumentation
+    failurePolicy: Fail
+    name: vinstrumentationcreateupdate-v1alpha2.kb.io
+    rules:
+      - apiGroups:
+          - newrelic.com
+        apiVersions:
+          - v1alpha2
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - instrumentations
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
+      caBundle: {{ $tls.caCert }}
+      {{- end }}
+      service:
+        name: {{ include "k8s-agents-operator.webhook.service.name" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-newrelic-com-v1alpha2-instrumentation
+    failurePolicy: Ignore
+    name: vinstrumentationdelete-v1alpha2.kb.io
+    rules:
+      - apiGroups:
+          - newrelic.com
+        apiVersions:
+          - v1alpha2
         operations:
           - DELETE
         resources:
