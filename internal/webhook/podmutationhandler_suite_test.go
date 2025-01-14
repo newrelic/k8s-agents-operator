@@ -36,6 +36,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
 	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -102,6 +103,11 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	if err = v1alpha2.AddToScheme(testScheme); err != nil {
+		fmt.Printf("failed to register scheme: %v", err)
+		os.Exit(1)
+	}
+
 	if err = v1beta1.AddToScheme(testScheme); err != nil {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
@@ -134,6 +140,11 @@ func TestMain(m *testing.M) {
 	})
 	if mgrErr != nil {
 		fmt.Printf("failed to start webhook server: %v", mgrErr)
+		os.Exit(1)
+	}
+
+	if err = (&v1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, logger); err != nil {
+		logger.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 		os.Exit(1)
 	}
 
