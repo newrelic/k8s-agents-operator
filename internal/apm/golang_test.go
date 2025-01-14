@@ -2,7 +2,7 @@ package apm
 
 import (
 	"context"
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -22,7 +22,7 @@ func TestGoInjector_Inject(t *testing.T) {
 		name           string
 		pod            corev1.Pod
 		ns             corev1.Namespace
-		inst           v1alpha2.Instrumentation
+		inst           v1beta1.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
 	}{
@@ -46,7 +46,7 @@ func TestGoInjector_Inject(t *testing.T) {
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "not-this"}}},
+			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "not-this"}}},
 		},
 		{
 			name: "a container, instrumentation with blank licenseKeySecret",
@@ -57,7 +57,7 @@ func TestGoInjector_Inject(t *testing.T) {
 				{Name: "test"},
 			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
-			inst:           v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "go"}}},
+			inst:           v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "go"}}},
 		},
 		{
 			name: "a container, instrumentation",
@@ -85,7 +85,7 @@ func TestGoInjector_Inject(t *testing.T) {
 					},
 				},
 			},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "go"}, LicenseKeySecret: "newrelic-key-secret"}},
+			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "go"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
 	}
 	for _, test := range tests {

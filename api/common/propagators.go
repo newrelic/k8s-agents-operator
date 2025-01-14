@@ -1,4 +1,4 @@
-package v1alpha2
+package common
 
 type (
 	// Propagator represents the propagation type.

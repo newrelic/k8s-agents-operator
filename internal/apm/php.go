@@ -20,7 +20,7 @@ import (
 	"errors"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 const (
@@ -65,7 +65,7 @@ func (al acceptVersion) Language() string {
 	return string(al)
 }
 
-func (al acceptVersion) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+func (al acceptVersion) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod) bool {
 	if inst.Spec.Agent.Language != string(al) {
 		return false
 	}
@@ -81,7 +81,7 @@ type PhpInjector struct {
 }
 
 // Inject is used to inject the PHP agent.
-func (i *PhpInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i *PhpInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
 	}

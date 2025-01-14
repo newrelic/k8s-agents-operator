@@ -50,6 +50,7 @@ import (
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	newreliccomv1beta1 "github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -68,6 +69,7 @@ func init() {
 
 	utilruntime.Must(routev1.AddToScheme(scheme)) // TODO: Update this to not use a deprecated method
 	utilruntime.Must(newreliccomv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(newreliccomv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -228,6 +230,11 @@ func main() {
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err = (&newreliccomv1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, ctrl.Log.WithName("instrumentation-validator")); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
+			os.Exit(1)
+		}
+
+		if err = (&newreliccomv1beta1.Instrumentation{}).SetupWebhookWithManager(mgr, ctrl.Log.WithName("instrumentation-validator")); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
