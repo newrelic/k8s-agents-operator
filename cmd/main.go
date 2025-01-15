@@ -268,12 +268,12 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&newreliccomv1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
+		if err = newreliccomv1alpha2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
 
-		if err = (&newreliccomv1beta1.Instrumentation{}).SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
+		if err = newreliccomv1beta1.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}
