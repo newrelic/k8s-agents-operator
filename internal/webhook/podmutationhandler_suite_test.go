@@ -161,8 +161,8 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	v1beta1InstDefaulter := &v1alpha2.InstrumentationDefaulter{}
-	v1beta1InstValidator := &v1alpha2.InstrumentationValidator{
+	v1beta1InstDefaulter := &v1beta1.InstrumentationDefaulter{}
+	v1beta1InstValidator := &v1beta1.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
 	err = ctrl.NewWebhookManagedBy(mgr).
