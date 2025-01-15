@@ -38,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
@@ -62,7 +62,7 @@ const instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
 var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")
 
 type Injector interface {
-	Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
+	Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
 	Language() string
 	ConfigureClient(client client.Client)
 	ConfigureLogger(logger logr.Logger)
@@ -223,7 +223,7 @@ func (i *baseInjector) ConfigureClient(client client.Client) {
 	i.client = client
 }
 
-func (i *baseInjector) validate(inst v1alpha2.Instrumentation) error {
+func (i *baseInjector) validate(inst v1beta1.Instrumentation) error {
 	if inst.Spec.LicenseKeySecret == "" {
 		return fmt.Errorf("licenseKeySecret must not be blank")
 	}
@@ -247,13 +247,13 @@ func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Co
 	return container
 }
 
-func (i *baseInjector) injectNewrelicConfig(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int, licenseKeySecret string) corev1.Pod {
+func (i *baseInjector) injectNewrelicConfig(ctx context.Context, resource v1beta1.Resource, ns corev1.Namespace, pod corev1.Pod, index int, licenseKeySecret string) corev1.Pod {
 	pod = i.injectNewrelicEnvConfig(ctx, resource, ns, pod, index)
 	pod.Spec.Containers[index] = i.injectNewrelicLicenseKeyIntoContainer(pod.Spec.Containers[index], licenseKeySecret)
 	return pod
 }
 
-func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int) corev1.Pod {
+func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1beta1.Resource, ns corev1.Namespace, pod corev1.Pod, index int) corev1.Pod {
 	container := &pod.Spec.Containers[index]
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
 		//@todo: how can we do this if multiple injectors need this?
@@ -317,7 +317,7 @@ func encodeAttributes(m map[string]string, fieldSeparator string, valueSeparator
 
 // createResourceMap creates resource attribute map.
 // User defined attributes (in explicitly set env var) have higher precedence.
-func (i *baseInjector) createResourceMap(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int) map[string]string {
+func (i *baseInjector) createResourceMap(ctx context.Context, resource v1beta1.Resource, ns corev1.Namespace, pod corev1.Pod, index int) map[string]string {
 
 	//@todo: revise this? this is specific to the golang apm
 	// get existing resources env var and parse it into a map

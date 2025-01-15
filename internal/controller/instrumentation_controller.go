@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
 )
 
@@ -92,7 +92,7 @@ func (r *InstrumentationReconciler) SetupWithManager(mgr ctrl.Manager, healthMon
 	r.operatorNamespace = operatorNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 100}).
-		For(&v1alpha2.Instrumentation{}).
+		For(&v1beta1.Instrumentation{}).
 		WithEventFilter(
 			predicate.Funcs{
 				DeleteFunc: func(e event.DeleteEvent) bool {
@@ -113,7 +113,7 @@ func (r *InstrumentationReconciler) SetupWithManager(mgr ctrl.Manager, healthMon
 }
 
 func (r *InstrumentationReconciler) isInOperatorNamespace(object client.Object) bool {
-	inst, ok := object.(*v1alpha2.Instrumentation)
+	inst, ok := object.(*v1beta1.Instrumentation)
 	if !ok {
 		return false
 	}

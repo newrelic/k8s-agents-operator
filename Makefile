@@ -11,7 +11,8 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 .DEFAULT_GOAL := help
 
 # Go packages to test
-TEST_PACKAGES = ./api/v1alpha2 \
+TEST_PACKAGES = ./api/v1beta1 \
+	./api/v1alpha2 \
 	./internal/apm \
 	./internal/autodetect \
 	./internal/config \
@@ -235,7 +236,7 @@ gen-helm-docs: helm-docs ## Generate Helm Docs from templates
 
 .PHONY: generate
 generate: controller-gen ## Generate stuff
-	$(CONTROLLER_GEN) object:headerFile="boilerplate.txt"  paths='{"./api/...","./internal/...","./cmd/..."}'
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt"  paths='{"./api/...","./internal/...","./cmd/..."}'
 
 .PHONY: manifests
 manifests: generate controller-gen ## Generate manifests
@@ -249,4 +250,4 @@ manifests: generate controller-gen ## Generate manifests
 run-helmify: manifests helmify kustomize ## Generate the CRD with kustomize and helmify from the manifests
 	@# could we do more here?
 	$(KUSTOMIZE) build config/default | $(HELMIFY) tmp/k8s-agents-operator
-	printf "\nIMPORTANT: The generated chart needs to be transformed!\n- deployment.yaml is split into deployment.yaml and service-account.yaml\n- mutating-webhook-configuration.yaml and validating-webhook-configuration.yaml are merged into service-account.yaml\n- Documents generated are missing several config options (i.e. labels)\n"
+	printf "\nIMPORTANT: The generated chart needs to be transformed!\n- deployment.yaml is split into deployment.yaml and service-account.yaml\n- mutating-webhook-configuration.yaml, validating-webhook-configuration.yaml, and instrumentation-crd.yaml are merged into instrumentation-crd.yaml\n- Documents generated are missing several config options (i.e. labels)\n"

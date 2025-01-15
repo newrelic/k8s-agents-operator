@@ -1,5 +1,5 @@
 /*
-Copyright 2024.
+Copyright 2025.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package v1beta1
 
 import (
 	"github.com/newrelic/k8s-agents-operator/api/common"
@@ -53,10 +53,15 @@ type InstrumentationSpec struct {
 	// +optional
 	NamespaceLabelSelector metav1.LabelSelector `json:"namespaceLabelSelector"`
 
-	// LicenseKeySecret defines where to take the licenseKeySecret.
+	// LicenseKeySecret defines where to take the licenseKeySecret from.
 	// it should be present in the operator namespace.
 	// +optional
 	LicenseKeySecret string `json:"licenseKeySecret,omitempty"`
+
+	// AgentConfigMap defines where to take the agent configuration from.
+	// it should be present in the operator namespace.
+	// +optional
+	AgentConfigMap string `json:"agentConfigMap,omitempty"`
 
 	// Agent defines configuration for agent instrumentation.
 	Agent Agent `json:"agent,omitempty"`
@@ -184,6 +189,7 @@ type InstrumentationStatus struct {
 	LastUpdated         metav1.Time         `json:"lastUpdated,omitempty"`
 }
 
+// +kubebuilder:storageversion
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=nragent;nragents
 // +kubebuilder:subresource:status
@@ -194,6 +200,7 @@ type InstrumentationStatus struct {
 // +kubebuilder:printcolumn:name="PodsOutdated",type="integer",JSONPath=".status.podsOutdated"
 // +kubebuilder:printcolumn:name="PodsHealthy",type="integer",JSONPath=".status.podsHealthy"
 // +kubebuilder:printcolumn:name="PodsUnhealthy",type="integer",JSONPath=".status.podsUnhealthy"
+// +operator-sdk:csv:customresourcedefinitions:displayName="New Relic Instrumentation"
 // +operator-sdk:csv:customresourcedefinitions:displayName="New Relic Instrumentation"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1}}
 // +kubebuilder:object:root=true
