@@ -23,7 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 const (
@@ -48,7 +48,7 @@ var healthDefaultEnv = []corev1.EnvVar{
 	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
 }
 
-func (i *baseInjector) injectHealth(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i *baseInjector) injectHealth(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if inst.Spec.HealthAgent.IsEmpty() {
 		return pod, nil
 	}

@@ -453,7 +453,7 @@ func applyLabelToPod(pod *corev1.Pod, key, val string) *corev1.Pod {
 	return pod
 }
 
-func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev1.Pod, inst v1alpha2.Instrumentation) corev1.Pod {
+func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev1.Pod, inst v1beta1.Instrumentation) corev1.Pod {
 	logger := log.FromContext(ctx)
 	instName := types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()
 	instVersions := map[string]string{}
