@@ -10,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 func TestHealthInjector_Inject(t *testing.T) {
@@ -19,7 +19,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 		name           string
 		pod            corev1.Pod
 		ns             corev1.Namespace
-		inst           v1alpha2.Instrumentation
+		inst           v1beta1.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
 	}{
@@ -43,7 +43,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "not-this"}}},
+			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "not-this"}}},
 		},
 		{
 			name: "a container, instrumentation healthAgent with only env",
@@ -54,9 +54,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 				{Name: "test"},
 			}}},
 			expectedErrStr: "invalid env value \"\" for \"NEW_RELIC_FLEET_CONTROL_HEALTH_PATH\" > invalid mount path \"\", cannot be blank",
-			inst: v1alpha2.Instrumentation{
-				Spec: v1alpha2.InstrumentationSpec{
-					HealthAgent: v1alpha2.HealthAgent{
+			inst: v1beta1.Instrumentation{
+				Spec: v1beta1.InstrumentationSpec{
+					HealthAgent: v1beta1.HealthAgent{
 						Env: []corev1.EnvVar{{Name: "test", Value: "test"}},
 					},
 				},
@@ -67,9 +67,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{
-				Spec: v1alpha2.InstrumentationSpec{
-					HealthAgent: v1alpha2.HealthAgent{
+			inst: v1beta1.Instrumentation{
+				Spec: v1beta1.InstrumentationSpec{
+					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
 						Env:   []corev1.EnvVar{{Name: envHealthFleetControlFilepath, Value: "/health/this"}},
 					},
@@ -117,9 +117,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{
-				Spec: v1alpha2.InstrumentationSpec{
-					HealthAgent: v1alpha2.HealthAgent{
+			inst: v1beta1.Instrumentation{
+				Spec: v1beta1.InstrumentationSpec{
+					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
 						Env: []corev1.EnvVar{
 							{Name: envHealthFleetControlFilepath, Value: "/health/this"},
@@ -166,9 +166,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{
-				Spec: v1alpha2.InstrumentationSpec{
-					HealthAgent: v1alpha2.HealthAgent{
+			inst: v1beta1.Instrumentation{
+				Spec: v1beta1.InstrumentationSpec{
+					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
 					},
 				},
@@ -185,9 +185,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{
-				Spec: v1alpha2.InstrumentationSpec{
-					HealthAgent: v1alpha2.HealthAgent{
+			inst: v1beta1.Instrumentation{
+				Spec: v1beta1.InstrumentationSpec{
+					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
 						Env: []corev1.EnvVar{
 							{Name: envHealthFleetControlFilepath, Value: "/a/b"},
@@ -208,9 +208,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{
-				Spec: v1alpha2.InstrumentationSpec{
-					HealthAgent: v1alpha2.HealthAgent{
+			inst: v1beta1.Instrumentation{
+				Spec: v1beta1.InstrumentationSpec{
+					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
 						Env: []corev1.EnvVar{
 							{Name: envHealthFleetControlFilepath, Value: ""},
@@ -230,9 +230,9 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{
-				Spec: v1alpha2.InstrumentationSpec{
-					HealthAgent: v1alpha2.HealthAgent{
+			inst: v1beta1.Instrumentation{
+				Spec: v1beta1.InstrumentationSpec{
+					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
 						Env: []corev1.EnvVar{
 							{Name: envHealthFleetControlFilepath, Value: "/file.yml"},

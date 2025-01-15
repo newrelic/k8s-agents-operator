@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation/util/ticker"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation/util/worker"
@@ -68,12 +68,12 @@ type event struct {
 	action eventAction
 	pod    *corev1.Pod
 	ns     *corev1.Namespace
-	inst   *v1alpha2.Instrumentation
+	inst   *v1beta1.Instrumentation
 }
 
 type instrumentationMetric struct {
 	instrumentationID string
-	instrumentation   *v1alpha2.Instrumentation
+	instrumentation   *v1beta1.Instrumentation
 	podMetrics        []*podMetric
 	doneCh            chan struct{}
 	podsMatching      int64
@@ -82,7 +82,7 @@ type instrumentationMetric struct {
 	podsOutdated      int64
 	podsHealthy       int64
 	podsUnhealthy     int64
-	unhealthyPods     []v1alpha2.UnhealthyPodError
+	unhealthyPods     []v1beta1.UnhealthyPodError
 }
 
 func (im *instrumentationMetric) resolve() {
@@ -193,7 +193,7 @@ type HealthMonitor struct {
 	instrumentationMetricPersistQueue worker.Worker
 	ticker                            *ticker.Ticker
 
-	instrumentations map[string]*v1alpha2.Instrumentation
+	instrumentations map[string]*v1beta1.Instrumentation
 	pods             map[string]*corev1.Pod
 	namespaces       map[string]*corev1.Namespace
 
@@ -213,7 +213,7 @@ func NewHealthMonitor(
 		healthApi:                    healthCheck,
 		instrumentationStatusUpdater: instrumentationStatusUpdater,
 
-		instrumentations: make(map[string]*v1alpha2.Instrumentation),
+		instrumentations: make(map[string]*v1beta1.Instrumentation),
 		pods:             make(map[string]*corev1.Pod),
 		namespaces:       make(map[string]*corev1.Namespace),
 
@@ -368,7 +368,7 @@ func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, eve
 			event.podsHealthy++
 		} else {
 			event.podsUnhealthy++
-			event.unhealthyPods = append(event.unhealthyPods, v1alpha2.UnhealthyPodError{
+			event.unhealthyPods = append(event.unhealthyPods, v1beta1.UnhealthyPodError{
 				Pod:       eventPodMetrics.podID,
 				LastError: eventPodMetrics.health.LastError,
 			})
@@ -503,7 +503,7 @@ func (m *HealthMonitor) isPodReady(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodRunning
 }
 
-func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *v1alpha2.Instrumentation) bool {
+func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *v1beta1.Instrumentation) bool {
 	v, ok := pod.Annotations[instrumentationVersionAnnotation]
 	if !ok {
 		return true
@@ -636,10 +636,10 @@ func (m *HealthMonitor) NamespaceRemove(ns *corev1.Namespace) {
 	_ = m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsRemove})
 }
 
-func (m *HealthMonitor) InstrumentationSet(instrumentation *v1alpha2.Instrumentation) {
+func (m *HealthMonitor) InstrumentationSet(instrumentation *v1beta1.Instrumentation) {
 	_ = m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instSet})
 }
 
-func (m *HealthMonitor) InstrumentationRemove(instrumentation *v1alpha2.Instrumentation) {
+func (m *HealthMonitor) InstrumentationRemove(instrumentation *v1beta1.Instrumentation) {
 	_ = m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instRemove})
 }

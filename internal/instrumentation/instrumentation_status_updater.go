@@ -3,14 +3,14 @@ package instrumentation
 import (
 	"context"
 
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
 )
 
 type InstrumentationStatusUpdater interface {
-	UpdateInstrumentationStatus(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error
+	UpdateInstrumentationStatus(ctx context.Context, instrumentation *v1beta1.Instrumentation) error
 }
 
 type InstrumentationStatusUpdaterImpl struct {
@@ -21,7 +21,7 @@ func NewInstrumentationStatusUpdater(client client.Client) *InstrumentationStatu
 	return &InstrumentationStatusUpdaterImpl{Client: client}
 }
 
-func (i *InstrumentationStatusUpdaterImpl) UpdateInstrumentationStatus(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+func (i *InstrumentationStatusUpdaterImpl) UpdateInstrumentationStatus(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 	if err := i.Client.Status().Update(ctx, instrumentation); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err

@@ -41,6 +41,7 @@ For each `Instrumentation` custom resource created, specifying which APM agent y
 * [Node](https://hub.docker.com/repository/docker/newrelic/newrelic-node-init/general)
 * [Python](https://hub.docker.com/repository/docker/newrelic/newrelic-python-init/general)
 * [Ruby](https://hub.docker.com/repository/docker/newrelic/newrelic-ruby-init/general)
+* [PHP](https://hub.docker.com/repository/docker/newrelic/newrelic-php-init/general)
 
 For .NET
 
@@ -113,6 +114,36 @@ spec:
   agent:
     language: ruby
     image: newrelic/newrelic-ruby-init:latest # Please ensure you're using a trusted New Relic image
+    # env: ...
+```
+
+For PHP (glibc)
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-php
+  namespace: newrelic
+spec:
+  agent:
+    language: php-${phpversion} # [7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3, etc.]
+    image: newrelic/newrelic-php-init:latest # Please ensure you're using a trusted New Relic image
+    # env: ...
+```
+
+For PHP (musl)
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-php
+  namespace: newrelic
+spec:
+  agent:
+    language: php-${phpversion} # [7.2, 7.3, 7.4, 8.0, 8.1, 8.2, 8.3, etc.]
+    image: newrelic/newrelic-php-init:musl # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -193,6 +224,7 @@ In the example above, we show how you can configure the agent settings globally 
 * [Python](https://docs.newrelic.com/docs/apm/agents/python-agent/configuration/python-agent-configuration/)
 * [.NET](https://docs.newrelic.com/docs/apm/agents/net-agent/configuration/net-agent-configuration/)
 * [Ruby](https://docs.newrelic.com/docs/apm/agents/ruby-agent/configuration/ruby-agent-configuration/)
+* [PHP](https://docs.newrelic.com/docs/apm/agents/php-agent/configuration/php-agent-configuration/)
 
 ### cert-manager
 

@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 var _ HealthCheck = (*fakeHealthCheck)(nil)
@@ -28,9 +28,9 @@ func (f fakeHealthCheck) GetHealth(ctx context.Context, url string) (health Heal
 
 var _ InstrumentationStatusUpdater = (*fakeUpdateInstrumentationStatus)(nil)
 
-type fakeUpdateInstrumentationStatus func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error
+type fakeUpdateInstrumentationStatus func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error
 
-func (f fakeUpdateInstrumentationStatus) UpdateInstrumentationStatus(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+func (f fakeUpdateInstrumentationStatus) UpdateInstrumentationStatus(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 	return f(ctx, instrumentation)
 }
 
@@ -42,8 +42,8 @@ func TestHealthMonitor(t *testing.T) {
 		fnInstrumentationStatusUpdater InstrumentationStatusUpdater
 		namespaces                     map[string]*corev1.Namespace
 		pods                           map[string]*corev1.Pod
-		instrumentations               map[string]*v1alpha2.Instrumentation
-		expectedInstrumentationStatus  v1alpha2.InstrumentationStatus
+		instrumentations               map[string]*v1beta1.Instrumentation
+		expectedInstrumentationStatus  v1beta1.InstrumentationStatus
 	}{
 		{
 			name: "matching but not injected",
@@ -52,7 +52,7 @@ func TestHealthMonitor(t *testing.T) {
 				logger.Info("fake health check")
 				return Health{}, nil
 			}),
-			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 				logger := log.FromContext(ctx)
 				logger.Info("fake instrumentation status updater")
 				return nil
@@ -64,10 +64,10 @@ func TestHealthMonitor(t *testing.T) {
 			pods: map[string]*corev1.Pod{
 				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default"}},
 			},
-			instrumentations: map[string]*v1alpha2.Instrumentation{
+			instrumentations: map[string]*v1beta1.Instrumentation{
 				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"}},
 			},
-			expectedInstrumentationStatus: v1alpha2.InstrumentationStatus{
+			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching: 1,
 			},
 		},
@@ -78,7 +78,7 @@ func TestHealthMonitor(t *testing.T) {
 				logger.Info("fake health check")
 				return Health{}, nil
 			}),
-			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 				logger := log.FromContext(ctx)
 				logger.Info("fake instrumentation status updater")
 				return nil
@@ -90,10 +90,10 @@ func TestHealthMonitor(t *testing.T) {
 			pods: map[string]*corev1.Pod{
 				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default", Annotations: map[string]string{"newrelic.com/apm-health": "true"}}},
 			},
-			instrumentations: map[string]*v1alpha2.Instrumentation{
+			instrumentations: map[string]*v1beta1.Instrumentation{
 				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"}},
 			},
-			expectedInstrumentationStatus: v1alpha2.InstrumentationStatus{
+			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching: 1,
 				PodsNotReady: 1,
 				PodsOutdated: 1,
@@ -107,7 +107,7 @@ func TestHealthMonitor(t *testing.T) {
 				logger.Info("fake health check")
 				return Health{}, nil
 			}),
-			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 				logger := log.FromContext(ctx)
 				logger.Info("fake instrumentation status updater")
 				return nil
@@ -122,10 +122,10 @@ func TestHealthMonitor(t *testing.T) {
 					instrumentationVersionAnnotation: `{"newrelic/instrumentation0":"01234567-89ab-cdef-0123-456789abcdef/55"}`,
 				}}},
 			},
-			instrumentations: map[string]*v1alpha2.Instrumentation{
+			instrumentations: map[string]*v1beta1.Instrumentation{
 				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
 			},
-			expectedInstrumentationStatus: v1alpha2.InstrumentationStatus{
+			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching: 1,
 				PodsNotReady: 1,
 				PodsInjected: 1,
@@ -138,7 +138,7 @@ func TestHealthMonitor(t *testing.T) {
 				logger.Info("fake health check")
 				return Health{}, fmt.Errorf("fake health check error, url: %q", url)
 			}),
-			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 				logger := log.FromContext(ctx)
 				logger.Info("fake instrumentation status updater")
 				return nil
@@ -160,14 +160,14 @@ func TestHealthMonitor(t *testing.T) {
 					},
 				},
 			},
-			instrumentations: map[string]*v1alpha2.Instrumentation{
+			instrumentations: map[string]*v1beta1.Instrumentation{
 				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
 			},
-			expectedInstrumentationStatus: v1alpha2.InstrumentationStatus{
+			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []v1alpha2.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar not found"}},
+				UnhealthyPodsErrors: []v1beta1.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar not found"}},
 			},
 		},
 		{
@@ -177,7 +177,7 @@ func TestHealthMonitor(t *testing.T) {
 				logger.Info("fake health check")
 				return Health{}, fmt.Errorf("fake health check error, url: %q", url)
 			}),
-			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 				logger := log.FromContext(ctx)
 				logger.Info("fake instrumentation status updater")
 				return nil
@@ -207,14 +207,14 @@ func TestHealthMonitor(t *testing.T) {
 					},
 				},
 			},
-			instrumentations: map[string]*v1alpha2.Instrumentation{
+			instrumentations: map[string]*v1beta1.Instrumentation{
 				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
 			},
-			expectedInstrumentationStatus: v1alpha2.InstrumentationStatus{
+			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []v1alpha2.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar missing exposed ports"}},
+				UnhealthyPodsErrors: []v1beta1.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar missing exposed ports"}},
 			},
 		},
 		{
@@ -224,7 +224,7 @@ func TestHealthMonitor(t *testing.T) {
 				logger.Info("fake health check")
 				return Health{}, fmt.Errorf("fake health check error, url: %q", url)
 			}),
-			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 				logger := log.FromContext(ctx)
 				logger.Info("fake instrumentation status updater")
 				return nil
@@ -258,14 +258,14 @@ func TestHealthMonitor(t *testing.T) {
 					},
 				},
 			},
-			instrumentations: map[string]*v1alpha2.Instrumentation{
+			instrumentations: map[string]*v1beta1.Instrumentation{
 				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
 			},
-			expectedInstrumentationStatus: v1alpha2.InstrumentationStatus{
+			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []v1alpha2.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar has too many exposed ports"}},
+				UnhealthyPodsErrors: []v1beta1.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar has too many exposed ports"}},
 			},
 		},
 		{
@@ -275,7 +275,7 @@ func TestHealthMonitor(t *testing.T) {
 				logger.Info("fake health check")
 				return Health{}, fmt.Errorf("fake health check error, url: %q", url)
 			}),
-			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 				logger := log.FromContext(ctx)
 				logger.Info("fake instrumentation status updater")
 				return nil
@@ -309,14 +309,14 @@ func TestHealthMonitor(t *testing.T) {
 					},
 				},
 			},
-			instrumentations: map[string]*v1alpha2.Instrumentation{
+			instrumentations: map[string]*v1beta1.Instrumentation{
 				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
 			},
-			expectedInstrumentationStatus: v1alpha2.InstrumentationStatus{
+			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []v1alpha2.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed while retrieving health > fake health check error, url: \"http://127.0.0.1:5678/healthz\""}},
+				UnhealthyPodsErrors: []v1beta1.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed while retrieving health > fake health check error, url: \"http://127.0.0.1:5678/healthz\""}},
 			},
 		},
 	}
@@ -327,8 +327,8 @@ func TestHealthMonitor(t *testing.T) {
 			logger := zapr.NewLogger(zaptest.NewLogger(t))
 			ctx = logr.NewContext(ctx, logger)
 			doneCh := make(chan struct{})
-			var instrumentationStatus v1alpha2.InstrumentationStatus
-			waitForUpdateInstrumentationStatus := fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1alpha2.Instrumentation) error {
+			var instrumentationStatus v1beta1.InstrumentationStatus
+			waitForUpdateInstrumentationStatus := fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
 				defer close(doneCh)
 				err := test.fnInstrumentationStatusUpdater.UpdateInstrumentationStatus(ctx, instrumentation)
 				if err != nil {
@@ -356,7 +356,7 @@ func TestHealthMonitor(t *testing.T) {
 				_ = hm.Stop(toCtx)
 				t.Fatal("toCtx timed out")
 			}
-			if diff := cmp.Diff(test.expectedInstrumentationStatus, instrumentationStatus, cmpopts.IgnoreFields(v1alpha2.InstrumentationStatus{}, "LastUpdated")); diff != "" {
+			if diff := cmp.Diff(test.expectedInstrumentationStatus, instrumentationStatus, cmpopts.IgnoreFields(v1beta1.InstrumentationStatus{}, "LastUpdated")); diff != "" {
 				t.Errorf("unexpected status, got, want: %v", diff)
 			}
 		})
