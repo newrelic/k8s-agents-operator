@@ -2,6 +2,7 @@ package instrumentation
 
 import (
 	"context"
+
 	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

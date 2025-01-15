@@ -1,8 +1,9 @@
 package v1alpha2
 
 import (
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 // ConvertTo converts this Instrumentation to the Hub version (v1beta1).

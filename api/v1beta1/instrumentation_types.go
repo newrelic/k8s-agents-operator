@@ -17,8 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/newrelic/k8s-agents-operator/api/common"
 	"reflect"
+
+	"github.com/newrelic/k8s-agents-operator/api/common"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
