@@ -119,5 +119,11 @@ func (i *PythonInjector) Inject(ctx context.Context, inst v1beta1.Instrumentatio
 
 	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
 
+	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
+
+	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+		return pod, err
+	}
+
 	return pod, nil
 }

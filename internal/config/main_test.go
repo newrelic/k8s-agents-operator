@@ -17,7 +17,6 @@ limitations under the License.
 package config_test
 
 import (
-	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
 	"github.com/newrelic/k8s-agents-operator/internal/config"
 )
 

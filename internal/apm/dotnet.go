@@ -127,5 +127,12 @@ func (i DotnetInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation
 
 	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
 
+	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
+
+	var err error
+	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+		return pod, err
+	}
+
 	return pod, nil
 }

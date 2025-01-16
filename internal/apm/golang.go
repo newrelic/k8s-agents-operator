@@ -123,6 +123,13 @@ func (i *GoInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, n
 	pod = i.injectEnvVar(inst, pod, lastIndex)
 	pod = i.injectCommonSDKConfig(ctx, inst, ns, pod, lastIndex, 0)
 
+	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
+
+	var err error
+	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+		return pod, err
+	}
+
 	return pod, nil
 }
 

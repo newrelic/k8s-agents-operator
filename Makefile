@@ -11,41 +11,36 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 .DEFAULT_GOAL := help
 
 # Go packages to test
-TEST_PACKAGES = ./internal/apm \
-                ./internal/autodetect \
-				./internal/config \
-				./internal/instrumentation \
-				./internal/migrate/upgrade \
-                ./internal/version \
-                ./internal/webhook \
-                ./api/v1alpha2 \
-                ./api/v1beta1
+TEST_PACKAGES = ./api/v1beta1 \
+	./api/v1alpha2 \
+	./internal/apm \
+	./internal/autodetect \
+	./internal/config \
+	./internal/controller \
+	./internal/instrumentation \
+	./internal/instrumentation/util/ticker \
+	./internal/instrumentation/util/worker \
+	./internal/migrate/upgrade \
+	./internal/version \
+	./internal/webhook
+
+## Tool Versions
+SETUP_ENVTEST            ?= $(LOCALBIN)/setup-envtest
+KUSTOMIZE                ?= $(LOCALBIN)/kustomize
+CONTROLLER_GEN           ?= $(LOCALBIN)/controller-gen
+HELMIFY                  ?= $(LOCALBIN)/helmify
+GOLANGCI_LINT            ?= $(LOCALBIN)/golangci-lint
+HELM                     ?= $(LOCALBIN)/helm
+HELM_DOCS                ?= $(LOCALBIN)/helm-docs
+CT                       ?= $(LOCALBIN)/ct
+HELM_UNITTEST            ?= $(LOCALBIN)/helm-unittest
+GOIMPORTS                ?= $(LOCALBIN)/goimports
 
 # Kubebuilder variables
-SETUP_ENVTEST             = $(LOCALBIN)/setup-envtest
-SETUP_ENVTEST_VERSION     ?= release-0.19
 SETUP_ENVTEST_K8S_VERSION ?= 1.30.0
 ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.30.0 1.29.3 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
 
-## Tool Versions
-KUSTOMIZE                ?= $(LOCALBIN)/kustomize
-KUSTOMIZE_VERSION        ?= v5.4.3
-CONTROLLER_GEN           ?= $(LOCALBIN)/controller-gen
-CONTROLLER_TOOLS_VERSION ?= v0.14.0
-HELMIFY                  ?= $(LOCALBIN)/helmify
-HELMIFY_VERSION          ?= v0.3.34
-GOLANGCI_LINT            ?= $(LOCALBIN)/golangci-lint
-GOLANGCI_LINT_VERSION    ?= v1.61.0
-HELM                     ?= $(LOCALBIN)/helm
-HELM_VERSION             ?= v3.16.1
-HELM_DOCS                ?= $(LOCALBIN)/helm-docs
-HELM_DOCS_VERSION        ?= v1.14.2
-HELM_DOCS_VERSION_ST     ?= $(subst v,,$(HELM_DOCS_VERSION))
-CT                       ?= $(LOCALBIN)/ct
-CT_VERSION               ?= v3.11.0
-HELM_UNITTEST            ?= $(LOCALBIN)/helm-unittest
-HELM_UNITTEST_VERSION    ?= v0.6.2
-
+# controller-gen crd options
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 
 LOCALBIN ?= $(shell pwd)/bin
@@ -156,11 +151,17 @@ go-format: ## Format all go files
 	go fmt ./...
 	go vet ./...
 
+.PHONY: fix-goimports
+fix-goimports: $(GOIMPORTS)
+	@for i in ./api ./internal ./cmd; do \
+	  find $$i -type f -name '*.go' -exec $(GOIMPORTS) -d -local github.com/newrelic/ -w {} +; \
+	done
+
 ##@ Builds
 
 .PHONY: build
 build: ## Build the go binary
-	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator cmd/main.go
+	CGO_ENABLED=0 go build -ldflags="-X 'github.com/newrelic/k8s-agents-operator/internal/version.version=$(K8S_AGENTS_OPERATOR_VERSION)' -X 'github.com/newrelic/k8s-agents-operator/internal/version.buildDate=$(shell date)'" -o $(BIN_DIR)/operator ./cmd/main.go
 
 .PHONY: docker-build
 docker-build: ## Build the docker image
@@ -173,47 +174,59 @@ docker-build: ## Build the docker image
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen
 $(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(CONTROLLER_GEN) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+	@test -s $(CONTROLLER_GEN) || GOBIN=$(LOCALBIN) go -C ./tools install sigs.k8s.io/controller-tools/cmd/controller-gen
 
 .PHONY: ct
 ct: $(CT) ## Download ct (Chart Testing)
 $(CT): $(LOCALBIN)
-	test -s $(CT) || GOBIN=$(LOCALBIN) go install github.com/helm/chart-testing/v3/ct@$(CT_VERSION)
+	@test -s $(CT) || GOBIN=$(LOCALBIN) go -C ./tools install github.com/helm/chart-testing/v3/ct
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint
 $(GOLANGCI_LINT): $(LOCALBIN)
-	test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	@test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN) go -C ./tools install github.com/golangci/golangci-lint/cmd/golangci-lint
 
 .PHONY: helm
 helm: $(HELM) ## Download helmo
 $(HELM): $(LOCALBIN)
-	test -s $(HELM) || GOBIN=$(LOCALBIN) go install helm.sh/helm/v3/cmd/helm@$(HELM_VERSION)
+	@test -s $(HELM) || GOBIN=$(LOCALBIN) go -C ./tools install helm.sh/helm/v3/cmd/helm
 
 .PHONY: helm-docs
 helm-docs: $(HELM_DOCS) ## Download helm-docs
 $(HELM_DOCS): $(LOCALBIN)
-	test -s $(HELM_DOCS) || GOBIN=$(LOCALBIN) go install -ldflags "-X 'main.version=$(HELM_DOCS_VERSION_ST)'" github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
+	@test -s $(HELM_DOCS) || GOBIN=$(LOCALBIN) go -C ./tools install github.com/norwoodj/helm-docs/cmd/helm-docs
 
 .PHONY: helm-unittest
 helm-unittest: $(HELM_UNITTEST) ## Download helm-unittest
 $(HELM_UNITTEST): $(LOCALBIN)
-	test -s $(HELM_UNITTEST) || GOBIN=$(LOCALBIN) go install github.com/helm-unittest/helm-unittest/cmd/helm-unittest@$(HELM_UNITTEST_VERSION)
+	@test -s $(HELM_UNITTEST) || GOBIN=$(LOCALBIN) go -C ./tools install github.com/helm-unittest/helm-unittest/cmd/helm-unittest
 
 .PHONY: helmify
 helmify: $(HELMIFY) ## Download helmify
 $(HELMIFY): $(LOCALBIN)
-	test -s $(HELMIFY) || GOBIN=$(LOCALBIN) go install github.com/arttor/helmify/cmd/helmify@$(HELMIFY_VERSION)
+	@test -s $(HELMIFY) || GOBIN=$(LOCALBIN) go -C ./tools install github.com/arttor/helmify/cmd/helmify
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize
 $(KUSTOMIZE): $(LOCALBIN)
-	test -s $(KUSTOMIZE) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/kustomize/kustomize/v5@$(KUSTOMIZE_VERSION)
+	@test -s $(KUSTOMIZE) || GOBIN=$(LOCALBIN) go -C ./tools install sigs.k8s.io/kustomize/kustomize/v5
 
 .PHONY: setup-envtest
 setup-envtest: $(SETUP_ENVTEST) ## Download setup-envtest
 $(SETUP_ENVTEST): $(LOCALBIN)
-	test -s $(SETUP_ENVTEST) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(SETUP_ENVTEST_VERSION)
+	@test -s $(SETUP_ENVTEST) || GOBIN=$(LOCALBIN) go -C ./tools install sigs.k8s.io/controller-runtime/tools/setup-envtest
+
+.PHONY: goimports
+goimports: $(GOIMPORTS) ## Download goimports
+$(GOIMPORTS): $(LOCALBIN)
+	@test -s $(GOIMPORTS) || GOBIN=$(LOCALBIN) go -C ./tools install golang.org/x/tools/cmd/goimports
+
+.PHONY: tools
+tools: tools-download controller-gen ct golangci-lint helm helm-docs helm-unittest helmify kustomize setup-envtest goimports ## Download all tools used
+
+.PHONY: tools-download
+tools-download: tools/go.mod tools/go.sum
+	@go -C ./tools mod download
 
 ##@ Generate manifests e.g. CRD, RBAC etc.
 
@@ -223,14 +236,14 @@ gen-helm-docs: helm-docs ## Generate Helm Docs from templates
 
 .PHONY: generate
 generate: controller-gen ## Generate stuff
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt"  paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt"  paths='{"./api/...","./internal/...","./cmd/..."}'
 
 .PHONY: manifests
 manifests: generate controller-gen ## Generate manifests
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) webhook paths="./..." \
+	$(CONTROLLER_GEN) paths='{"./api/...","./internal/...","./cmd/..."}' \
 	  rbac:roleName=manager-role output:rbac:artifacts:config=config/rbac \
-	  output:webhook:artifacts:config=config/webhook \
-	  output:crd:artifacts:config=config/crd/bases \
+	  webhook output:webhook:artifacts:config=config/webhook \
+	  $(CRD_OPTIONS) output:crd:artifacts:config=config/crd/bases \
 	  output:stdout
 
 .PHONY: run-helmify
