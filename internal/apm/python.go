@@ -21,7 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 const (
@@ -44,7 +44,7 @@ func (i *PythonInjector) Language() string {
 	return "python"
 }
 
-func (i *PythonInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+func (i *PythonInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod) bool {
 	if inst.Spec.Agent.Language != i.Language() {
 		return false
 	}
@@ -54,7 +54,7 @@ func (i *PythonInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Po
 	return true
 }
 
-func (i *PythonInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i *PythonInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
 	}
@@ -118,6 +118,12 @@ func (i *PythonInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentati
 	}
 
 	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+
+	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
+
+	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+		return pod, err
+	}
 
 	return pod, nil
 }

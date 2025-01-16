@@ -21,22 +21,13 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
-
-	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
-	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/internal/migrate/upgrade"
-	"github.com/newrelic/k8s-agents-operator/internal/webhook"
-
 	routev1 "github.com/openshift/api/route/v1"
-
-	"github.com/newrelic/k8s-agents-operator/internal/config"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
-
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -46,37 +37,47 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
+	"github.com/newrelic/k8s-agents-operator/internal/config"
+	"github.com/newrelic/k8s-agents-operator/internal/controller"
+	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
+	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/internal/migrate/upgrade"
+	"github.com/newrelic/k8s-agents-operator/internal/version"
+	"github.com/newrelic/k8s-agents-operator/internal/webhook"
+
 	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	newreliccomv1beta1 "github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
+
+var healthCheckTickInterval = time.Second * 15
 
 var (
 	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
-type tlsConfig struct {
-	minVersion   string
-	cipherSuites []string
-}
-
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(routev1.AddToScheme(scheme)) // TODO: Update this to not use a deprecated method
 	utilruntime.Must(newreliccomv1alpha2.AddToScheme(scheme))
+	utilruntime.Must(newreliccomv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var secureMetrics bool
-	var enableHTTP2 bool
+	var (
+		metricsAddr          string
+		probeAddr            string
+		enableLeaderElection bool
+		secureMetrics        bool
+		enableHTTP2          bool
+	)
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -90,7 +91,8 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	logger := zap.New(zap.UseFlagOptions(&opts))
+	ctrl.SetLogger(logger)
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -206,8 +208,8 @@ func main() {
 
 	if watchNamespace != "" {
 		nsDefaults := map[string]cache.Config{}
-		for _, watchNamespace := range strings.Split(watchNamespace, ",") {
-			nsDefaults[watchNamespace] = cache.Config{}
+		for _, watchNamespaceEntry := range strings.Split(watchNamespace, ",") {
+			nsDefaults[watchNamespaceEntry] = cache.Config{}
 		}
 		mgrOptions.Cache = cache.Options{DefaultNamespaces: nsDefaults}
 	}
@@ -226,8 +228,52 @@ func main() {
 		os.Exit(1)
 	}
 
+	instrumentationStatusUpdater := instrumentation.NewInstrumentationStatusUpdater(mgr.GetClient())
+	healthApi := instrumentation.NewHealthCheckApi(http.DefaultClient)
+	healthMonitor := instrumentation.NewHealthMonitor(
+		instrumentationStatusUpdater, healthApi, healthCheckTickInterval, 50, 50, 2,
+	)
+	go func() {
+		<-ctx.Done()
+		logger.Info("Shutting down health checker")
+		stopCtx, stopCtxCancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer stopCtxCancel()
+		if err := healthMonitor.Shutdown(stopCtx); err != nil {
+			setupLog.Error(err, "failed to shutdown health checker")
+		} else {
+			logger.Info("Shut down health checker")
+		}
+	}()
+
+	if err = (&controller.NamespaceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, healthMonitor); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Namespace")
+		os.Exit(1)
+	}
+	if err = (&controller.PodReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, healthMonitor, operatorNamespace); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Pod")
+		os.Exit(1)
+	}
+	if err = (&controller.InstrumentationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, healthMonitor, operatorNamespace); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Instrumentation")
+		os.Exit(1)
+	}
+
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&newreliccomv1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, ctrl.Log.WithName("instrumentation-validator")); err != nil {
+		if err = newreliccomv1alpha2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
+			os.Exit(1)
+		}
+
+		if err = newreliccomv1beta1.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
 			os.Exit(1)
 		}

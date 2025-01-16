@@ -10,7 +10,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.5.0"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 const (
@@ -48,7 +48,7 @@ func (i *GoInjector) Language() string {
 	return "go"
 }
 
-func (i *GoInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) bool {
+func (i *GoInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod) bool {
 	if inst.Spec.Agent.Language != i.Language() {
 		return false
 	}
@@ -58,7 +58,7 @@ func (i *GoInjector) acceptable(inst v1alpha2.Instrumentation, pod corev1.Pod) b
 	return true
 }
 
-func (i *GoInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i *GoInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
 	}
@@ -123,10 +123,17 @@ func (i *GoInjector) Inject(ctx context.Context, inst v1alpha2.Instrumentation, 
 	pod = i.injectEnvVar(inst, pod, lastIndex)
 	pod = i.injectCommonSDKConfig(ctx, inst, ns, pod, lastIndex, 0)
 
+	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
+
+	var err error
+	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+		return pod, err
+	}
+
 	return pod, nil
 }
 
-func (i *GoInjector) injectEnvVar(newrelic v1alpha2.Instrumentation, pod corev1.Pod, index int) corev1.Pod {
+func (i *GoInjector) injectEnvVar(newrelic v1beta1.Instrumentation, pod corev1.Pod, index int) corev1.Pod {
 	container := &pod.Spec.Containers[index]
 	for _, env := range newrelic.Spec.Agent.Env {
 		idx := getIndexOfEnv(container.Env, env.Name)
@@ -145,7 +152,7 @@ func (i *GoInjector) injectEnvVar(newrelic v1alpha2.Instrumentation, pod corev1.
 // and appIndex should be the same value.  This is true for dotnet, java, nodejs, python, and ruby instrumentations.
 // Go requires the agent to be a different container in the pod, so the agentIndex should represent this new sidecar
 // and appIndex should represent the application being instrumented.
-func (i *GoInjector) injectCommonSDKConfig(ctx context.Context, newrelic v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentIndex int, appIndex int) corev1.Pod {
+func (i *GoInjector) injectCommonSDKConfig(ctx context.Context, newrelic v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentIndex int, appIndex int) corev1.Pod {
 	container := &pod.Spec.Containers[agentIndex]
 	resourceMap := i.createResourceMap(ctx, newrelic.Spec.Resource, ns, pod, appIndex)
 	idx := getIndexOfEnv(container.Env, EnvOTELServiceName)

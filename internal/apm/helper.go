@@ -17,8 +17,10 @@ package apm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -34,8 +36,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
@@ -54,10 +57,12 @@ const (
 	DescK8sAgentOperatorVersionLabelName = "newrelic-k8s-agents-operator-version"
 )
 
+const instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
+
 var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")
 
 type Injector interface {
-	Inject(ctx context.Context, inst v1alpha2.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
+	Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
 	Language() string
 	ConfigureClient(client client.Client)
 	ConfigureLogger(logger logr.Logger)
@@ -165,6 +170,15 @@ func getIndexOfEnv(envs []corev1.EnvVar, name string) int {
 	return -1
 }
 
+func getValueFromEnv(envVars []corev1.EnvVar, name string) (string, bool) {
+	for _, env := range envVars {
+		if env.Name == name {
+			return env.Value, true
+		}
+	}
+	return "", false
+}
+
 // setEnvVar function sets env var to the container if not exist already.
 // value of concatValues should be set to true if the env var supports multiple values separated by :.
 // If it is set to false, the original container's env var value has priority.
@@ -209,7 +223,7 @@ func (i *baseInjector) ConfigureClient(client client.Client) {
 	i.client = client
 }
 
-func (i *baseInjector) validate(inst v1alpha2.Instrumentation) error {
+func (i *baseInjector) validate(inst v1beta1.Instrumentation) error {
 	if inst.Spec.LicenseKeySecret == "" {
 		return fmt.Errorf("licenseKeySecret must not be blank")
 	}
@@ -233,13 +247,13 @@ func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Co
 	return container
 }
 
-func (i *baseInjector) injectNewrelicConfig(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int, licenseKeySecret string) corev1.Pod {
+func (i *baseInjector) injectNewrelicConfig(ctx context.Context, resource v1beta1.Resource, ns corev1.Namespace, pod corev1.Pod, index int, licenseKeySecret string) corev1.Pod {
 	pod = i.injectNewrelicEnvConfig(ctx, resource, ns, pod, index)
 	pod.Spec.Containers[index] = i.injectNewrelicLicenseKeyIntoContainer(pod.Spec.Containers[index], licenseKeySecret)
 	return pod
 }
 
-func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int) corev1.Pod {
+func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1beta1.Resource, ns corev1.Namespace, pod corev1.Pod, index int) corev1.Pod {
 	container := &pod.Spec.Containers[index]
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
 		//@todo: how can we do this if multiple injectors need this?
@@ -255,10 +269,9 @@ func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1a
 			Value: "operator:auto-injection",
 		})
 	} else {
-		customLabel := container.Env[idx].Value
-		customLabel += ";operator:auto-injection"
-		container.Env[idx].Value = customLabel
-
+		labelAttributes := decodeAttributes(container.Env[idx].Value, ";", ":")
+		labelAttributes["operator"] = "auto-injection"
+		container.Env[idx].Value = encodeAttributes(labelAttributes, ";", ":")
 	}
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicK8sOperatorEnabled); idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -267,13 +280,44 @@ func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, resource v1a
 		})
 	}
 	// Also apply specific pod labels indicating that operator is being attached and it's version
-	ApplyLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
+	applyLabelToPod(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
 	return pod
+}
+
+func decodeAttributes(str string, fieldSeparator string, valueSeparator string) map[string]string {
+	labelAttributes := map[string]string{}
+	for _, attr := range strings.Split(str, fieldSeparator) {
+		attrParts := strings.SplitN(attr, valueSeparator, 2)
+		if len(attrParts) != 2 {
+			continue
+		}
+		attrKey, attrValue := attrParts[0], attrParts[1]
+		labelAttributes[attrKey] = attrValue
+	}
+	return labelAttributes
+}
+
+func encodeAttributes(m map[string]string, fieldSeparator string, valueSeparator string) string {
+	str := ""
+	i := 0
+	keys := make([]string, len(m))
+	for key := range m {
+		keys[i] = key
+		i++
+	}
+	slices.Sort(keys)
+	for i, key := range keys {
+		if i > 0 {
+			str += fieldSeparator
+		}
+		str += key + valueSeparator + m[key]
+	}
+	return str
 }
 
 // createResourceMap creates resource attribute map.
 // User defined attributes (in explicitly set env var) have higher precedence.
-func (i *baseInjector) createResourceMap(ctx context.Context, resource v1alpha2.Resource, ns corev1.Namespace, pod corev1.Pod, index int) map[string]string {
+func (i *baseInjector) createResourceMap(ctx context.Context, resource v1beta1.Resource, ns corev1.Namespace, pod corev1.Pod, index int) map[string]string {
 
 	//@todo: revise this? this is specific to the golang apm
 	// get existing resources env var and parse it into a map
@@ -400,11 +444,35 @@ func createServiceInstanceId(namespaceName, podName, containerName string) strin
 	return serviceInstanceId
 }
 
-func ApplyLabel(pod *corev1.Pod, key, val string) *corev1.Pod {
-	labels := pod.ObjectMeta.GetLabels()
+func applyLabelToPod(pod *corev1.Pod, key, val string) *corev1.Pod {
+	labels := pod.Labels
 	if labels == nil {
 		pod.ObjectMeta.Labels = make(map[string]string)
 	}
 	pod.ObjectMeta.Labels[key] = val
+	return pod
+}
+
+func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev1.Pod, inst v1beta1.Instrumentation) corev1.Pod {
+	logger := log.FromContext(ctx)
+	instName := types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()
+	instVersions := map[string]string{}
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+	if v, ok := pod.Annotations[instrumentationVersionAnnotation]; ok {
+		err := json.Unmarshal([]byte(v), &instVersions)
+		if err != nil {
+			// crVersions could have incomplete data, however, some of the annotations may still be valid, so we'll keep them
+			logger.Error(err, "Failed to unmarshal instrumentation version annotation, skipping adding new instrumentation version to pod annotation")
+		}
+	}
+	instVersions[instName] = fmt.Sprintf("%s/%d", inst.UID, inst.Generation)
+	instVersionBytes, err := json.Marshal(instVersions)
+	if err != nil {
+		logger.Error(err, "Failed to marshal instrumentation version annotation")
+		return pod
+	}
+	pod.Annotations[instrumentationVersionAnnotation] = string(instVersionBytes)
 	return pod
 }

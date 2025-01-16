@@ -20,9 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/internal/apm"
-	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
-	"github.com/newrelic/k8s-agents-operator/internal/webhook"
 	"io"
 	"net"
 	"os"
@@ -34,12 +31,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -52,6 +46,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
+	"github.com/newrelic/k8s-agents-operator/internal/version"
+	"github.com/newrelic/k8s-agents-operator/internal/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -107,6 +109,11 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	if err = v1beta1.AddToScheme(testScheme); err != nil {
+		fmt.Printf("failed to register scheme: %v", err)
+		os.Exit(1)
+	}
+
 	if err = admissionv1.AddToScheme(testScheme); err != nil {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
@@ -137,16 +144,56 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	if err = (&v1alpha2.Instrumentation{}).SetupWebhookWithManager(mgr, logger); err != nil {
-		logger.Error(err, "unable to create webhook", "webhook", "Instrumentation")
+	operatorNamespace := "newrelic"
+	injectorRegistry := apm.DefaultInjectorRegistry
+
+	v1alpha2InstDefaulter := &v1alpha2.InstrumentationDefaulter{}
+	v1alpha2InstValidator := &v1alpha2.InstrumentationValidator{
+		OperatorNamespace: operatorNamespace,
+	}
+	err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.Instrumentation{}).
+		WithValidator(v1alpha2InstValidator).
+		WithDefaulter(v1alpha2InstDefaulter).
+		Complete()
+	if err != nil {
+		fmt.Printf("failed to register instrumentation webhook: %v", mgrErr)
 		os.Exit(1)
 	}
 
-	operatorNamespace := "newrelic"
-	if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, logger); err != nil {
-		logger.Error(err, "unable to register pod mutate webhook")
+	v1beta1InstDefaulter := &v1beta1.InstrumentationDefaulter{}
+	v1beta1InstValidator := &v1beta1.InstrumentationValidator{
+		OperatorNamespace: operatorNamespace,
+	}
+	err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1beta1.Instrumentation{}).
+		WithValidator(v1beta1InstValidator).
+		WithDefaulter(v1beta1InstDefaulter).
+		Complete()
+	if err != nil {
+		fmt.Printf("failed to register instrumentation webhook: %v", mgrErr)
 		os.Exit(1)
 	}
+
+	client := mgr.GetClient()
+	injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
+	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
+		Handler: &webhook.PodMutationHandler{
+			Client:  client,
+			Decoder: admission.NewDecoder(mgr.GetScheme()),
+			Mutators: []webhook.PodMutator{
+				instrumentation.NewMutator(
+					logger,
+					client,
+					injector,
+					secretReplicator,
+					instrumentationLocator,
+					operatorNamespace,
+				),
+			},
+		}})
 
 	go func() {
 		if err = mgr.Start(ctx); err != nil {
@@ -204,7 +251,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 		name                 string
 		initNamespaces       []corev1.Namespace
 		initSecrets          []corev1.Secret
-		initInstrumentations []v1alpha2.Instrumentation
+		initInstrumentations []v1beta1.Instrumentation
 		initPod              corev1.Pod
 		expectedPod          corev1.Pod
 	}{
@@ -219,14 +266,14 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
 				},
 			},
-			initInstrumentations: []v1alpha2.Instrumentation{
+			initInstrumentations: []v1beta1.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation-python", Namespace: "newrelic"},
-					Spec: v1alpha2.InstrumentationSpec{
+					Spec: v1beta1.InstrumentationSpec{
 						PodLabelSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{"inject": "python"},
 						},
-						Agent: v1alpha2.Agent{
+						Agent: v1beta1.Agent{
 							Language: "python",
 							Image:    "not-a-real-python-image",
 						},
@@ -246,9 +293,13 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 				},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: "alpine1", Namespace: "default", Labels: map[string]string{
-					"inject":                                 "python",
-					apm.DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "alpine1",
+					Namespace: "default",
+					Labels: map[string]string{
+						"inject":                                 "python",
+						apm.DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
+					},
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
@@ -304,16 +355,16 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 					Data:       map[string][]byte{apm.LicenseKey: []byte("fake-secret-abc123")},
 				},
 			},
-			initInstrumentations: []v1alpha2.Instrumentation{
+			initInstrumentations: []v1beta1.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation-php", Namespace: "newrelic"},
-					Spec: v1alpha2.InstrumentationSpec{
+					Spec: v1beta1.InstrumentationSpec{
 						PodLabelSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"inject": "php",
 							},
 						},
-						Agent: v1alpha2.Agent{
+						Agent: v1beta1.Agent{
 							Language: "php-8.3",
 							Image:    "not-a-real-php-image",
 						},
@@ -413,6 +464,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 			"CreationTimestamp",
 			"ManagedFields",
 			"ResourceVersion",
+			"Annotations",
 			"UID",
 		),
 		cmpopts.IgnoreFields(corev1.Container{},

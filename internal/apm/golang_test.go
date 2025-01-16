@@ -2,13 +2,15 @@ package apm
 
 import (
 	"context"
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 )
 
 func TestGoInjector_Language(t *testing.T) {
@@ -22,7 +24,7 @@ func TestGoInjector_Inject(t *testing.T) {
 		name           string
 		pod            corev1.Pod
 		ns             corev1.Namespace
-		inst           v1alpha2.Instrumentation
+		inst           v1beta1.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
 	}{
@@ -46,7 +48,7 @@ func TestGoInjector_Inject(t *testing.T) {
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "not-this"}}},
+			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "not-this"}}},
 		},
 		{
 			name: "a container, instrumentation with blank licenseKeySecret",
@@ -57,12 +59,15 @@ func TestGoInjector_Inject(t *testing.T) {
 				{Name: "test"},
 			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
-			inst:           v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "go"}}},
+			inst:           v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "go"}}},
 		},
 		{
 			name: "a container, instrumentation",
 			pod:  corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "test"}}}},
 			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"newrelic.com/instrumentation-versions": `{"/":"/0"}`},
+				},
 				Spec: corev1.PodSpec{
 					ShareProcessNamespace: &vtrue,
 					Containers: []corev1.Container{
@@ -85,7 +90,7 @@ func TestGoInjector_Inject(t *testing.T) {
 					},
 				},
 			},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "go"}, LicenseKeySecret: "newrelic-key-secret"}},
+			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "go"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
 	}
 	for _, test := range tests {

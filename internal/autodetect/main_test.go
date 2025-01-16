@@ -18,10 +18,11 @@ package autodetect_test
 
 import (
 	"encoding/json"
-	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

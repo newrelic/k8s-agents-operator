@@ -10,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
@@ -24,7 +24,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 		name           string
 		pod            corev1.Pod
 		ns             corev1.Namespace
-		inst           v1alpha2.Instrumentation
+		inst           v1beta1.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
 	}{
@@ -48,7 +48,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "not-this"}}},
+			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "not-this"}}},
 		},
 		{
 			name: "a container, instrumentation with blank licenseKeySecret",
@@ -59,7 +59,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 				{Name: "test"},
 			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
-			inst:           v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "dotnet"}}},
+			inst:           v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "dotnet"}}},
 		},
 		{
 			name: "a container, instrumentation",
@@ -69,7 +69,11 @@ func TestDotnetInjector_Inject(t *testing.T) {
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
+						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
+					},
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -93,7 +97,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 					}},
 					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				}},
-			inst: v1alpha2.Instrumentation{Spec: v1alpha2.InstrumentationSpec{Agent: v1alpha2.Agent{Language: "dotnet"}, LicenseKeySecret: "newrelic-key-secret"}},
+			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "dotnet"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
 	}
 	for _, test := range tests {
