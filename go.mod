@@ -8,7 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/openshift/api v0.0.0-20241211151016-1a7b90faeadf
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.32.0
 	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
