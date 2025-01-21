@@ -117,7 +117,7 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 		"go",
 		"java",
 		"nodejs",
-		"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "php-8.4",
+		"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3",
 		"python",
 		"ruby",
 	}
