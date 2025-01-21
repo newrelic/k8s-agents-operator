@@ -1,4 +1,5 @@
 resources:
+- bases/newrelic-agent-operator.clusterserviceversion.yaml
 - ../default
 - ../samples
 - ../scorecard

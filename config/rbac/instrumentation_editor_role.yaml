@@ -1,0 +1,24 @@
+# permissions for end users to edit instrumentations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: instrumentation-editor-role
+rules:
+- apiGroups:
+  - newrelic.com
+  resources:
+  - instrumentations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - newrelic.com
+  resources:
+  - instrumentations/status
+  verbs:
+  - get

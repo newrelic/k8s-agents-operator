@@ -28,10 +28,10 @@ affinity: {}
 # -- Source: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 # -- SecurityContext holds pod-level security attributes and common container settings
 podSecurityContext:
-  runAsGroup: 65532
+#  runAsGroup: 65532
   runAsNonRoot: true
-  runAsUser: 65532
-  fsGroup: 65532
+#  runAsUser: 65532
+#  fsGroup: 65532
 # -- Sets all security context (at container level). Can be configured also with `global.securityContext.container`
 containerSecurityContext: {}
 
@@ -48,31 +48,22 @@ controllerManager:
       version:
       pullPolicy:
     resources:
+      limits:
+        cpu: 500m
+        memory: 192Mi
       requests:
         cpu: 100m
         memory: 64Mi
     # -- Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext`
-    containerSecurityContext: {}
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
     # -- Source: https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
     # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
     leaderElection:
       enabled: true
-
-  kubeRbacProxy:
-    image:
-      # -- Sets the repository and image to use for kube-rbac-proxy. Please ensure you're using a trusted image.
-      repository: gcr.io/kubebuilder/kube-rbac-proxy
-      # -- Sets the kube-rbac-proxy image version to retrieve. Could be a tag i.e. "v0.16.0" or a SHA digest i.e. "sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea"
-      version: sha256:771a9a173e033a3ad8b46f5c00a7036eaa88c8d8d1fbd89217325168998113ea
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 5m
-        memory: 64Mi
-    # -- Sets security context (at container level) for kubeRbacProxy. Overrides `containerSecurityContext` and `global.containerSecurityContext`
-    containerSecurityContext: {}
 
 # -- Settings controlling ServiceAccount creation
 # @default -- See `values.yaml`
@@ -90,7 +81,7 @@ metricsService:
   - name: https
     port: 8443
     protocol: TCP
-    targetPort: https
+    targetPort: 8443
   type: ClusterIP
 
 webhookService:
