@@ -46,6 +46,35 @@ func TestHealthMonitor(t *testing.T) {
 		expectedInstrumentationStatus  v1beta1.InstrumentationStatus
 	}{
 		{
+			name: "no health agent configured",
+			fnHealthCheck: fakeHealthCheck(func(ctx context.Context, url string) (health Health, err error) {
+				logger := log.FromContext(ctx)
+				logger.Info("fake health check")
+				return Health{}, nil
+			}),
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *v1beta1.Instrumentation) error {
+				logger := log.FromContext(ctx)
+				logger.Info("fake instrumentation status updater")
+				return nil
+			}),
+			namespaces: map[string]*corev1.Namespace{
+				"default":  {ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+				"newrelic": {ObjectMeta: metav1.ObjectMeta{Name: "newrelic"}},
+			},
+			pods: map[string]*corev1.Pod{
+				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default"}},
+			},
+			instrumentations: map[string]*v1beta1.Instrumentation{
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"},
+					Spec:       v1beta1.InstrumentationSpec{HealthAgent: v1beta1.HealthAgent{Image: "health"}},
+				},
+			},
+			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
+				PodsMatching: 1,
+			},
+		},
+		{
 			name: "matching but not injected",
 			fnHealthCheck: fakeHealthCheck(func(ctx context.Context, url string) (health Health, err error) {
 				logger := log.FromContext(ctx)
@@ -65,7 +94,10 @@ func TestHealthMonitor(t *testing.T) {
 				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default"}},
 			},
 			instrumentations: map[string]*v1beta1.Instrumentation{
-				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"}},
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"},
+					Spec:       v1beta1.InstrumentationSpec{HealthAgent: v1beta1.HealthAgent{Image: "health"}},
+				},
 			},
 			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching: 1,
@@ -91,7 +123,10 @@ func TestHealthMonitor(t *testing.T) {
 				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default", Annotations: map[string]string{"newrelic.com/apm-health": "true"}}},
 			},
 			instrumentations: map[string]*v1beta1.Instrumentation{
-				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"}},
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"},
+					Spec:       v1beta1.InstrumentationSpec{HealthAgent: v1beta1.HealthAgent{Image: "health"}},
+				},
 			},
 			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching: 1,
@@ -123,7 +158,10 @@ func TestHealthMonitor(t *testing.T) {
 				}}},
 			},
 			instrumentations: map[string]*v1beta1.Instrumentation{
-				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
+					Spec:       v1beta1.InstrumentationSpec{HealthAgent: v1beta1.HealthAgent{Image: "health"}},
+				},
 			},
 			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching: 1,
@@ -161,7 +199,10 @@ func TestHealthMonitor(t *testing.T) {
 				},
 			},
 			instrumentations: map[string]*v1beta1.Instrumentation{
-				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
+					Spec:       v1beta1.InstrumentationSpec{HealthAgent: v1beta1.HealthAgent{Image: "health"}},
+				},
 			},
 			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching:        1,
@@ -208,7 +249,10 @@ func TestHealthMonitor(t *testing.T) {
 				},
 			},
 			instrumentations: map[string]*v1beta1.Instrumentation{
-				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
+					Spec:       v1beta1.InstrumentationSpec{HealthAgent: v1beta1.HealthAgent{Image: "health"}},
+				},
 			},
 			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching:        1,
@@ -259,7 +303,10 @@ func TestHealthMonitor(t *testing.T) {
 				},
 			},
 			instrumentations: map[string]*v1beta1.Instrumentation{
-				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
+					Spec:       v1beta1.InstrumentationSpec{HealthAgent: v1beta1.HealthAgent{Image: "health"}},
+				},
 			},
 			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching:        1,
@@ -310,7 +357,10 @@ func TestHealthMonitor(t *testing.T) {
 				},
 			},
 			instrumentations: map[string]*v1beta1.Instrumentation{
-				"newrelic/instrumentation0": {ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55}},
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
+					Spec:       v1beta1.InstrumentationSpec{HealthAgent: v1beta1.HealthAgent{Image: "health"}},
+				},
 			},
 			expectedInstrumentationStatus: v1beta1.InstrumentationStatus{
 				PodsMatching:        1,
