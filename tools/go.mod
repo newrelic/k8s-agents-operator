@@ -1,6 +1,6 @@
 module tools
 
-go 1.23.0
+go 1.23.5
 
 require (
 	github.com/arttor/helmify v0.4.17
