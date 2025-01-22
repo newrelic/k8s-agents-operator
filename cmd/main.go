@@ -245,42 +245,13 @@ func main() {
 		}
 	}()
 
-	if err = (&controller.NamespaceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, healthMonitor); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Namespace")
+	if err = setupReconcilers(mgr, healthMonitor, operatorNamespace); err != nil {
+		setupLog.Error(err, "failed to setup reconcilers")
 		os.Exit(1)
 	}
-	if err = (&controller.PodReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, healthMonitor, operatorNamespace); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Pod")
-		os.Exit(1)
-	}
-	if err = (&controller.InstrumentationReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, healthMonitor, operatorNamespace); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Instrumentation")
-		os.Exit(1)
-	}
-
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = newreliccomv1alpha2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
-			os.Exit(1)
-		}
-
-		if err = newreliccomv1beta1.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Instrumentation")
-			os.Exit(1)
-		}
-
-		// Register the Pod mutation webhook
-		if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, ctrl.Log.WithName("mutation-webhook")); err != nil {
-			setupLog.Error(err, "unable to register pod mutate webhook")
+		if err = setupWebhooks(mgr, operatorNamespace); err != nil {
+			setupLog.Error(err, "failed to setup webhooks")
 			os.Exit(1)
 		}
 	} else {
@@ -288,12 +259,8 @@ func main() {
 	}
 	// +kubebuilder:scaffold:builder
 
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
+	if err = registerApiHealth(mgr); err != nil {
+		setupLog.Error(err, "failed to register api healthz and readyz")
 		os.Exit(1)
 	}
 
@@ -302,6 +269,56 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func registerApiHealth(mgr manager.Manager) error {
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		return fmt.Errorf("unable to register api health check: %w", err)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		return fmt.Errorf("unable to register api ready check: %w", err)
+	}
+	return nil
+}
+
+func setupWebhooks(mgr manager.Manager, operatorNamespace string) error {
+	var err error
+	if err = newreliccomv1alpha2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
+		return fmt.Errorf("unable to create v1alpha2 Instrumentation webhook: %w", err)
+	}
+
+	if err = newreliccomv1beta1.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
+		return fmt.Errorf("unable to create v1beta1 Instrumentation webhook: %w", err)
+	}
+
+	// Register the Pod mutation webhook
+	if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, ctrl.Log.WithName("mutation-webhook")); err != nil {
+		return fmt.Errorf("unable to register pod mutation webhook: %w", err)
+	}
+	return nil
+}
+
+func setupReconcilers(mgr manager.Manager, healthMonitor *instrumentation.HealthMonitor, operatorNamespace string) error {
+	var err error
+	if err = (&controller.NamespaceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, healthMonitor); err != nil {
+		return fmt.Errorf("unable to create namespace controller: %w", err)
+	}
+	if err = (&controller.PodReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, healthMonitor, operatorNamespace); err != nil {
+		return fmt.Errorf("unable to create pod controller: %w", err)
+	}
+	if err = (&controller.InstrumentationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, healthMonitor, operatorNamespace); err != nil {
+		return fmt.Errorf("unable to create instrumentation controller: %w", err)
+	}
+	return nil
 }
 
 func addDependencies(_ context.Context, mgr ctrl.Manager, cfg config.Config) error {
