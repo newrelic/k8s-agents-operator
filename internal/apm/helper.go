@@ -57,7 +57,7 @@ const (
 	EnvNewRelicK8sOperatorEnabled        = "NEW_RELIC_K8S_OPERATOR_ENABLED"
 	EnvNewRelicLabels                    = "NEW_RELIC_LABELS"
 	EnvNewRelicLicenseKey                = "NEW_RELIC_LICENSE_KEY"
-	EnvApmConfigFile              = "NEW_RELIC_APM_CONFIG"
+	EnvApmConfigFile                     = "NEW_RELIC_CONFIG_FILE"
 	DescK8sAgentOperatorVersionLabelName = "newrelic-k8s-agents-operator-version"
 )
 

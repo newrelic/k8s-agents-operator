@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	testConfigMapName     = "volume-test-configmap"
 	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
 	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
 	javaInitContainerName = initContainerName + "-java"
@@ -89,13 +88,13 @@ func (i *JavaInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation,
 		container.Env[idx].Value = container.Env[idx].Value + javaJVMArgument
 	}
 
-	if testConfigMapName != "" {
+	if inst.Spec.AgentConfigMap != "" {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name: apmConfigVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: testConfigMapName,
+						Name: inst.Spec.AgentConfigMap,
 					},
 				},
 			},
