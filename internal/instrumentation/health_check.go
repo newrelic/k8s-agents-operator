@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Health in the opamp format
 type Health struct {
 	Healthy            bool               `json:"healthy" yaml:"healthy"`
 	Status             string             `json:"status" yaml:"status"`
@@ -18,14 +19,17 @@ type Health struct {
 	ComponentHealthMap map[string]*Health `json:"component_health_map,omitempty" yaml:"component_health_map,omitempty"`
 }
 
+// HealthCheck our api contract
 type HealthCheck interface {
 	GetHealth(ctx context.Context, url string) (health Health, err error)
 }
 
+// HealthCheckApi .
 type HealthCheckApi struct {
 	httpClient *http.Client
 }
 
+// NewHealthCheckApi returns a newly constructed health check client
 func NewHealthCheckApi(httpClient *http.Client) *HealthCheckApi {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
@@ -35,6 +39,7 @@ func NewHealthCheckApi(httpClient *http.Client) *HealthCheckApi {
 	}
 }
 
+// GetHealth to get the health via some url to decode the response in opamp format, provided we got a 200
 func (h *HealthCheckApi) GetHealth(ctx context.Context, url string) (health Health, err error) {
 	var (
 		httpReq *http.Request

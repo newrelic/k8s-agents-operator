@@ -33,6 +33,7 @@ var healthCheckTimeout = time.Second * 15
 
 type eventAction int
 
+// all possible actions in the event loop
 const (
 	podSet eventAction = iota
 	podRemove
@@ -43,6 +44,7 @@ const (
 	triggerHealthCheck
 )
 
+// String to print the event name in the enum
 func (ea eventAction) String() string {
 	switch ea {
 	case podSet:
@@ -64,6 +66,7 @@ func (ea eventAction) String() string {
 	}
 }
 
+// event contains the event action (pod/namespace/instrumentation change or a health check) along with associated data if needed
 type event struct {
 	action eventAction
 	pod    *corev1.Pod
@@ -71,6 +74,8 @@ type event struct {
 	inst   *v1beta1.Instrumentation
 }
 
+// instrumentationMetric contains a copy(pointer to the copy) of the instrumentation, a copy(shared pointer copy) of
+// each matching pod metric (pod + health) along with the aggregated summary of the health of all the pod metric health
 type instrumentationMetric struct {
 	instrumentationID string
 	instrumentation   *v1beta1.Instrumentation
@@ -85,11 +90,14 @@ type instrumentationMetric struct {
 	unhealthyPods     []v1beta1.UnhealthyPodError
 }
 
+// resolve marks the instrumentation metric done.  anything waiting via `wait` will continue
 func (im *instrumentationMetric) resolve() {
 	close(im.doneCh)
 }
 
+// wait will continue once `resolve` is called or the context expires, whichever happens first
 func (im *instrumentationMetric) wait(ctx context.Context) error {
+	// keep this block here.  for deterministic thread scheduling
 	select {
 	case <-im.doneCh:
 		return nil
@@ -103,6 +111,7 @@ func (im *instrumentationMetric) wait(ctx context.Context) error {
 	}
 }
 
+// isDiff to check for differences.  used to know if we need to write any data
 func (im *instrumentationMetric) isDiff() bool {
 	if im.instrumentation.Status.PodsInjected != im.podsInjected {
 		return true
@@ -123,6 +132,7 @@ func (im *instrumentationMetric) isDiff() bool {
 	return !reflect.DeepEqual(im.unhealthyPods, im.instrumentation.Status.UnhealthyPodsErrors)
 }
 
+// syncStatus to copy the data from the instrumentation metric to the instrumentation
 func (im *instrumentationMetric) syncStatus() {
 	im.instrumentation.Status.PodsOutdated = im.podsOutdated
 	im.instrumentation.Status.PodsInjected = im.podsInjected
@@ -134,20 +144,23 @@ func (im *instrumentationMetric) syncStatus() {
 	im.instrumentation.Status.UnhealthyPodsErrors = im.unhealthyPods
 }
 
+// podMetric contains the pod, it's id (used for logging), health (empty by default), and doneCh - which is closed once health has been retrieved
 type podMetric struct {
-	pod              *corev1.Pod
-	podID            string
-	needsHealthCheck bool
-	health           Health
-	doneCh           chan struct{}
+	pod    *corev1.Pod
+	podID  string
+	health Health
+	doneCh chan struct{}
 }
 
+// resolve sets the health data and closes doneCh, which signals other processes (go routines) to continue
 func (pm *podMetric) resolve(health Health) {
 	pm.health = health
 	close(pm.doneCh)
 }
 
+// wait will wait for doneCh to close or the context to expire, which ever occurs first.
 func (pm *podMetric) wait(ctx context.Context) error {
+	// check for doneCh for determinism while testing
 	select {
 	case <-pm.doneCh:
 		return nil
@@ -161,26 +174,28 @@ func (pm *podMetric) wait(ctx context.Context) error {
 	}
 }
 
+// healthCheckData contains all the needed data for checking health in the cluster at a given moment in time
 type healthCheckData struct {
 	podMetrics             []*podMetric
 	instrumentationMetrics []*instrumentationMetric
 }
 
+// HealthMonitor .
 type HealthMonitor struct {
 	healthCheckActive int64
-	_padding1         [3]int64
+	// cpu cache align healthCheckActive so that it can atomically change without affecting cache coherency
+	_padding1 [3]int64
 
 	checksToSkip int64
-	_padding2    [3]int64
+	// cpu cache align checksToSkip so that it can atomically change without affecting cache coherency
+	_padding2 [3]int64
 
-	doneCh   chan struct{}
-	doneOnce *sync.Once
-
-	shutdownCh   chan struct{}
+	// channel used to wait for all workers to finish when shutting down or closing
+	doneCh chan struct{}
+	// only close the doneCh channel once
+	doneOnce     *sync.Once
 	shutdownOnce *sync.Once
-
-	stopCh   chan struct{}
-	stopOnce *sync.Once
+	stopOnce     *sync.Once
 
 	healthApi                         HealthCheck
 	instrumentationStatusUpdater      InstrumentationStatusUpdater
@@ -201,6 +216,7 @@ type HealthMonitor struct {
 	tickInterval       time.Duration
 }
 
+// NewHealthMonitor returns a new instance of a health monitor which check the health of pods via the health sidecar
 func NewHealthMonitor(
 	instrumentationStatusUpdater InstrumentationStatusUpdater,
 	healthCheck HealthCheck,
@@ -217,9 +233,7 @@ func NewHealthMonitor(
 		pods:             make(map[string]*corev1.Pod),
 		namespaces:       make(map[string]*corev1.Namespace),
 
-		shutdownCh:   make(chan struct{}),
 		shutdownOnce: &sync.Once{},
-		stopCh:       make(chan struct{}),
 		stopOnce:     &sync.Once{},
 		doneCh:       make(chan struct{}),
 		doneOnce:     &sync.Once{},
@@ -228,27 +242,35 @@ func NewHealthMonitor(
 		tickInterval:       tickInterval,
 	}
 	m.ticker = ticker.NewTicker(tickInterval, func(ctx context.Context, _ time.Time) {
+		// schedule the health check of the cluster
 		_ = m.resourceQueue.Add(ctx, event{action: triggerHealthCheck})
 	})
 	m.resourceQueue = worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
+		// convert interface/any to correct object type
 		m.resourceQueueEvent(ctx, data.(event))
 	})
 	m.healthCheckQueue = worker.NewManyWorkers(2, 0, func(ctx context.Context, data any) {
+		// convert interface/any to correct object type
 		m.healthCheckQueueEvent(ctx, data.(healthCheckData))
 	})
 	m.podMetricsQueue = worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
+		// convert interface/any to correct object type
 		m.podMetricsQueueEvent(ctx, data.([]*podMetric))
 	})
 	m.podMetricQueue = worker.NewManyWorkers(podMetricWorkers, 0, func(ctx context.Context, data any) {
+		// convert interface/any to correct object type
 		m.podMetricQueueEvent(ctx, data.(*podMetric))
 	})
 	m.instrumentationMetricsQueue = worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
+		// convert interface/any to correct object type
 		m.instrumentationMetricsQueueEvent(ctx, data.([]*instrumentationMetric))
 	})
 	m.instrumentationMetricQueue = worker.NewManyWorkers(instrumentationsMetricWorkers, 0, func(ctx context.Context, data any) {
+		// convert interface/any to correct object type
 		m.instrumentationMetricQueueEvent(ctx, data.(*instrumentationMetric))
 	})
 	m.instrumentationMetricPersistQueue = worker.NewManyWorkers(instrumentationsMetricPersistWorkers, 0, func(ctx context.Context, data any) {
+		// convert interface/any to correct object type
 		m.instrumentationMetricPersistQueueEvent(ctx, data.(*instrumentationMetric))
 	})
 	return m
@@ -277,6 +299,7 @@ func (m *HealthMonitor) resourceQueueEvent(ctx context.Context, ev event) {
 		logger.V(1).Info("event", "action", ev.action.String(), "entity", "namespace/"+ev.inst.Namespace+"/instrumentation/"+ev.inst.Name)
 		delete(m.instrumentations, ev.inst.Namespace+"/"+ev.inst.Name)
 	case triggerHealthCheck:
+		// skip health check if it's already active
 		if atomic.LoadInt64(&m.healthCheckActive) == 1 {
 			return
 		}
@@ -292,17 +315,20 @@ func (m *HealthMonitor) resourceQueueEvent(ctx context.Context, ev event) {
 			logger.Info("nothing to report the health to.  No instrumentations")
 			return
 		}
+		// use the required data at this point in time to do health checks
 		_ = m.healthCheckQueue.Add(ctx, healthCheckData{podMetrics: podMetrics, instrumentationMetrics: instrumentationMetrics})
 	}
 }
 
 func (m *HealthMonitor) healthCheckQueueEvent(ctx context.Context, event healthCheckData) {
-	// consume any extra ticks that might be waiting
+	// swap the current active state with 1, if the returned state is 1 (active), we should return since it's already running
 	if atomic.SwapInt64(&m.healthCheckActive, 1) == 1 {
 		return
 	}
+	// set the active state to 0 (false) when this returns
 	defer atomic.StoreInt64(&m.healthCheckActive, 0)
 
+	// depending on how long this takes to run, if we exceed the interval duration (15sec), we will skip every health check after until we are at less than 50% utilization
 	if m.checksToSkip > 0 {
 		m.checksToSkip--
 		return
@@ -311,11 +337,15 @@ func (m *HealthMonitor) healthCheckQueueEvent(ctx context.Context, event healthC
 	logger := log.FromContext(ctx)
 	healthCheckStartTime := time.Now()
 
+	// send off pod metrics to another queue to be processed async
 	_ = m.podMetricsQueue.Add(ctx, event.podMetrics)
+	// send off instrumentation metrics to another queue to be processed async
 	_ = m.instrumentationMetricsQueue.Add(ctx, event.instrumentationMetrics)
+	// wait for all instrumentation metrics to be summarized and aggregated and finally persisted
 	for _, eventInstrumentationMetric := range event.instrumentationMetrics {
 		_ = eventInstrumentationMetric.wait(ctx)
 	}
+	// wait for any pod metrics to finish being collected.  even if nothing needs to be collected this will still complete
 	for _, eventPodMetric := range event.podMetrics {
 		_ = eventPodMetric.wait(ctx)
 	}
@@ -332,17 +362,20 @@ func (m *HealthMonitor) healthCheckQueueEvent(ctx context.Context, event healthC
 }
 
 func (m *HealthMonitor) podMetricsQueueEvent(ctx context.Context, event []*podMetric) {
+	// process each pod metric individually
 	for _, eventPodMetric := range event {
 		_ = m.podMetricQueue.Add(ctx, eventPodMetric)
 	}
 }
 
 func (m *HealthMonitor) podMetricQueueEvent(ctx context.Context, event *podMetric) {
+	// check the pod health, save the data in the pod metrics
 	health := m.check(ctx, event)
 	event.resolve(health)
 }
 
 func (m *HealthMonitor) instrumentationMetricsQueueEvent(ctx context.Context, event []*instrumentationMetric) {
+	// calculate the instrumentation metrics individually
 	for _, eventInstrumentationMetric := range event {
 		_ = m.instrumentationMetricQueue.Add(ctx, eventInstrumentationMetric)
 	}
@@ -350,6 +383,7 @@ func (m *HealthMonitor) instrumentationMetricsQueueEvent(ctx context.Context, ev
 
 func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, event *instrumentationMetric) {
 	for _, eventPodMetrics := range event.podMetrics {
+		// wait for pod metrics (health) to be collected
 		_ = eventPodMetrics.wait(ctx)
 		event.podsMatching++
 		if !m.isPodInstrumented(eventPodMetrics.pod) {
@@ -374,10 +408,12 @@ func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, eve
 			})
 		}
 	}
+	// send our instrumentation metrics off to be persisted
 	_ = m.instrumentationMetricPersistQueue.Add(ctx, event)
 }
 
 func (m *HealthMonitor) instrumentationMetricPersistQueueEvent(ctx context.Context, event *instrumentationMetric) {
+	// mark instrumentation metrics done once the status has been persisted (if required)
 	defer event.resolve()
 	logger := log.FromContext(ctx).WithValues(
 		"id", event.instrumentationID,
@@ -393,13 +429,6 @@ func (m *HealthMonitor) instrumentationMetricPersistQueueEvent(ctx context.Conte
 	if event.isDiff() {
 		event.syncStatus()
 		event.instrumentation.Status.LastUpdated = metav1.Now()
-
-		select {
-		case <-m.stopCh:
-			return
-		default:
-		}
-
 		if err := m.instrumentationStatusUpdater.UpdateInstrumentationStatus(ctx, event.instrumentation); err != nil {
 			logger.Error(err, "failed to update status for instrumentation")
 		}
@@ -423,12 +452,17 @@ func (m *HealthMonitor) getPodMetrics(ctx context.Context) []*podMetric {
 	return podMetrics[0:i]
 }
 
+// getInstrumentationMetrics is used to find all pods that match the instrumentation selectors.  each instrumentation metric will have the associated pod metrics
 func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetrics []*podMetric) []*instrumentationMetric {
 	logger := log.FromContext(ctx)
 	var instrumentationMetrics = make([]*instrumentationMetric, len(m.instrumentations))
 	i := 0
-	matchedPodMetricIDs := map[string]struct{}{}
 	for _, instrumentation := range m.instrumentations {
+		// skip instrumentation without the health agent configuration, because it's extra work without any benefit
+		if instrumentation.Spec.HealthAgent.IsEmpty() {
+			continue
+		}
+
 		podSelector, err := metav1.LabelSelectorAsSelector(&instrumentation.Spec.PodLabelSelector)
 		if err != nil {
 			logger.Error(err, "failed to parse instrumentation pod selector",
@@ -457,7 +491,6 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 				continue
 			}
 			instPodMetrics = append(instPodMetrics, podMetricItem)
-			matchedPodMetricIDs[podMetricItem.podID] = struct{}{}
 		}
 
 		instrumentationMetrics[i] = &instrumentationMetric{
@@ -472,6 +505,7 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 	return instrumentationMetrics[0:i]
 }
 
+// getHealthUrlFromPod is used to get the pod ip and port of the container for the health sidecar
 func (m *HealthMonitor) getHealthUrlFromPod(pod *corev1.Pod) (string, error) {
 	var sidecars = make([]corev1.Container, 0, 1)
 	for _, container := range pod.Spec.InitContainers {
@@ -499,10 +533,12 @@ func (m *HealthMonitor) getHealthUrlFromPod(pod *corev1.Pod) (string, error) {
 	return fmt.Sprintf(healthUrlFormat, pod.Status.PodIP, sidecar.Ports[0].ContainerPort), nil
 }
 
+// isPodReady is ued to calculate if a pod is ready
 func (m *HealthMonitor) isPodReady(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodRunning
 }
 
+// isPodOutdated is used to compare the instrumentation generation against the pod annotation of the instrumentation applied
 func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *v1beta1.Instrumentation) bool {
 	v, ok := pod.Annotations[instrumentationVersionAnnotation]
 	if !ok {
@@ -523,6 +559,7 @@ func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *v1beta1.Instrumenta
 	return false
 }
 
+// isPodInstrumented check if a pod has been instrumented with the health sidecar
 func (m *HealthMonitor) isPodInstrumented(pod *corev1.Pod) bool {
 	if pod.Annotations == nil {
 		return false
@@ -538,6 +575,7 @@ func (m *HealthMonitor) isPodInstrumented(pod *corev1.Pod) bool {
 	return bv
 }
 
+// check is used to check the health of the container, the health sidecar
 func (m *HealthMonitor) check(ctx context.Context, podMetricItem *podMetric) Health {
 	logger := log.FromContext(ctx)
 	if !m.isPodInstrumented(podMetricItem.pod) {
@@ -569,6 +607,8 @@ func (m *HealthMonitor) check(ctx context.Context, podMetricItem *podMetric) Hea
 	return health
 }
 
+// Shutdown is used to shutdown all new work.  anything already processing will continue.  this could be called multiple
+// times.  Calling this will block until either it's finished or the context expires
 func (m *HealthMonitor) Shutdown(ctx context.Context) error {
 	m.shutdownOnce.Do(func() {
 		go func() {
@@ -587,6 +627,8 @@ func (m *HealthMonitor) Shutdown(ctx context.Context) error {
 	return m.waitUntilDone(ctx)
 }
 
+// Stop is used to stop all work.  this could be called multiple times.  Calling this will block until either it's
+// finished or the context expires
 func (m *HealthMonitor) Stop(ctx context.Context) error {
 	m.stopOnce.Do(func() {
 		go func() {
@@ -605,6 +647,7 @@ func (m *HealthMonitor) Stop(ctx context.Context) error {
 	return m.waitUntilDone(ctx)
 }
 
+// waitUntilDone waits for the stop or shutdown to finish, or the context expires
 func (m *HealthMonitor) waitUntilDone(ctx context.Context) error {
 	// intentionally left here for predictable thread scheduling
 	select {
@@ -620,26 +663,32 @@ func (m *HealthMonitor) waitUntilDone(ctx context.Context) error {
 	return nil
 }
 
+// PodSet to set the pod
 func (m *HealthMonitor) PodSet(pod *corev1.Pod) {
 	_ = m.resourceQueue.Add(context.Background(), event{pod: pod, action: podSet})
 }
 
+// PodRemove to remove the pod
 func (m *HealthMonitor) PodRemove(pod *corev1.Pod) {
 	_ = m.resourceQueue.Add(context.Background(), event{pod: pod, action: podRemove})
 }
 
+// NamespaceSet to set the namespace
 func (m *HealthMonitor) NamespaceSet(ns *corev1.Namespace) {
 	_ = m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsSet})
 }
 
+// NamespaceRemove to remove the namespace
 func (m *HealthMonitor) NamespaceRemove(ns *corev1.Namespace) {
 	_ = m.resourceQueue.Add(context.Background(), event{ns: ns, action: nsRemove})
 }
 
+// InstrumentationSet to set the instrumentation
 func (m *HealthMonitor) InstrumentationSet(instrumentation *v1beta1.Instrumentation) {
 	_ = m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instSet})
 }
 
+// InstrumentationRemove to remove the instrumentation
 func (m *HealthMonitor) InstrumentationRemove(instrumentation *v1beta1.Instrumentation) {
 	_ = m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instRemove})
 }
