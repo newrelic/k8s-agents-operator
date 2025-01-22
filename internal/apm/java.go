@@ -25,6 +25,7 @@ import (
 
 const (
 	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
+	envApmConfigFile      = "NEWRELIC_FILE"
 	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
 	javaInitContainerName = initContainerName + "-java"
 )
@@ -106,10 +107,10 @@ func (i *JavaInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation,
 		})
 
 		// Add ENV
-		apmIdx := getIndexOfEnv(container.Env, EnvApmConfigFile)
+		apmIdx := getIndexOfEnv(container.Env, envApmConfigFile)
 		if apmIdx == -1 {
 			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  EnvApmConfigFile,
+				Name:  envApmConfigFile,
 				Value: apmConfigPath,
 			})
 		} else {
