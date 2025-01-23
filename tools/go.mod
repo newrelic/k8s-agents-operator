@@ -10,7 +10,7 @@ require (
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.28.0
 	helm.sh/helm/v3 v3.16.4
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250121065037-b2dbf6eaa9fa
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250122230437-09740a350f8a
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/kustomize/kustomize/v5 v5.5.0
 )
