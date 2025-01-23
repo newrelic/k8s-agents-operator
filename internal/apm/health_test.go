@@ -74,7 +74,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 						}},
 						Env: []corev1.EnvVar{
 							{Name: "test", Value: "test"},
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/newrelic/apm/health"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 							{Name: envHealthListenPort, Value: "6194"},
 						},
 						RestartPolicy: &restartAlways,
@@ -87,7 +87,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/newrelic/apm/health",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/newrelic/apm/health"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
@@ -101,7 +101,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{
 				Name: "test",
 				Env: []corev1.EnvVar{
-					{Name: envAgentControlHealthDeliveryLocation, Value: "/test/health/path"},
+					{Name: envAgentControlHealthDeliveryLocation, Value: "file:///test/health/path"},
 				},
 			}}}},
 			inst: v1beta1.Instrumentation{
@@ -127,7 +127,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/test/health/path",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/test/health/path"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///test/health/path"},
 							{Name: "test", Value: "test"},
 							{Name: envHealthListenPort, Value: "6194"},
 						},
@@ -141,7 +141,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/test/health/path",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/test/health/path"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///test/health/path"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
@@ -159,7 +159,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 				Spec: v1beta1.InstrumentationSpec{
 					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
-						Env:   []corev1.EnvVar{{Name: envAgentControlHealthDeliveryLocation, Value: "/health/this"}},
+						Env:   []corev1.EnvVar{{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"}},
 					},
 				},
 			},
@@ -178,7 +178,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/health/this",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/health/this"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
 							{Name: envHealthListenPort, Value: "6194"},
 						},
 						RestartPolicy: &restartAlways,
@@ -191,7 +191,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/health/this",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/health/this"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
@@ -210,7 +210,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/health/this"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
 							{Name: envHealthListenPort, Value: "6194"},
 						},
 					},
@@ -227,7 +227,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/health/this",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/health/this"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
 							{Name: envHealthListenPort, Value: "6194"},
 						},
 						RestartPolicy: &restartAlways,
@@ -240,7 +240,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/health/this",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/health/this"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
@@ -276,7 +276,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/newrelic/apm/health",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/newrelic/apm/health"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 							{Name: envHealthListenPort, Value: "6194"},
 						},
 						RestartPolicy: &restartAlways,
@@ -289,7 +289,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/newrelic/apm/health",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/newrelic/apm/health"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
@@ -351,7 +351,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/newrelic/apm/health",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/newrelic/apm/health"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 							{Name: envHealthListenPort, Value: "6194"},
 						},
 						RestartPolicy: &restartAlways,
@@ -364,7 +364,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 							MountPath: "/newrelic/apm/health",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/newrelic/apm/health"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 						},
 					}},
 					Volumes: []corev1.Volume{{

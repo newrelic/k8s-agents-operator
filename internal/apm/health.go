@@ -42,7 +42,7 @@ const (
 
 var (
 	defaultHealthListenPort       = 6194
-	defaultHealthDeliveryLocation = "/newrelic/apm/health"
+	defaultHealthDeliveryLocation = "file:///newrelic/apm/health"
 )
 
 var healthDefaultEnv = []corev1.EnvVar{
