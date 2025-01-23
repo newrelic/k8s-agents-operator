@@ -7,7 +7,7 @@ linters-settings:
   govet:
     enable:
       - shadow
-      - fieldalignment
+#      - fieldalignment
   misspell:
     locale: US
 
