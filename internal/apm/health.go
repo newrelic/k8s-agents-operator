@@ -94,15 +94,10 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst v1beta1.Instrument
 		}
 	}
 
-	var healthMountPath string
-	if v, ok := getValueFromEnv(sidecarContainerEnv, envAgentControlHealthDeliveryLocation); ok {
-		if v == "" {
-			healthMountPath = defaultHealthDeliveryLocation
-		} else {
-			healthMountPath, err = i.validateHealthFilepath(strings.TrimPrefix(v, "file://"))
-			if err != nil {
-				return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envAgentControlHealthDeliveryLocation, err)
-			}
+	healthMountPath := defaultHealthDeliveryLocation
+	if v, ok := getValueFromEnv(sidecarContainerEnv, envAgentControlHealthDeliveryLocation); ok && v != "" {
+		if healthMountPath, err = i.validateHealthFilepath(v); err != nil {
+			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envAgentControlHealthDeliveryLocation, err)
 		}
 	}
 
@@ -201,6 +196,9 @@ func (i *baseInjector) validateHealthFilepath(value string) (string, error) {
 	if value == "/" {
 		return "", fmt.Errorf("invalid mount path %q, cannot be root", value)
 	}
-
-	return value, nil
+	if strings.HasPrefix(value, "file://") {
+		return strings.TrimPrefix(value, "file://"), nil
+	} else {
+		return "", fmt.Errorf("invalid health path %q, must be file URI", value)
+	}
 }

@@ -308,7 +308,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					HealthAgent: v1beta1.HealthAgent{
 						Image: "health",
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "/a/b"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///a/b"},
 							{Name: envHealthListenPort, Value: "not a port"},
 						},
 					},
@@ -320,6 +320,28 @@ func TestHealthInjector_Inject(t *testing.T) {
 				}},
 			}},
 			expectedErrStr: "invalid env value \"not a port\" for \"NEW_RELIC_SIDECAR_LISTEN_PORT\" > invalid health listen port \"not a port\" > strconv.Atoi: parsing \"not a port\": invalid syntax",
+		},
+		{
+			name: "a container, instrumentation, invalid file path",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			inst: v1beta1.Instrumentation{
+				Spec: v1beta1.InstrumentationSpec{
+					HealthAgent: v1beta1.HealthAgent{
+						Image: "health",
+						Env: []corev1.EnvVar{
+							{Name: envAgentControlHealthDeliveryLocation, Value: "/a/b"},
+						},
+					},
+				},
+			},
+			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: "test",
+				}},
+			}},
+			expectedErrStr: "invalid env value \"/a/b\" for \"NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION\" > invalid health path \"/a/b\", must be file URI",
 		},
 		{
 			name: "a container, instrumentation, invalid (blank) health file",
