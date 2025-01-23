@@ -129,7 +129,7 @@ function create_cluster() {
 
 function run_tests() {
     echo "🔄 Starting E2E tests"
-    initContainers=$(kubectl get pods --namespace e2e-namespace --output yaml | yq '.items[].spec.initContainers[].name' | wc -l)
+    initContainers=$(kubectl get pods --output yaml | yq '.items[].spec.initContainers[].name' | grep "newrelic-instrumentation-" | wc -l)
     local expected=$(ls apps | wc -l)
     if [[ ${initContainers} -lt $expected ]]; then
       echo "❌ Error: not all apps were instrumented. Expected $expected, got ${initContainers}"
