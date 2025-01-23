@@ -261,7 +261,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://helm-charts.newrelic.com | common-library | 1.3.0 |
+| https://helm-charts.newrelic.com | common-library | 1.3.1 |
 
 ## Values
 
