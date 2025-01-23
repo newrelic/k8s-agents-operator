@@ -1,6 +1,6 @@
 module tools
 
-go 1.23.0
+go 1.23.5
 
 require (
 	github.com/arttor/helmify v0.4.17
@@ -10,7 +10,7 @@ require (
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.28.0
 	helm.sh/helm/v3 v3.16.4
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20241227172013-a9b7c2dd8a97
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250121065037-b2dbf6eaa9fa
 	sigs.k8s.io/controller-tools v0.16.5
 	sigs.k8s.io/kustomize/kustomize/v5 v5.5.0
 )
