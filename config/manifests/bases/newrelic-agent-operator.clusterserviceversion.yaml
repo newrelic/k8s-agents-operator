@@ -47,8 +47,10 @@ spec:
   - name: Newrelic Agent Operator
     url: https://k8s-agents-operator.domain
   maintainers:
-  - email: alozoya@newrelic.com
-    name: Andrew Lozoya
+  - email: dbudziwojski@newrelic.com
+    name: Daniel Budziwojski
+  - email: danielstokes@newrelic.com
+    name: Daniel Stokes
   maturity: alpha
   provider:
     name: New Relic
