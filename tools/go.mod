@@ -9,7 +9,7 @@ require (
 	github.com/helm/chart-testing/v3 v3.12.0
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.29.0
-	helm.sh/helm/v3 v3.16.4
+	helm.sh/helm/v3 v3.17.0
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250122230437-09740a350f8a
 	sigs.k8s.io/controller-tools v0.17.1
 	sigs.k8s.io/kustomize/kustomize/v5 v5.5.0
@@ -63,7 +63,7 @@ require (
 	github.com/chavacava/garif v0.1.0 // indirect
 	github.com/ckaznocha/intrange v0.3.0 // indirect
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 // indirect
-	github.com/containerd/containerd v1.7.23 // indirect
+	github.com/containerd/containerd v1.7.24 // indirect
 	github.com/containerd/errdefs v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
@@ -84,7 +84,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
-	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
+	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -226,7 +226,7 @@ require (
 	github.com/raeperd/recvcheck v0.2.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
-	github.com/rubenv/sql-migrate v1.7.0 // indirect
+	github.com/rubenv/sql-migrate v1.7.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryancurrah/gomodguard v1.3.5 // indirect
 	github.com/ryanrolds/sqlclosecheck v0.5.1 // indirect
@@ -312,12 +312,12 @@ require (
 	k8s.io/apiextensions-apiserver v0.32.0 // indirect
 	k8s.io/apimachinery v0.32.0 // indirect
 	k8s.io/apiserver v0.32.0 // indirect
-	k8s.io/cli-runtime v0.31.3 // indirect
+	k8s.io/cli-runtime v0.32.0 // indirect
 	k8s.io/client-go v0.32.0 // indirect
 	k8s.io/component-base v0.32.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 // indirect
-	k8s.io/kubectl v0.31.3 // indirect
+	k8s.io/kubectl v0.32.0 // indirect
 	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
 	mvdan.cc/gofumpt v0.7.0 // indirect
 	mvdan.cc/unparam v0.0.0-20240528143540-8a5130ca722f // indirect
