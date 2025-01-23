@@ -238,7 +238,7 @@ func main() {
 		logger.Info("Shutting down health checker")
 		stopCtx, stopCtxCancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer stopCtxCancel()
-		if err := healthMonitor.Shutdown(stopCtx); err != nil {
+		if err = healthMonitor.Shutdown(stopCtx); err != nil {
 			setupLog.Error(err, "failed to shutdown health checker")
 		} else {
 			logger.Info("Shut down health checker")
