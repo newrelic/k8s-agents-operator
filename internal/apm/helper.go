@@ -45,8 +45,11 @@ import (
 const LicenseKey = "new_relic_license_key"
 
 const (
-	volumeName        = "newrelic-instrumentation"
-	initContainerName = "newrelic-instrumentation"
+	volumeName          = "newrelic-instrumentation"
+	initContainerName   = "newrelic-instrumentation"
+	apmConfigVolumeName = "newrelic-apm-config"
+	apmConfigMountPath  = "/config"
+	apmConfigPath       = apmConfigMountPath + "/newrelic.yaml"
 )
 
 const (
