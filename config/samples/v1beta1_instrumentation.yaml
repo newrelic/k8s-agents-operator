@@ -1,9 +1,9 @@
 apiVersion: newrelic.com/v1beta1
 kind: Instrumentation
 metadata:
-  labels:
-    app.kubernetes.io/name: newrelic-agent-operator
-    app.kubernetes.io/managed-by: kustomize
-  name: instrumentation-sample
+  name: newrelic-instrumentation-java
 spec:
-  # TODO(user): Add fields here
+  agentConfigMap: "my-java-app-config"
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:latest
