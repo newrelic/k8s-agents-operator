@@ -56,7 +56,7 @@ func (h *HealthCheckApi) GetHealth(ctx context.Context, url string) (health Heal
 		defer res.Body.Close()
 	}
 	if res.StatusCode != http.StatusOK {
-		return health, fmt.Errorf("failed to get expected response code of 200, got %d > %w", res.StatusCode, err)
+		return health, fmt.Errorf("failed to get expected response code of 200, got %d", res.StatusCode)
 	}
 	if body, err = io.ReadAll(res.Body); err != nil {
 		return health, fmt.Errorf("failed to read response body > %w", err)

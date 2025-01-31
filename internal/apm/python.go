@@ -121,7 +121,7 @@ func (i *PythonInjector) Inject(ctx context.Context, inst v1beta1.Instrumentatio
 
 	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
 
-	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
 		return pod, err
 	}
 
