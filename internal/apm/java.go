@@ -90,21 +90,25 @@ func (i *JavaInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation,
 	}
 
 	if inst.Spec.AgentConfigMap != "" {
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: apmConfigVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: inst.Spec.AgentConfigMap,
+		if isPodVolumeMissing(pod, apmConfigVolumeName) {
+			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+				Name: apmConfigVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: inst.Spec.AgentConfigMap,
+						},
 					},
 				},
-			},
-		})
+			})
+		}
 
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      apmConfigVolumeName,
-			MountPath: apmConfigMountPath,
-		})
+		if isContainerVolumeMissing(container, apmConfigVolumeName) {
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+				Name:      apmConfigVolumeName,
+				MountPath: apmConfigMountPath,
+			})
+		}
 
 		// Add ENV
 		apmIdx := getIndexOfEnv(container.Env, envApmConfigFile)
