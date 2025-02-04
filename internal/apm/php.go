@@ -155,7 +155,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, 
 	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
 
 	var err error
-	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+	if pod, err = i.injectHealth(ctx, inst, ns, pod, -1, getInitContainerIndex(pod, phpInitContainerName)); err != nil {
 		return pod, err
 	}
 

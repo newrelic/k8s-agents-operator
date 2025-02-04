@@ -121,17 +121,22 @@ func (ir *InjectorRegistery) GetInjectors() Injectors {
 
 var DefaultInjectorRegistry = NewInjectorRegistry()
 
-func getContainerIndex(containerName string, pod corev1.Pod) int {
-	// We search for specific container to inject variables and if no one is found
-	// We fallback to first container
-	var index = 0
-	for idx, ctnair := range pod.Spec.Containers {
-		if ctnair.Name == containerName {
-			index = idx
+func getContainerIndex(pod corev1.Pod, containerName string) int {
+	for i, container := range pod.Spec.Containers {
+		if container.Name == containerName {
+			return i
 		}
 	}
+	return -1
+}
 
-	return index
+func getInitContainerIndex(pod corev1.Pod, initContainerName string) int {
+	for i, initContainer := range pod.Spec.InitContainers {
+		if initContainer.Name == initContainerName {
+			return i
+		}
+	}
+	return -1
 }
 
 // Calculate if we already inject InitContainers.
