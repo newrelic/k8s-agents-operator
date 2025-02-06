@@ -97,6 +97,8 @@ github.com/openshift/api v0.0.0-20250123112741-c21a6eb290e4 h1:Zfljrx3hd3rx56rE+
 github.com/openshift/api v0.0.0-20250123112741-c21a6eb290e4/go.mod h1:Shkl4HanLwDiiBzakv+con/aMGnVE2MAGvoKp5oyYUo=
 github.com/openshift/api v0.0.0-20250204161122-56ca5bb59cc1 h1:hNQT936F+2uBOVa4zB7gUbzIdt2MZ63sj7yJjgM6AdY=
 github.com/openshift/api v0.0.0-20250204161122-56ca5bb59cc1/go.mod h1:yk60tHAmHhtVpJQo3TwVYq2zpuP70iJIFDCmeKMIzPw=
+github.com/openshift/api v0.0.0-20250205102314-afdfbaffe641 h1:XB1mr2463tbDsti93ukQkOkR+AM1iUsUpZuVGi0kFZs=
+github.com/openshift/api v0.0.0-20250205102314-afdfbaffe641/go.mod h1:yk60tHAmHhtVpJQo3TwVYq2zpuP70iJIFDCmeKMIzPw=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
