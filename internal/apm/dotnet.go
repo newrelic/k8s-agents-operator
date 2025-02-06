@@ -130,7 +130,7 @@ func (i DotnetInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation
 	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
 
 	var err error
-	if pod, err = i.injectHealth(ctx, inst, ns, pod); err != nil {
+	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
 		return pod, err
 	}
 

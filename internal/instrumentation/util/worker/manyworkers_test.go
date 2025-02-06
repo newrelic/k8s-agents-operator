@@ -23,7 +23,7 @@ func TestManyWorkers(t *testing.T) {
 			atomic.AddInt64(&jobsSent, 1)
 		}
 	}()
-	time.Sleep(time.Millisecond)
+	time.Sleep(time.Millisecond * 15)
 	if c := atomic.LoadInt64(&workersWaiting); c != 5 {
 		t.Errorf("got %d, want 5", c)
 	}

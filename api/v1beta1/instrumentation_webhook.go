@@ -137,18 +137,6 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 		return nil, fmt.Errorf("instrumentation %q healthAgent.image is empty, meanwhile the environment is not", inst.Name)
 	}
 
-	if !inst.Spec.HealthAgent.IsEmpty() {
-		hasRequiredKey := false
-		for _, e := range inst.Spec.HealthAgent.Env {
-			if e.Name == "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH" && e.Value != "" {
-				hasRequiredKey = true
-				break
-			}
-		}
-		if !hasRequiredKey {
-			return nil, fmt.Errorf("missing NEW_RELIC_FLEET_CONTROL_HEALTH_PATH in healthAgent.env")
-		}
-	}
 	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector); err != nil {
 		return nil, err
 	}

@@ -1,6 +1,6 @@
 module github.com/newrelic/k8s-agents-operator
 
-go 1.23.5
+go 1.23.6
 
 require (
 	github.com/go-logr/logr v1.4.2
@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/openshift/api v0.0.0-20250123112741-c21a6eb290e4
+	github.com/openshift/api v0.0.0-20250205102314-afdfbaffe641
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.34.0
 	go.uber.org/zap v1.27.0

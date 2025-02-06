@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -27,10 +28,11 @@ import (
 )
 
 const (
-	envHealthFleetControlFilepath = "NEW_RELIC_FLEET_CONTROL_HEALTH_PATH"
-	envHealthListenPort           = "NEW_RELIC_SIDECAR_LISTEN_PORT"
-	HealthSidecarContainerName    = "newrelic-apm-health-sidecar"
-	healthVolumeName              = "newrelic-apm-health-volume"
+	envAgentControlEnabled                = "NEW_RELIC_AGENT_CONTROL_ENABLED"
+	envAgentControlHealthDeliveryLocation = "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION"
+	envHealthListenPort                   = "NEW_RELIC_SIDECAR_LISTEN_PORT"
+	HealthSidecarContainerName            = "newrelic-apm-health-sidecar"
+	healthVolumeName                      = "newrelic-apm-health-volume"
 
 	HealthInstrumentedAnnotation = "newrelic.com/apm-health"
 )
@@ -41,14 +43,16 @@ const (
 )
 
 var (
-	defaultHealthListenPort = 6194
+	defaultHealthListenPort       = 6194
+	defaultHealthDeliveryLocation = "file:///newrelic/apm/health"
 )
 
 var healthDefaultEnv = []corev1.EnvVar{
+	{Name: envAgentControlHealthDeliveryLocation, Value: defaultHealthDeliveryLocation},
 	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
 }
 
-func (i *baseInjector) injectHealth(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i *baseInjector) injectHealth(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentContainerIndex int, agentInitContainerIndex int) (corev1.Pod, error) {
 	if inst.Spec.HealthAgent.IsEmpty() {
 		return pod, nil
 	}
@@ -57,38 +61,57 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst v1beta1.Instrument
 	firstContainer := 0
 
 	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[firstContainer]
+	var container *corev1.Container
+	if agentContainerIndex > -1 {
+		container = &pod.Spec.Containers[agentContainerIndex]
+	} else if agentInitContainerIndex > -1 {
+		container = &pod.Spec.InitContainers[agentInitContainerIndex]
+	}
 
 	var err error
-	if err = validateContainerEnv(container.Env, envHealthFleetControlFilepath); err != nil {
+	if err = validateContainerEnv(container.Env, envAgentControlHealthDeliveryLocation); err != nil {
 		return *originalPod, err
 	}
 
 	var sidecarContainerEnv []corev1.EnvVar
 
 	// copy the env var for the health filepath
-	if idx := getIndexOfEnv(container.Env, envHealthFleetControlFilepath); idx > -1 {
+	if idx := getIndexOfEnv(container.Env, envAgentControlHealthDeliveryLocation); idx > -1 {
 		sidecarContainerEnv = append(sidecarContainerEnv, container.Env[idx])
+	}
+	// copy the env var for the health filepath
+	if idx := getIndexOfEnv(container.Env, envAgentControlEnabled); idx == -1 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  envAgentControlEnabled,
+			Value: "true",
+		})
 	}
 
 	container.Env = i.injectEnvVarsIntoTargetedEnvVars(inst.Spec.HealthAgent.Env, container.Env)
 	sidecarContainerEnv = i.injectEnvVarsIntoSidecarEnvVars(inst.Spec.HealthAgent.Env, sidecarContainerEnv)
 
-	var healthMountPath string
-	{
-		v, _ := getValueFromEnv(container.Env, envHealthFleetControlFilepath)
-		if healthMountPath, err = i.validateHealthFilepath(v); err != nil {
-			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthFleetControlFilepath, err)
-		}
-	}
-
-	// set defaults
+	// set defaults to sidecar and container env vars
 	for _, entry := range healthDefaultEnv {
 		if idx := getIndexOfEnv(sidecarContainerEnv, entry.Name); idx == -1 {
 			sidecarContainerEnv = append(sidecarContainerEnv, corev1.EnvVar{
 				Name:  entry.Name,
 				Value: entry.Value,
 			})
+		}
+		if entry.Name == envAgentControlHealthDeliveryLocation {
+			if idx := getIndexOfEnv(container.Env, entry.Name); idx == -1 {
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  entry.Name,
+					Value: entry.Value,
+				})
+			}
+		}
+	}
+
+	healthMountPath := defaultHealthDeliveryLocation
+	if v, ok := getValueFromEnv(sidecarContainerEnv, envAgentControlHealthDeliveryLocation); ok && v != "" {
+		if healthMountPath, err = i.validateHealthFilepath(v); err != nil {
+			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envAgentControlHealthDeliveryLocation, err)
 		}
 	}
 
@@ -145,9 +168,11 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst v1beta1.Instrument
 
 func (i *baseInjector) injectEnvVarsIntoTargetedEnvVars(instEnvVars []corev1.EnvVar, containerEnvVars []corev1.EnvVar) []corev1.EnvVar {
 	for _, env := range instEnvVars {
-		if env.Name == envHealthFleetControlFilepath {
+		if env.Name == envAgentControlHealthDeliveryLocation {
 			if idx := getIndexOfEnv(containerEnvVars, env.Name); idx == -1 {
-				containerEnvVars = append(containerEnvVars, env)
+				if env.Value != "" {
+					containerEnvVars = append(containerEnvVars, env)
+				}
 			}
 			break
 		}
@@ -158,7 +183,9 @@ func (i *baseInjector) injectEnvVarsIntoTargetedEnvVars(instEnvVars []corev1.Env
 func (i *baseInjector) injectEnvVarsIntoSidecarEnvVars(instEnvVars []corev1.EnvVar, sidecarEnvVars []corev1.EnvVar) []corev1.EnvVar {
 	for _, env := range instEnvVars {
 		if idx := getIndexOfEnv(sidecarEnvVars, env.Name); idx == -1 {
-			sidecarEnvVars = append(sidecarEnvVars, env)
+			if env.Value != "" {
+				sidecarEnvVars = append(sidecarEnvVars, env)
+			}
 		}
 	}
 	return sidecarEnvVars
@@ -176,16 +203,19 @@ func (i *baseInjector) validateHealthListenPort(value string) (int, error) {
 }
 
 func (i *baseInjector) validateHealthFilepath(value string) (string, error) {
-	fileExtension := filepath.Ext(value)
-	if fileExtension != "" {
-		return "", fmt.Errorf("invalid mount path %q, cannot have a file extension", value)
+	originalValue := value
+	if !strings.HasPrefix(value, "file://") {
+		return "", fmt.Errorf("invalid health path %q, must be file URI", originalValue)
 	}
-	if value == "" {
-		return "", fmt.Errorf("invalid mount path %q, cannot be blank", value)
+	value = strings.TrimPrefix(value, "file://")
+	if value[0] != '/' {
+		return "", fmt.Errorf("invalid health path %q, hostname nmust be blank", originalValue)
+	}
+	if fileExtension := filepath.Ext(value); fileExtension != "" {
+		return "", fmt.Errorf("invalid mount path %q, cannot have a file extension", originalValue)
 	}
 	if value == "/" {
-		return "", fmt.Errorf("invalid mount path %q, cannot be root", value)
+		return "", fmt.Errorf("invalid mount path %q, cannot be root", originalValue)
 	}
-
 	return value, nil
 }
