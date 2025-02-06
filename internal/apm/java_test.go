@@ -155,13 +155,13 @@ func TestJavaInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "JAVA_TOOL_OPTIONS", Value: " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
-							{Name: "NEWRELIC_FILE", Value: "/config/newrelic.yaml"},
+							{Name: "NEWRELIC_FILE", Value: "/newrelic-apm-config/newrelic.yaml"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-apm-config", MountPath: "/config"}, {Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-apm-config", MountPath: "/newrelic-apm-config"}, {Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "newrelic-instrumentation-java",
