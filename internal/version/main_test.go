@@ -15,3 +15,16 @@ limitations under the License.
 */
 
 package version
+
+import (
+	"runtime"
+	"testing"
+)
+
+func TestGet(t *testing.T) {
+	expected := "Version(Operator='', BuildDate='', Go='" + runtime.Version() + "')"
+	actual := Get().String()
+	if expected != actual {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
+}
