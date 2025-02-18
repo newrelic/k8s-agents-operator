@@ -25,8 +25,10 @@ import (
 
 const (
 	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
+	envApmConfigFile      = "NEWRELIC_FILE"
 	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
 	javaInitContainerName = initContainerName + "-java"
+	javaApmConfigPath     = apmConfigMountPath + "/newrelic.yaml"
 )
 
 var _ Injector = (*JavaInjector)(nil)
@@ -86,6 +88,19 @@ func (i *JavaInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation,
 		})
 	} else {
 		container.Env[idx].Value = container.Env[idx].Value + javaJVMArgument
+	}
+
+	if inst.Spec.AgentConfigMap != "" {
+		injectAgentConfigMap(&pod, firstContainer, inst.Spec.AgentConfigMap)
+
+		// Add ENV
+		apmIdx := getIndexOfEnv(container.Env, envApmConfigFile)
+		if apmIdx == -1 {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  envApmConfigFile,
+				Value: javaApmConfigPath,
+			})
+		}
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {

@@ -45,8 +45,10 @@ import (
 const LicenseKey = "new_relic_license_key"
 
 const (
-	volumeName        = "newrelic-instrumentation"
-	initContainerName = "newrelic-instrumentation"
+	volumeName          = "newrelic-instrumentation"
+	initContainerName   = "newrelic-instrumentation"
+	apmConfigVolumeName = "newrelic-apm-config"
+	apmConfigMountPath  = "/newrelic-apm-config"
 )
 
 const (
@@ -480,4 +482,28 @@ func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev
 	}
 	pod.Annotations[instrumentationVersionAnnotation] = string(instVersionBytes)
 	return pod
+}
+
+func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
+	container := &pod.Spec.Containers[index]
+
+	if isPodVolumeMissing(*pod, apmConfigVolumeName) {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: apmConfigVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: configMapName,
+					},
+				},
+			},
+		})
+	}
+
+	if isContainerVolumeMissing(container, apmConfigVolumeName) {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      apmConfigVolumeName,
+			MountPath: apmConfigMountPath,
+		})
+	}
 }

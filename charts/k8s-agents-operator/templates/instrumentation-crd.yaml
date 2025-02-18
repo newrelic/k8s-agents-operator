@@ -225,6 +225,7 @@ spec:
           namespace: {{ .Release.Namespace }}
           path: /convert
       conversionReviewVersions:
+      - v1alpha2
       - v1beta1
   group: newrelic.com
   names:

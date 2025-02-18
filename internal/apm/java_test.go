@@ -136,6 +136,48 @@ func TestJavaInjector_Inject(t *testing.T) {
 				}},
 			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
+		{
+			name: "a container, instrumentation, with an agent configmap",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
+					},
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "JAVA_TOOL_OPTIONS", Value: " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
+							{Name: "NEWRELIC_FILE", Value: "/newrelic-apm-config/newrelic.yaml"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-apm-config", MountPath: "/newrelic-apm-config"}, {Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "newrelic-instrumentation-java",
+						Command:      []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "newrelic-apm-config", VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "my-java-apm-config",
+							},
+						},
+					}}, {Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				}},
+			inst: v1beta1.Instrumentation{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java"}, LicenseKeySecret: "newrelic-key-secret", AgentConfigMap: "my-java-apm-config"}},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
