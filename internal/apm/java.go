@@ -80,8 +80,7 @@ func (i *JavaInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation,
 		}
 	}
 
-	idx := getIndexOfEnv(container.Env, envJavaToolsOptions)
-	if idx == -1 {
+	if idx := getIndexOfEnv(container.Env, envJavaToolsOptions); idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  envJavaToolsOptions,
 			Value: javaJVMArgument,
@@ -94,8 +93,7 @@ func (i *JavaInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation,
 		injectAgentConfigMap(&pod, firstContainer, inst.Spec.AgentConfigMap)
 
 		// Add ENV
-		apmIdx := getIndexOfEnv(container.Env, envApmConfigFile)
-		if apmIdx == -1 {
+		if apmIdx := getIndexOfEnv(container.Env, envApmConfigFile); apmIdx == -1 {
 			container.Env = append(container.Env, corev1.EnvVar{
 				Name:  envApmConfigFile,
 				Value: javaApmConfigPath,
