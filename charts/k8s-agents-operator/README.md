@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.20.3](https://img.shields.io/badge/Version-0.20.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.20.3](https://img.shields.io/badge/AppVersion-0.20.3-informational?style=flat-square)
+![Version: 0.20.4](https://img.shields.io/badge/Version-0.20.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.20.4](https://img.shields.io/badge/AppVersion-0.20.4-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -147,7 +147,7 @@ spec:
     # env: ...
 ```
 
-For environment specific configurations
+Configuration using environment variables
 
 ```yaml
 apiVersion: newrelic.com/v1alpha2
@@ -169,6 +169,21 @@ spec:
     # Example overriding the appName configuration
       - name: NEW_RELIC_APP_NAME
         value: "$(NEW_RELIC_LABELS)-$(NEW_RELIC_POD_NAME)"
+```
+
+Configuration using a configmap (Java only)
+
+**Note:** The configmap must store the Java configuration in a key named "newrelic.yaml". Setting an application name and license key via configmap is not supported. To override these properties, use env variables and/or custom secrets.
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-lang
+  namespace: newrelic
+spec:
+  agentConfigMap: "my-java-app-config" # This configmap must exist in every namespace that the pod in this `Instrumentation` is targeting
+  agent: ...
 ```
 
 Targeting everything in a specific namespace with a label
