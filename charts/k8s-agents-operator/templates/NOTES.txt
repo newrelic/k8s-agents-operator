@@ -1,5 +1,3 @@
-This project is currently in preview.
-Issues and contributions should be reported to the project's GitHub.
 {{- if (include "k8s-agents-operator.areValuesValid" .) }}
 =====================================
 
