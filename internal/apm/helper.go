@@ -59,6 +59,8 @@ const (
 	DescK8sAgentOperatorVersionLabelName = "newrelic-k8s-agents-operator-version"
 )
 
+const EnvOTELResourceAttrs = "OTEL_RESOURCE_ATTRIBUTES"
+
 const instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
 
 var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")
