@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation/util/ticker"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation/util/worker"
@@ -71,14 +71,14 @@ type event struct {
 	action eventAction
 	pod    *corev1.Pod
 	ns     *corev1.Namespace
-	inst   *v1beta1.Instrumentation
+	inst   *current.Instrumentation
 }
 
 // instrumentationMetric contains a copy(pointer to the copy) of the instrumentation, a copy(shared pointer copy) of
 // each matching pod metric (pod + health) along with the aggregated summary of the health of all the pod metric health
 type instrumentationMetric struct {
 	instrumentationID string
-	instrumentation   *v1beta1.Instrumentation
+	instrumentation   *current.Instrumentation
 	podMetrics        []*podMetric
 	doneCh            chan struct{}
 	podsMatching      int64
@@ -87,7 +87,7 @@ type instrumentationMetric struct {
 	podsOutdated      int64
 	podsHealthy       int64
 	podsUnhealthy     int64
-	unhealthyPods     []v1beta1.UnhealthyPodError
+	unhealthyPods     []current.UnhealthyPodError
 }
 
 // resolve marks the instrumentation metric done.  anything waiting via `wait` will continue
@@ -208,7 +208,7 @@ type HealthMonitor struct {
 	instrumentationMetricPersistQueue worker.Worker
 	ticker                            *ticker.Ticker
 
-	instrumentations map[string]*v1beta1.Instrumentation
+	instrumentations map[string]*current.Instrumentation
 	pods             map[string]*corev1.Pod
 	namespaces       map[string]*corev1.Namespace
 
@@ -229,7 +229,7 @@ func NewHealthMonitor(
 		healthApi:                    healthCheck,
 		instrumentationStatusUpdater: instrumentationStatusUpdater,
 
-		instrumentations: make(map[string]*v1beta1.Instrumentation),
+		instrumentations: make(map[string]*current.Instrumentation),
 		pods:             make(map[string]*corev1.Pod),
 		namespaces:       make(map[string]*corev1.Namespace),
 
@@ -402,7 +402,7 @@ func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, eve
 			event.podsHealthy++
 		} else {
 			event.podsUnhealthy++
-			event.unhealthyPods = append(event.unhealthyPods, v1beta1.UnhealthyPodError{
+			event.unhealthyPods = append(event.unhealthyPods, current.UnhealthyPodError{
 				Pod:       eventPodMetrics.podID,
 				LastError: eventPodMetrics.health.LastError,
 			})
@@ -539,7 +539,7 @@ func (m *HealthMonitor) isPodReady(pod *corev1.Pod) bool {
 }
 
 // isPodOutdated is used to compare the instrumentation generation against the pod annotation of the instrumentation applied
-func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *v1beta1.Instrumentation) bool {
+func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *current.Instrumentation) bool {
 	v, ok := pod.Annotations[instrumentationVersionAnnotation]
 	if !ok {
 		return true
@@ -684,11 +684,11 @@ func (m *HealthMonitor) NamespaceRemove(ns *corev1.Namespace) {
 }
 
 // InstrumentationSet to set the instrumentation
-func (m *HealthMonitor) InstrumentationSet(instrumentation *v1beta1.Instrumentation) {
+func (m *HealthMonitor) InstrumentationSet(instrumentation *current.Instrumentation) {
 	_ = m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instSet})
 }
 
 // InstrumentationRemove to remove the instrumentation
-func (m *HealthMonitor) InstrumentationRemove(instrumentation *v1beta1.Instrumentation) {
+func (m *HealthMonitor) InstrumentationRemove(instrumentation *current.Instrumentation) {
 	_ = m.resourceQueue.Add(context.Background(), event{inst: instrumentation, action: instRemove})
 }

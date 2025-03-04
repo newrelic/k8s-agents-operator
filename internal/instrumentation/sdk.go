@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 )
 
@@ -38,7 +38,7 @@ var _ SdkInjector = (*NewrelicSdkInjector)(nil)
 
 // SdkInjector is used to inject our instrumentation into a pod
 type SdkInjector interface {
-	Inject(ctx context.Context, insts []*v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
+	Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
 }
 
 // NewrelicSdkInjector is the base struct used to inject our instrumentation into a pod
@@ -58,7 +58,7 @@ func NewNewrelicSdkInjector(logger logr.Logger, client client.Client, injectorRe
 }
 
 // Inject is used to utilize a list of instrumentations, and if the injectors language matches the instrumentation, trigger the injector
-func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
 	hadMatchingInjector := false
 	for _, inst := range insts {
 		for _, injector := range i.injectorRegistry.GetInjectors() {
@@ -81,7 +81,7 @@ func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*v1beta1.Instr
 	return pod
 }
 
-func (i *NewrelicSdkInjector) injectWithInjector(ctx context.Context, injector apm.Injector, inst *v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (mutatedPod corev1.Pod, hadMatchingInjector bool, err error) {
+func (i *NewrelicSdkInjector) injectWithInjector(ctx context.Context, injector apm.Injector, inst *current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (mutatedPod corev1.Pod, hadMatchingInjector bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic: %v, stacktrace: %s", r, debug.Stack())

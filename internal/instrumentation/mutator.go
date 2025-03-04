@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
 // compile time type assertion
@@ -110,8 +110,8 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 
 // GetLanguageInstrumentations is used to collect all instrumentations and validate that only a single instrumentation
 // exists for each language, and return them together, modifying the slice items in place
-func GetLanguageInstrumentations(instCandidates []*v1beta1.Instrumentation) ([]*v1beta1.Instrumentation, error) {
-	languages := map[string]*v1beta1.Instrumentation{}
+func GetLanguageInstrumentations(instCandidates []*current.Instrumentation) ([]*current.Instrumentation, error) {
+	languages := map[string]*current.Instrumentation{}
 	i := 0
 	for _, candidate := range instCandidates {
 		if currentInst, ok := languages[candidate.Spec.Agent.Language]; ok {
@@ -129,7 +129,7 @@ func GetLanguageInstrumentations(instCandidates []*v1beta1.Instrumentation) ([]*
 
 // InstrumentationLocator is used to find instrumentations
 type InstrumentationLocator interface {
-	GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*v1beta1.Instrumentation, error)
+	GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error)
 }
 
 // NewrelicInstrumentationLocator is the base struct for locating instrumentations
@@ -150,16 +150,16 @@ func NewNewRelicInstrumentationLocator(logger logr.Logger, client client.Client,
 
 // GetInstrumentations is used to get all instrumentations in the cluster. While we could limit it to the operator
 // namespace, it's more helpful to list anything in the logs that may have been excluded.
-func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*v1beta1.Instrumentation, error) {
+func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error) {
 	logger := il.logger.WithValues("namespace", pod.Namespace, "name", pod.Name, "generate_name", pod.GenerateName)
 
-	var listInst v1beta1.InstrumentationList
+	var listInst current.InstrumentationList
 	if err := il.client.List(ctx, &listInst); err != nil {
 		return nil, err
 	}
 
 	//nolint:prealloc
-	var candidates []*v1beta1.Instrumentation
+	var candidates []*current.Instrumentation
 	for _, inst := range listInst.Items {
 		if inst.Namespace != il.operatorNamespace {
 			logger.Info("ignoring instrumentation not in operator namespace",
@@ -209,7 +209,7 @@ func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Contex
 // GetSecretNameFromInstrumentations is used to get a single secret key name from a list of Instrumentation's.  It will
 // use the default if none is provided.  If any of them are different by name, this will fail, as we can only bind a
 // single license key to a single pod.
-func GetSecretNameFromInstrumentations(insts []*v1beta1.Instrumentation) (string, error) {
+func GetSecretNameFromInstrumentations(insts []*current.Instrumentation) (string, error) {
 	secretName := ""
 	for _, inst := range insts {
 		specSecretName := inst.Spec.LicenseKeySecret
