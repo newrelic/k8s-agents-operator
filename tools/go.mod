@@ -3,7 +3,7 @@ module github.com/newrelic/k8s-agents-operator/tools
 go 1.23.6
 
 require (
-	github.com/arttor/helmify v0.4.17
+	github.com/arttor/helmify v0.4.18
 	github.com/golangci/golangci-lint v1.64.6
 	github.com/helm-unittest/helm-unittest v0.8.0
 	github.com/helm/chart-testing/v3 v3.12.0
