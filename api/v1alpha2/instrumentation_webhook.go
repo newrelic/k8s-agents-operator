@@ -114,7 +114,6 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 	// TODO: Maybe improve this
 	acceptableLangs := []string{
 		"dotnet",
-		"go",
 		"java",
 		"nodejs",
 		"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "php-8.4",

@@ -30,7 +30,7 @@ const (
 	pythonInitContainerName = initContainerName + "-python"
 )
 
-var _ Injector = (*GoInjector)(nil)
+var _ Injector = (*PythonInjector)(nil)
 
 func init() {
 	DefaultInjectorRegistry.MustRegister(&PythonInjector{})
