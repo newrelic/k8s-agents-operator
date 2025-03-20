@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
 var k8sClient client.Client
@@ -48,7 +48,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	if err = v1beta1.AddToScheme(testScheme); err != nil {
+	if err = current.AddToScheme(testScheme); err != nil {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
 	}

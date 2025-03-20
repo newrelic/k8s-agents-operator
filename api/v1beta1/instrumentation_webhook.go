@@ -71,10 +71,9 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Obje
 
 const (
 	envNewRelicPrefix = "NEW_RELIC_"
-	envOtelPrefix     = "OTEL_"
 )
 
-var validEnvPrefixes = []string{envNewRelicPrefix, envOtelPrefix}
+var validEnvPrefixes = []string{envNewRelicPrefix}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
 var _ webhook.CustomValidator = &InstrumentationValidator{}

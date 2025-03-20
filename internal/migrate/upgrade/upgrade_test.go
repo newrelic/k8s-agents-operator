@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
 func TestUpgrade(t *testing.T) {
@@ -39,13 +39,13 @@ func TestUpgrade(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	inst := &v1beta1.Instrumentation{
+	inst := &current.Instrumentation{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "newrelic-instrumentation",
 			Namespace: nsName,
 		},
 	}
-	defaulter := v1beta1.InstrumentationDefaulter{}
+	defaulter := current.InstrumentationDefaulter{}
 	_ = defaulter.Default(ctx, inst)
 	err = k8sClient.Create(context.Background(), inst)
 	require.NoError(t, err)
@@ -57,24 +57,24 @@ func TestUpgrade(t *testing.T) {
 	err = up.ManagedInstances(context.Background())
 	require.NoError(t, err)
 
-	updated := v1beta1.Instrumentation{}
+	updated := current.Instrumentation{}
 	err = k8sClient.Get(context.Background(), types.NamespacedName{
 		Namespace: nsName,
 		Name:      "newrelic-instrumentation",
 	}, &updated)
 	require.NoError(t, err)
-	// assert.Equal(t, "java:2", updated.Annotations[v1beta1.AnnotationDefaultAutoInstrumentationJava])
+	// assert.Equal(t, "java:2", updated.Annotations[current.AnnotationDefaultAutoInstrumentationJava])
 	// assert.Equal(t, "java:2", updated.Spec.Java.Image)
-	// assert.Equal(t, "nodejs:2", updated.Annotations[v1beta1.AnnotationDefaultAutoInstrumentationNodeJS])
+	// assert.Equal(t, "nodejs:2", updated.Annotations[current.AnnotationDefaultAutoInstrumentationNodeJS])
 	// assert.Equal(t, "nodejs:2", updated.Spec.NodeJS.Image)
-	// assert.Equal(t, "python:2", updated.Annotations[v1beta1.AnnotationDefaultAutoInstrumentationPython])
+	// assert.Equal(t, "python:2", updated.Annotations[current.AnnotationDefaultAutoInstrumentationPython])
 	// assert.Equal(t, "python:2", updated.Spec.Python.Image)
-	// assert.Equal(t, "dotnet:2", updated.Annotations[v1beta1.AnnotationDefaultAutoInstrumentationDotNet])
+	// assert.Equal(t, "dotnet:2", updated.Annotations[current.AnnotationDefaultAutoInstrumentationDotNet])
 	// assert.Equal(t, "dotnet:2", updated.Spec.DotNet.Image)
-	// assert.Equal(t, "php:2", updated.Annotations[v1beta1.AnnotationDefaultAutoInstrumentationPhp])
+	// assert.Equal(t, "php:2", updated.Annotations[current.AnnotationDefaultAutoInstrumentationPhp])
 	// assert.Equal(t, "php:2", updated.Spec.Php.Image)
-	// assert.Equal(t, "ruby:2", updated.Annotations[v1beta1.AnnotationDefaultAutoInstrumentationRuby])
+	// assert.Equal(t, "ruby:2", updated.Annotations[current.AnnotationDefaultAutoInstrumentationRuby])
 	// assert.Equal(t, "ruby:2", updated.Spec.Ruby.Image)
-	// assert.Equal(t, "go:2", updated.Annotations[v1beta1.AnnotationDefaultAutoInstrumentationGo])
+	// assert.Equal(t, "go:2", updated.Annotations[current.AnnotationDefaultAutoInstrumentationGo])
 	// assert.Equal(t, "go:2", updated.Spec.Go.Image)
 }

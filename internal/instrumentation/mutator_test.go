@@ -16,13 +16,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 )
 
-type FakeInjector func(ctx context.Context, insts []*v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
+type FakeInjector func(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
 
-func (fn FakeInjector) Inject(ctx context.Context, insts []*v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+func (fn FakeInjector) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
 	return fn(ctx, insts, ns, pod)
 }
 
@@ -32,23 +32,23 @@ func (fn FakeSecretReplicator) ReplicateSecret(ctx context.Context, ns corev1.Na
 	return fn(ctx, ns, pod, operatorNamespace, secretName)
 }
 
-type FakeInstrumentationLocator func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*v1beta1.Instrumentation, error)
+type FakeInstrumentationLocator func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error)
 
-func (fn FakeInstrumentationLocator) GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*v1beta1.Instrumentation, error) {
+func (fn FakeInstrumentationLocator) GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error) {
 	return fn(ctx, ns, pod)
 }
 
-type InstrumentationLocatorFn func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*v1beta1.Instrumentation, error)
+type InstrumentationLocatorFn func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error)
 
-func (il InstrumentationLocatorFn) GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*v1beta1.Instrumentation, error) {
+func (il InstrumentationLocatorFn) GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error) {
 	return il(ctx, ns, pod)
 }
 
 var _ InstrumentationLocator = (InstrumentationLocatorFn)(nil)
 
-type SdkInjectorFn func(ctx context.Context, insts []*v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
+type SdkInjectorFn func(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
 
-func (si SdkInjectorFn) Inject(ctx context.Context, insts []*v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+func (si SdkInjectorFn) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
 	return si(ctx, insts, ns, pod)
 }
 
@@ -65,7 +65,7 @@ var _ SecretReplicator = (SecretReplicatorFn)(nil)
 func TestMutatePod(t *testing.T) {
 	var fakeInjector FakeInjector = func(
 		ctx context.Context,
-		insts []*v1beta1.Instrumentation,
+		insts []*current.Instrumentation,
 		ns corev1.Namespace,
 		pod corev1.Pod,
 	) corev1.Pod {
@@ -93,17 +93,17 @@ func TestMutatePod(t *testing.T) {
 		ctx context.Context,
 		ns corev1.Namespace,
 		pod corev1.Pod,
-	) ([]*v1beta1.Instrumentation, error) {
+	) ([]*current.Instrumentation, error) {
 		return nil, nil
 	}
 	var fakeInstrumentationLocatorWithDup FakeInstrumentationLocator = func(
 		ctx context.Context,
 		ns corev1.Namespace,
 		pod corev1.Pod,
-	) ([]*v1beta1.Instrumentation, error) {
-		return []*v1beta1.Instrumentation{
-			{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "ruby", Image: "ruby1"}}},
-			{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "ruby", Image: "ruby2"}}},
+	) ([]*current.Instrumentation, error) {
+		return []*current.Instrumentation{
+			{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "ruby1"}}},
+			{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "ruby2"}}},
 		}, nil
 	}
 	logger := logr.Discard()
@@ -112,7 +112,7 @@ func TestMutatePod(t *testing.T) {
 		name        string
 		pod         corev1.Pod
 		ns          corev1.Namespace
-		initInsts   []*v1beta1.Instrumentation
+		initInsts   []*current.Instrumentation
 		initNs      []*corev1.Namespace
 		initSecrets []*corev1.Secret
 		operatorNs  string
@@ -131,10 +131,10 @@ func TestMutatePod(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns1-op"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns1-pod"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "example-inst-java", Namespace: "gns1-op"},
-					Spec:       v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}},
+					Spec:       current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}},
 				},
 			},
 			initSecrets: []*corev1.Secret{
@@ -158,7 +158,7 @@ func TestMutatePod(t *testing.T) {
 		},
 		{
 			name: "fetch instrumentation error",
-			instrumentationLocator: InstrumentationLocatorFn(func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*v1beta1.Instrumentation, error) {
+			instrumentationLocator: InstrumentationLocatorFn(func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error) {
 				return nil, fmt.Errorf("fetch instrumentation error")
 			}),
 			pod:            corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
@@ -181,10 +181,10 @@ func TestMutatePod(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns4-op"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns4-pod"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "example-inst-java", Namespace: "gns4-op"},
-					Spec:       v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}},
+					Spec:       current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}},
 				},
 			},
 			operatorNs:     "gns4-op",
@@ -200,14 +200,14 @@ func TestMutatePod(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns5-op"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns5-pod"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "example-inst-java", Namespace: "gns5-op"},
-					Spec:       v1beta1.InstrumentationSpec{LicenseKeySecret: "", Agent: v1beta1.Agent{Language: "java", Image: "java"}},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: "", Agent: current.Agent{Language: "java", Image: "java"}},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "example-inst-php", Namespace: "gns5-op"},
-					Spec:       v1beta1.InstrumentationSpec{LicenseKeySecret: "different", Agent: v1beta1.Agent{Language: "php", Image: "php"}},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: "different", Agent: current.Agent{Language: "php", Image: "php"}},
 				},
 			},
 			initSecrets: []*corev1.Secret{
@@ -228,14 +228,14 @@ func TestMutatePod(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns6-op"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns6-pod"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "example-inst-java", Namespace: "gns6-op"},
-					Spec:       v1beta1.InstrumentationSpec{LicenseKeySecret: "", Agent: v1beta1.Agent{Language: "java", Image: "java"}},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: "", Agent: current.Agent{Language: "java", Image: "java"}},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "example-inst-php", Namespace: "gns6-op"},
-					Spec:       v1beta1.InstrumentationSpec{LicenseKeySecret: "", Agent: v1beta1.Agent{Language: "php", Image: "php"}},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: "", Agent: current.Agent{Language: "php", Image: "php"}},
 				},
 			},
 			operatorNs: "gns6-op",
@@ -276,7 +276,6 @@ func TestMutatePod(t *testing.T) {
 				injectorRegistry := apm.NewInjectorRegistry()
 				apmInjectors := []apm.Injector{
 					&apm.DotnetInjector{},
-					&apm.GoInjector{},
 					&apm.JavaInjector{},
 					&apm.NodejsInjector{},
 					&apm.PhpInjector{},
@@ -553,8 +552,8 @@ func TestNewrelicSecretReplicator_ReplicateSecret(t *testing.T) {
 func TestGetLanguageInstrumentations(t *testing.T) {
 	tests := []struct {
 		name              string
-		instrumentations  []*v1beta1.Instrumentation
-		expectedLangInsts []*v1beta1.Instrumentation
+		instrumentations  []*current.Instrumentation
+		expectedLangInsts []*current.Instrumentation
 		expectedErrStr    string
 	}{
 		{
@@ -562,125 +561,125 @@ func TestGetLanguageInstrumentations(t *testing.T) {
 		},
 		{
 			name: "dotnet",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "dotnet", Image: "dotnet"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet", Image: "dotnet"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "dotnet", Image: "dotnet"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet", Image: "dotnet"}}},
 			},
 		},
 		{
 			name: "go",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "go", Image: "go"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "go", Image: "go"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "go", Image: "go"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "go", Image: "go"}}},
 			},
 		},
 		{
 			name: "java",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
 			},
 		},
 		{
 			name: "nodejs",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "nodejs", Image: "nodejs"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs", Image: "nodejs"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "nodejs", Image: "nodejs"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs", Image: "nodejs"}}},
 			},
 		},
 		{
 			name: "php",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "php", Image: "php"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php", Image: "php"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "php", Image: "php"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php", Image: "php"}}},
 			},
 		},
 		{
 			name: "python",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "python", Image: "python"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python", Image: "python"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "python", Image: "python"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python", Image: "python"}}},
 			},
 		},
 		{
 			name: "ruby",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "ruby", Image: "ruby"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "ruby"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "ruby", Image: "ruby"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "ruby"}}},
 			},
 		},
 		{
 			name: "java + php",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "php", Image: "php"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php", Image: "php"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "php", Image: "php"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php", Image: "php"}}},
 			},
 		},
 		{
 			name: "java + java, both identical, only return first occurrence",
-			instrumentations: []*v1beta1.Instrumentation{
-				{ObjectMeta: metav1.ObjectMeta{Name: "1st"}, Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "2st"}, Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
+			instrumentations: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "1st"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "2st"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
 			},
-			expectedLangInsts: []*v1beta1.Instrumentation{
-				{ObjectMeta: metav1.ObjectMeta{Name: "1st"}, Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
+			expectedLangInsts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "1st"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
 			},
 		},
 		{
 			name: "java + java, env value different",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "1"}}}}},
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "0"}}}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "1"}}}}},
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "0"}}}}},
 			},
 			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
 		},
 		{
 			name: "java + java, env name different",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "1"}}}}},
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "LOGGING", Value: "1"}}}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "1"}}}}},
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "LOGGING", Value: "1"}}}}},
 			},
 			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
 		},
 		{
 			name: "java + java, image different",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java-is-great"}}},
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java-is-terrible"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java-is-great"}}},
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java-is-terrible"}}},
 			},
 			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
 		},
 		{
 			name: "java + java, volume size different",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java", VolumeSizeLimit: resource.NewQuantity(2, resource.DecimalSI)}}},
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", VolumeSizeLimit: resource.NewQuantity(2, resource.DecimalSI)}}},
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
 			},
 			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
 		},
 		{
 			name: "java + java, resources different",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java", Resources: corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")}}}}},
-				{Spec: v1beta1.InstrumentationSpec{Agent: v1beta1.Agent{Language: "java", Image: "java"}}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Resources: corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")}}}}},
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
 			},
 			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
 		},
@@ -705,7 +704,7 @@ func TestGetLanguageInstrumentations(t *testing.T) {
 func TestGetSecretNameFromInstrumentations(t *testing.T) {
 	tests := []struct {
 		name               string
-		instrumentations   []*v1beta1.Instrumentation
+		instrumentations   []*current.Instrumentation
 		expectedSecretName string
 		expectedErrStr     string
 	}{
@@ -714,65 +713,65 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 		},
 		{
 			name:               "one, default",
-			instrumentations:   []*v1beta1.Instrumentation{{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}}},
+			instrumentations:   []*current.Instrumentation{{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}}},
 			expectedSecretName: DefaultLicenseKeySecretName,
 		},
 		{
 			name:               "one, blank",
-			instrumentations:   []*v1beta1.Instrumentation{{Spec: v1beta1.InstrumentationSpec{}}},
+			instrumentations:   []*current.Instrumentation{{Spec: current.InstrumentationSpec{}}},
 			expectedSecretName: DefaultLicenseKeySecretName,
 		},
 		{
 			name:               "one, other",
-			instrumentations:   []*v1beta1.Instrumentation{{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: "something-else"}}},
+			instrumentations:   []*current.Instrumentation{{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}}},
 			expectedSecretName: "something-else",
 		},
 		{
 			name: "two, one blank, the other the default",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{}},
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{}},
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
 			},
 			expectedSecretName: DefaultLicenseKeySecretName,
 		},
 		{
 			name: "three, one something else, one the default, one blank",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: "something-else"}},
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
-				{Spec: v1beta1.InstrumentationSpec{}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
+				{Spec: current.InstrumentationSpec{}},
 			},
 			expectedErrStr: "multiple key secrets",
 		},
 		{
 			name: "two, one blank, the other the something else",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{}},
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: "something-else"}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{}},
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
 			},
 			expectedErrStr: "multiple key secrets",
 		},
 		{
 			name: "two, one the default, the other the something else",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: "something-else"}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
 			},
 			expectedErrStr: "multiple key secrets",
 		},
 		{
 			name: "two, one blank, the other the default",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{}},
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{}},
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
 			},
 			expectedSecretName: DefaultLicenseKeySecretName,
 		},
 		{
 			name: "two, both something else",
-			instrumentations: []*v1beta1.Instrumentation{
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: "something-else"}},
-				{Spec: v1beta1.InstrumentationSpec{LicenseKeySecret: "something-else"}},
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
+				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
 			},
 			expectedSecretName: "something-else",
 		},
@@ -800,11 +799,11 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 		name           string
 		expectedErrStr string
 		initNs         []*corev1.Namespace
-		initInsts      []*v1beta1.Instrumentation
+		initInsts      []*current.Instrumentation
 		ns             corev1.Namespace
 		pod            corev1.Pod
 		operatorNs     string
-		insts          []*v1beta1.Instrumentation
+		insts          []*current.Instrumentation
 	}{
 		{
 			name: "none",
@@ -814,7 +813,7 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "other1"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{ObjectMeta: metav1.ObjectMeta{Name: "inst1", Namespace: "other1"}},
 			},
 			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1"}},
@@ -826,10 +825,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator2"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "inst2", Namespace: "operator2"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						PodLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{
 								{Key: "human", Operator: metav1.LabelSelectorOperator("eat"), Values: []string{"food"}},
@@ -847,10 +846,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator3"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "inst3", Namespace: "operator3"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						NamespaceLabelSelector: metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 							{Key: "crowd", Operator: metav1.LabelSelectorOperator("eats"), Values: []string{"foods"}},
 						}},
@@ -864,17 +863,17 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator4-1"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator4-2"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{ObjectMeta: metav1.ObjectMeta{Name: "inst4-1", Namespace: "operator4-1"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "inst4-2", Namespace: "operator4-2"}},
 			},
 			operatorNs: "operator4-1",
 			pod:        corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod4"}},
-			insts: []*v1beta1.Instrumentation{
+			insts: []*current.Instrumentation{
 				{
 					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
 					ObjectMeta: metav1.ObjectMeta{Name: "inst4-1", Namespace: "operator4-1"},
-					Spec:       v1beta1.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
 				},
 			},
 		},
@@ -883,22 +882,22 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator5"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{ObjectMeta: metav1.ObjectMeta{Name: "inst5-1", Namespace: "operator5"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "inst5-2", Namespace: "operator5"}},
 			},
 			operatorNs: "operator5",
 			pod:        corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod5"}},
-			insts: []*v1beta1.Instrumentation{
+			insts: []*current.Instrumentation{
 				{
 					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
 					ObjectMeta: metav1.ObjectMeta{Name: "inst5-1", Namespace: "operator5"},
-					Spec:       v1beta1.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
 				},
 				{
 					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
 					ObjectMeta: metav1.ObjectMeta{Name: "inst5-2", Namespace: "operator5"},
-					Spec:       v1beta1.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
 				},
 			},
 		},
@@ -907,10 +906,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator6"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "inst6", Namespace: "operator6"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						PodLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "pod-id", Operator: metav1.LabelSelectorOpIn, Values: []string{"abc1234"}}},
 						},
@@ -921,10 +920,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			pod: corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod6", Labels: map[string]string{
 				"pod-id": "abc1234",
 			}}},
-			insts: []*v1beta1.Instrumentation{
+			insts: []*current.Instrumentation{
 				{
 					TypeMeta: metav1.TypeMeta{Kind: "Instrumentation"}, ObjectMeta: metav1.ObjectMeta{Name: "inst6", Namespace: "operator6"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						PodLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "pod-id", Operator: metav1.LabelSelectorOpIn, Values: []string{"abc1234"}}},
 						},
@@ -938,10 +937,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator7"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "inst7", Namespace: "operator7"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						NamespaceLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "ns-id", Operator: metav1.LabelSelectorOpIn, Values: []string{"abc1234"}}},
 						},
@@ -955,10 +954,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			ns: corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default", Labels: map[string]string{
 				"ns-id": "abc1234",
 			}}},
-			insts: []*v1beta1.Instrumentation{
+			insts: []*current.Instrumentation{
 				{
 					TypeMeta: metav1.TypeMeta{Kind: "Instrumentation"}, ObjectMeta: metav1.ObjectMeta{Name: "inst7", Namespace: "operator7"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						NamespaceLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "ns-id", Operator: metav1.LabelSelectorOpIn, Values: []string{"abc1234"}}},
 						},
@@ -972,10 +971,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator8"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "inst8", Namespace: "operator8"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						PodLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "pod-id", Operator: metav1.LabelSelectorOpIn, Values: []string{"abc1234"}}},
 						},
@@ -998,10 +997,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator9"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "inst9", Namespace: "operator9"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						PodLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "pod-id", Operator: metav1.LabelSelectorOpIn, Values: []string{"abc1234"}}},
 						},
@@ -1024,10 +1023,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator10"}},
 			},
-			initInsts: []*v1beta1.Instrumentation{
+			initInsts: []*current.Instrumentation{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "inst10", Namespace: "operator10"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						PodLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "pod-id", Operator: metav1.LabelSelectorOpIn, Values: []string{"abc1234"}}},
 						},
@@ -1044,10 +1043,10 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			ns: corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default", Labels: map[string]string{
 				"ns-id": "abc1234",
 			}}},
-			insts: []*v1beta1.Instrumentation{
+			insts: []*current.Instrumentation{
 				{
 					TypeMeta: metav1.TypeMeta{Kind: "Instrumentation"}, ObjectMeta: metav1.ObjectMeta{Name: "inst10", Namespace: "operator10"},
-					Spec: v1beta1.InstrumentationSpec{
+					Spec: current.InstrumentationSpec{
 						NamespaceLabelSelector: metav1.LabelSelector{
 							MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "ns-id", Operator: metav1.LabelSelectorOpIn, Values: []string{"abc1234"}}},
 						},
@@ -1060,7 +1059,7 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			},
 		},
 	}
-	instSorter := func(a, b *v1beta1.Instrumentation) bool {
+	instSorter := func(a, b *current.Instrumentation) bool {
 		if a.Namespace > b.Namespace {
 			return true
 		}
