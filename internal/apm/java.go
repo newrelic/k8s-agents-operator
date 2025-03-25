@@ -20,7 +20,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
 const (
@@ -45,7 +45,7 @@ func (i *JavaInjector) Language() string {
 	return "java"
 }
 
-func (i *JavaInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod) bool {
+func (i *JavaInjector) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
 	if inst.Spec.Agent.Language != i.Language() {
 		return false
 	}
@@ -55,7 +55,7 @@ func (i *JavaInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod) 
 	return true
 }
 
-func (i *JavaInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
 	}
@@ -129,7 +129,7 @@ func (i *JavaInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation,
 		})
 	}
 
-	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+	pod = i.injectNewrelicConfig(ctx, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
 
 	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
 

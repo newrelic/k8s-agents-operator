@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
 )
 
@@ -61,7 +61,7 @@ func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	inst := v1beta1.Instrumentation{}
+	inst := current.Instrumentation{}
 	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &inst)
 	logger.V(2).Info("instrumentation reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
@@ -92,7 +92,7 @@ func (r *InstrumentationReconciler) SetupWithManager(mgr ctrl.Manager, healthMon
 	r.operatorNamespace = operatorNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 100}).
-		For(&v1beta1.Instrumentation{}).
+		For(&current.Instrumentation{}).
 		WithEventFilter(
 			predicate.Funcs{
 				DeleteFunc: func(e event.DeleteEvent) bool {
@@ -113,7 +113,7 @@ func (r *InstrumentationReconciler) SetupWithManager(mgr ctrl.Manager, healthMon
 }
 
 func (r *InstrumentationReconciler) isInOperatorNamespace(object client.Object) bool {
-	inst, ok := object.(*v1beta1.Instrumentation)
+	inst, ok := object.(*current.Instrumentation)
 	if !ok {
 		return false
 	}
