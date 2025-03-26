@@ -17,6 +17,7 @@ package apm
 
 import (
 	"context"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -85,7 +86,9 @@ func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation,
 			Value: rubyOptRequire,
 		})
 	} else if idx > -1 {
-		container.Env[idx].Value = container.Env[idx].Value + envRubyOpt
+		if !strings.Contains(" "+container.Env[idx].Value+" ", " "+rubyOptRequire+" ") {
+			container.Env[idx].Value = container.Env[idx].Value + " " + rubyOptRequire
+		}
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {
