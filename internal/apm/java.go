@@ -17,6 +17,7 @@ package apm
 
 import (
 	"context"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -26,7 +27,7 @@ import (
 const (
 	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
 	envApmConfigFile      = "NEWRELIC_FILE"
-	javaJVMArgument       = " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"
+	javaJVMArgument       = "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"
 	javaInitContainerName = initContainerName + "-java"
 	javaApmConfigPath     = apmConfigMountPath + "/newrelic.yaml"
 )
@@ -86,7 +87,9 @@ func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation,
 			Value: javaJVMArgument,
 		})
 	} else {
-		container.Env[idx].Value = container.Env[idx].Value + javaJVMArgument
+		if !strings.Contains(" "+container.Env[idx].Value+" ", " "+javaJVMArgument+" ") {
+			container.Env[idx].Value = container.Env[idx].Value + " " + javaJVMArgument
+		}
 	}
 
 	if inst.Spec.AgentConfigMap != "" {
