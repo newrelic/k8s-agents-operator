@@ -18,6 +18,7 @@ package apm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -86,7 +87,9 @@ func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentatio
 			Value: pythonPathPrefix,
 		})
 	} else if idx > -1 {
-		container.Env[idx].Value = fmt.Sprintf("%s:%s", pythonPathPrefix, container.Env[idx].Value)
+		if !strings.Contains(":"+container.Env[idx].Value+":", ":"+pythonPathPrefix+":") {
+			container.Env[idx].Value = fmt.Sprintf("%s:%s", pythonPathPrefix, container.Env[idx].Value)
+		}
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {

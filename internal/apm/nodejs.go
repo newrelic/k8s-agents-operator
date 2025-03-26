@@ -17,6 +17,7 @@ package apm
 
 import (
 	"context"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -25,7 +26,7 @@ import (
 
 const (
 	envNodeOptions          = "NODE_OPTIONS"
-	nodeRequireArgument     = " --require /newrelic-instrumentation/newrelicinstrumentation.js"
+	nodeRequireArgument     = "--require /newrelic-instrumentation/newrelicinstrumentation.js"
 	nodejsInitContainerName = initContainerName + "-nodejs"
 )
 
@@ -85,7 +86,9 @@ func (i *NodejsInjector) Inject(ctx context.Context, inst current.Instrumentatio
 			Value: nodeRequireArgument,
 		})
 	} else if idx > -1 {
-		container.Env[idx].Value = container.Env[idx].Value + nodeRequireArgument
+		if !strings.Contains(" "+container.Env[idx].Value+" ", " "+nodeRequireArgument+" ") {
+			container.Env[idx].Value = container.Env[idx].Value + " " + nodeRequireArgument
+		}
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {

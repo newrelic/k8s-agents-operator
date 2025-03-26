@@ -17,8 +17,6 @@ package apm
 
 import (
 	"context"
-	"errors"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
@@ -71,18 +69,6 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
-
-	// check if CORECLR_NEWRELIC_HOME env var is already set in the container
-	// if it is already set, then we assume that .NET newrelic-instrumentation is already configured for this container
-	if getIndexOfEnv(container.Env, envDotnetNewrelicHome) > -1 {
-		return pod, errors.New("CORECLR_NEWRELIC_HOME environment variable is already set in the container")
-	}
-
-	// check if CORECLR_NEWRELIC_HOME env var is already set in the .NET instrumentation spec
-	// if it is already set, then we assume that .NET newrelic-instrumentation is already configured for this container
-	if getIndexOfEnv(inst.Spec.Agent.Env, envDotnetNewrelicHome) > -1 {
-		return pod, errors.New("CORECLR_NEWRELIC_HOME environment variable is already set in the .NET instrumentation spec")
-	}
 
 	// inject .NET instrumentation spec env vars.
 	for _, env := range inst.Spec.Agent.Env {

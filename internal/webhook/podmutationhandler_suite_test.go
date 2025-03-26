@@ -400,9 +400,6 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 							Command: []string{"/bin/sh"},
 							Args:    []string{"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh 20230831 && /newrelic-instrumentation/nr_env_to_ini.sh"},
 							Env: []corev1.EnvVar{
-								{Name: "a", Value: "a"},
-								{Name: "b", Value: "b"},
-								{Name: "PHP_INI_SCAN_DIR", Value: "/newrelic-instrumentation/php-agent/ini"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "alpine2"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
