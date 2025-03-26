@@ -79,7 +79,47 @@ func TestNodejsInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "NODE_OPTIONS", Value: " --require /newrelic-instrumentation/newrelicinstrumentation.js"},
+							{Name: "NODE_OPTIONS", Value: "--require /newrelic-instrumentation/newrelicinstrumentation.js"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "newrelic-instrumentation-nodejs",
+						Command:      []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				}},
+			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs"}, LicenseKeySecret: "newrelic-key-secret"}},
+		},
+		{
+			name: "a container, instrumentation, with existing env NODE_OPTIONS",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{
+					Name: "test",
+					Env: []corev1.EnvVar{
+						{Name: "NODE_OPTIONS", Value: "--require somelib"},
+					},
+				},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
+					},
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "NODE_OPTIONS", Value: "--require somelib --require /newrelic-instrumentation/newrelicinstrumentation.js"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -101,7 +141,15 @@ func TestNodejsInjector_Inject(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &NodejsInjector{}
-			actualPod, err := i.Inject(ctx, test.inst, test.ns, test.pod)
+			// inject multiple times to assert that it's idempotent
+			var err error
+			var actualPod corev1.Pod
+			for ic := 0; ic < 3; ic++ {
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				if err != nil {
+					break
+				}
+			}
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
