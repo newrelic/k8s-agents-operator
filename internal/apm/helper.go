@@ -191,7 +191,9 @@ func setEnvVar(container *corev1.Container, envVarName string, envVarValue strin
 		return
 	}
 	if concatValues {
-		container.Env[idx].Value = fmt.Sprintf("%s:%s", container.Env[idx].Value, envVarValue)
+		if !strings.Contains(":"+container.Env[idx].Value+":", ":"+envVarValue+":") {
+			container.Env[idx].Value = fmt.Sprintf("%s:%s", container.Env[idx].Value, envVarValue)
+		}
 	}
 }
 
