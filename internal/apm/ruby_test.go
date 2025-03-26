@@ -100,7 +100,15 @@ func TestRubyInjector_Inject(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &RubyInjector{}
-			actualPod, err := i.Inject(ctx, test.inst, test.ns, test.pod)
+			// inject multiple times to assert that it's idempotent
+			var err error
+			var actualPod corev1.Pod
+			for ic := 0; ic < 3; ic++ {
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				if err != nil {
+					break
+				}
+			}
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
