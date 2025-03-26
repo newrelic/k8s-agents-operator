@@ -79,7 +79,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "JAVA_TOOL_OPTIONS", Value: " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
+							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -120,7 +120,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "NEW_RELIC_LABELS", Value: "app:java-injected;operator:auto-injection"},
-							{Name: "JAVA_TOOL_OPTIONS", Value: " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
+							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
@@ -154,7 +154,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "JAVA_TOOL_OPTIONS", Value: " -javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
+							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
 							{Name: "NEWRELIC_FILE", Value: "/newrelic-apm-config/newrelic.yaml"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
@@ -183,7 +183,15 @@ func TestJavaInjector_Inject(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &JavaInjector{}
-			actualPod, err := i.Inject(ctx, test.inst, test.ns, test.pod)
+			// inject multiple times to assert that it's idempotent
+			var err error
+			var actualPod corev1.Pod
+			for ic := 0; ic < 3; ic++ {
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				if err != nil {
+					break
+				}
+			}
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
