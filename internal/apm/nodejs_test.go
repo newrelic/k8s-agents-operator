@@ -79,7 +79,7 @@ func TestNodejsInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "NODE_OPTIONS", Value: " --require /newrelic-instrumentation/newrelicinstrumentation.js"},
+							{Name: "NODE_OPTIONS", Value: "--require /newrelic-instrumentation/newrelicinstrumentation.js"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -101,7 +101,15 @@ func TestNodejsInjector_Inject(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &NodejsInjector{}
-			actualPod, err := i.Inject(ctx, test.inst, test.ns, test.pod)
+			// inject multiple times to assert that it's idempotent
+			var err error
+			var actualPod corev1.Pod
+			for ic := 0; ic < 3; ic++ {
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				if err != nil {
+					break
+				}
+			}
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
