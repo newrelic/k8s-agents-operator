@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -74,6 +75,7 @@ func main() {
 	var (
 		metricsAddr          string
 		probeAddr            string
+		webhooksvc           string
 		enableLeaderElection bool
 		secureMetrics        bool
 		enableHTTP2          bool
@@ -82,6 +84,7 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&webhooksvc, "webhook-service-bind-address", ":9443", "The address the webhook service endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -109,8 +112,13 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
+	webhooksvcport, err := strconv.Atoi(strings.TrimPrefix(webhooksvc, ":"))
+	if err != nil {
+		setupLog.Error(err, "invalid webhook service port")
+		os.Exit(1)
+	}
 	webhookServer := webhookruntime.NewServer(webhookruntime.Options{
-		TLSOpts: tlsOpts,
+		TLSOpts: tlsOpts, Port: webhooksvcport,
 	})
 
 	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
