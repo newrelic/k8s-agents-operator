@@ -35,6 +35,10 @@ podSecurityContext:
 # -- Sets all security context (at container level). Can be configured also with `global.securityContext.container`
 containerSecurityContext: {}
 
+# If hostNetwork is set to true, the webhook server will bind to the host network.
+# @default -- `false`
+hostNetwork: false
+
 kubernetesClusterDomain: cluster.local
 
 controllerManager:
@@ -75,6 +79,12 @@ serviceAccount:
   name: ""
   # Specify any annotations to add to the ServiceAccount
   annotations:
+
+# -- healthprobe settings
+# -- healthprobe is a simple HTTP server that listens on the specified port and responds with 200 OK
+# -- when the operator is healthy. It is used by Kubernetes to check the health of the operator.
+heathProbe:
+  port: 8081
 
 metricsService:
   ports:
