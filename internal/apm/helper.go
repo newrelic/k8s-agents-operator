@@ -360,12 +360,16 @@ func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev
 	return pod
 }
 
-func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
-	container := &pod.Spec.Containers[index]
+// setAgentConfigMap is used to create the volume on the pod and the volume mount in the container using a configmap name
+func setAgentConfigMap(pod *corev1.Pod, containerName string, volumeName string, mountPath string, configMapName string) {
+	container := getContainerByNameFromPod(pod, containerName)
+	if container == nil {
+		return
+	}
 
-	if isPodVolumeMissing(*pod, apmConfigVolumeName) {
+	if isPodVolumeMissing(*pod, volumeName) {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: apmConfigVolumeName,
+			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -376,10 +380,24 @@ func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
 		})
 	}
 
-	if isContainerVolumeMissing(container, apmConfigVolumeName) {
+	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      apmConfigVolumeName,
-			MountPath: apmConfigMountPath,
+			Name:      volumeName,
+			MountPath: mountPath,
 		})
 	}
+}
+
+func getContainerByNameFromPod(pod *corev1.Pod, containerName string) *corev1.Container {
+	for i, entry := range pod.Spec.InitContainers {
+		if entry.Name == containerName {
+			return &pod.Spec.InitContainers[i]
+		}
+	}
+	for i, entry := range pod.Spec.Containers {
+		if entry.Name == containerName {
+			return &pod.Spec.Containers[i]
+		}
+	}
+	return nil
 }
