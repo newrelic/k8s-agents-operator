@@ -29,6 +29,7 @@ const (
 	envIniScanDirKey     = "PHP_INI_SCAN_DIR"
 	envIniScanDirVal     = "/newrelic-instrumentation/php-agent/ini"
 	phpInitContainerName = initContainerName + "-php"
+	phpApmConfigFile     = "newrelic.ini"
 )
 
 var _ Injector = (*PhpInjector)(nil)
@@ -110,6 +111,15 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 		if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
 			container.Env = append(container.Env, env)
 		}
+	}
+
+	if inst.Spec.AgentConfigMap != "" {
+		agentCMVolumeName := apmConfigMountPath + "-" + "php" + "-" + container.Name
+		agentCMMountPath := apmConfigMountPath + "-" + "php" + "-" + container.Name
+		agentCMFile := agentCMMountPath + "/" + phpApmConfigFile
+		setAgentConfigMap(&pod, container.Name, agentCMVolumeName, agentCMMountPath, inst.Spec.AgentConfigMap)
+
+		setEnvVar(container, envIniScanDirKey, agentCMFile, true)
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {

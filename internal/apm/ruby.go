@@ -26,8 +26,10 @@ import (
 
 const (
 	envRubyOpt            = "RUBYOPT"
+	envRubyApmConfigFile  = "NEW_RELIC_CONFIG_FILE"
 	rubyOptRequire        = "-r /newrelic-instrumentation/lib/boot/strap"
 	rubyInitContainerName = initContainerName + "-ruby"
+	rubyApmConfigFile     = "newrelic.yml"
 )
 
 var _ Injector = (*RubyInjector)(nil)
@@ -88,6 +90,20 @@ func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation,
 	} else if idx > -1 {
 		if !strings.Contains(" "+container.Env[idx].Value+" ", " "+rubyOptRequire+" ") {
 			container.Env[idx].Value = container.Env[idx].Value + " " + rubyOptRequire
+		}
+	}
+
+	if inst.Spec.AgentConfigMap != "" {
+		agentCMVolumeName := apmConfigMountPath + "-" + "ruby" + "-" + container.Name
+		agentCMMountPath := apmConfigMountPath + "-" + "ruby" + "-" + container.Name
+		agentCMFile := agentCMMountPath + "/" + rubyApmConfigFile
+		setAgentConfigMap(&pod, container.Name, agentCMVolumeName, agentCMMountPath, inst.Spec.AgentConfigMap)
+
+		if apmIdx := getIndexOfEnv(container.Env, envRubyApmConfigFile); apmIdx == -1 {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  envRubyApmConfigFile,
+				Value: agentCMFile,
+			})
 		}
 	}
 
