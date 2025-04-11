@@ -17,15 +17,16 @@ package apm
 
 import (
 	"context"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
 const (
 	envNodeOptions          = "NODE_OPTIONS"
-	nodeRequireArgument     = " --require /newrelic-instrumentation/newrelicinstrumentation.js"
+	nodeRequireArgument     = "--require /newrelic-instrumentation/newrelicinstrumentation.js"
 	nodejsInitContainerName = initContainerName + "-nodejs"
 )
 
@@ -43,7 +44,7 @@ func (i *NodejsInjector) Language() string {
 	return "nodejs"
 }
 
-func (i *NodejsInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod) bool {
+func (i *NodejsInjector) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
 	if inst.Spec.Agent.Language != i.Language() {
 		return false
 	}
@@ -53,7 +54,7 @@ func (i *NodejsInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod
 	return true
 }
 
-func (i *NodejsInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i *NodejsInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
 	}
@@ -85,7 +86,9 @@ func (i *NodejsInjector) Inject(ctx context.Context, inst v1beta1.Instrumentatio
 			Value: nodeRequireArgument,
 		})
 	} else if idx > -1 {
-		container.Env[idx].Value = container.Env[idx].Value + nodeRequireArgument
+		if !strings.Contains(" "+container.Env[idx].Value+" ", " "+nodeRequireArgument+" ") {
+			container.Env[idx].Value = container.Env[idx].Value + " " + nodeRequireArgument
+		}
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {
@@ -116,7 +119,7 @@ func (i *NodejsInjector) Inject(ctx context.Context, inst v1beta1.Instrumentatio
 		})
 	}
 
-	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+	pod = i.injectNewrelicConfig(ctx, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
 
 	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
 
