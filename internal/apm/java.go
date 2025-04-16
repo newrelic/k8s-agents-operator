@@ -26,10 +26,10 @@ import (
 
 const (
 	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
-	envApmConfigFile      = "NEWRELIC_FILE"
+	envJavaApmConfigFile  = "NEWRELIC_FILE"
 	javaJVMArgument       = "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"
 	javaInitContainerName = initContainerName + "-java"
-	javaApmConfigPath     = apmConfigMountPath + "/newrelic.yaml"
+	javaApmConfigFile     = "newrelic.yaml"
 )
 
 var _ Injector = (*JavaInjector)(nil)
@@ -93,13 +93,15 @@ func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation,
 	}
 
 	if inst.Spec.AgentConfigMap != "" {
-		injectAgentConfigMap(&pod, firstContainer, inst.Spec.AgentConfigMap)
+		agentCMVolumeName := apmConfigMountPath + "-" + "java" + "-" + container.Name
+		agentCMMountPath := apmConfigMountPath + "-" + "java" + "-" + container.Name
+		agentCMFile := agentCMMountPath + "/" + javaApmConfigFile
+		setAgentConfigMap(&pod, container.Name, agentCMVolumeName, agentCMMountPath, inst.Spec.AgentConfigMap)
 
-		// Add ENV
-		if apmIdx := getIndexOfEnv(container.Env, envApmConfigFile); apmIdx == -1 {
+		if apmIdx := getIndexOfEnv(container.Env, envJavaApmConfigFile); apmIdx == -1 {
 			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  envApmConfigFile,
-				Value: javaApmConfigPath,
+				Name:  envJavaApmConfigFile,
+				Value: agentCMFile,
 			})
 		}
 	}
