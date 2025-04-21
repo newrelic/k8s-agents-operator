@@ -115,6 +115,7 @@ func (i *NewrelicSdkInjector) injectWithInjector(ctx context.Context, injector a
 	if ci, ok := injector.(apm.ContainerInjector); ok {
 		mutatedPod, err = ci.InjectContainer(ctx, *inst, ns, pod, pod.Spec.Containers[0].Name)
 	} else {
+		//nolint:staticcheck
 		mutatedPod, err = injector.Inject(ctx, *inst, ns, pod)
 	}
 	return mutatedPod, true, err
