@@ -27,6 +27,7 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
@@ -89,7 +90,7 @@ func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instr
 		)
 	}
 	if successfulInjection {
-		setPodLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
+		util.SetPodLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
 	}
 	return pod
 }
@@ -119,12 +120,4 @@ func (i *NewrelicSdkInjector) injectWithInjector(ctx context.Context, injector a
 		mutatedPod, err = injector.Inject(ctx, *inst, ns, pod)
 	}
 	return mutatedPod, true, err
-}
-
-func setPodLabel(pod *corev1.Pod, key, val string) {
-	labels := pod.Labels
-	if labels == nil {
-		pod.ObjectMeta.Labels = make(map[string]string)
-	}
-	pod.ObjectMeta.Labels[key] = val
 }

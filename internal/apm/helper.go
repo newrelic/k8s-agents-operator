@@ -337,7 +337,7 @@ func chooseServiceName(pod corev1.Pod, index int) string {
 	return pod.Spec.Containers[index].Name
 }
 
-// Deprecated: use setPodLabel
+// Deprecated: use util.SetPodLabel
 func applyLabelToPod(pod *corev1.Pod, key, val string) *corev1.Pod {
 	labels := pod.Labels
 	if labels == nil {
@@ -395,7 +395,7 @@ func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
 	}
 }
 
-func (i *baseInjector) setContainerEnvLicenseKey(container *corev1.Container, licenseKeySecretName string) {
+func setContainerEnvLicenseKey(container *corev1.Container, licenseKeySecretName string) {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLicenseKey); idx == -1 {
 		optional := true
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -411,11 +411,11 @@ func (i *baseInjector) setContainerEnvLicenseKey(container *corev1.Container, li
 	}
 }
 
-func (i *baseInjector) setContainerEnvInjectionDefaults(ctx context.Context, pod *corev1.Pod, container *corev1.Container) {
+func setContainerEnvInjectionDefaults(pod *corev1.Pod, container *corev1.Container) {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  EnvNewRelicAppName,
-			Value: getAppName(*pod, *container),
+			Value: getAppName(pod, container),
 		})
 	}
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLabels); idx == -1 {
@@ -436,43 +436,22 @@ func (i *baseInjector) setContainerEnvInjectionDefaults(ctx context.Context, pod
 	}
 }
 
-func (i *baseInjector) setContainerEnvDefaults(ctx context.Context, ns corev1.Namespace, pod *corev1.Pod, container *corev1.Container, licenseKeySecret string) {
-	i.setContainerEnvInjectionDefaults(ctx, pod, container)
-	i.setContainerEnvLicenseKey(container, licenseKeySecret)
-}
-
-func getAppName(pod corev1.Pod, container corev1.Container) string {
+func getAppName(pod *corev1.Pod, container *corev1.Container) string {
 	//@todo: review this logic; if we instrument multiple containers, they would all have the same app name
+	var lateName string
 	for _, owner := range pod.ObjectMeta.OwnerReferences {
 		switch strings.ToLower(owner.Kind) {
-		case "deployment", "statefulset", "job", "cronjob":
+		case "deployment", "statefulset", "cronjob", "daemonset":
 			return owner.Name
+		case "job", "replicaset":
+			lateName = owner.Name
 		}
+	}
+	if lateName != "" {
+		return lateName
 	}
 	if pod.Name != "" {
 		return pod.Name
 	}
 	return container.Name
-}
-
-func setPodLabel(pod *corev1.Pod, key, val string) {
-	labels := pod.Labels
-	if labels == nil {
-		pod.ObjectMeta.Labels = make(map[string]string)
-	}
-	pod.ObjectMeta.Labels[key] = val
-}
-
-func getContainerByName(pod corev1.Pod, containerName string) (container *corev1.Container, isInitContainer bool) {
-	for idx, podContainer := range pod.Spec.Containers {
-		if podContainer.Name == containerName {
-			return &pod.Spec.Containers[idx], false
-		}
-	}
-	for idx, podContainer := range pod.Spec.InitContainers {
-		if podContainer.Name == containerName {
-			return &pod.Spec.Containers[idx], true
-		}
-	}
-	return nil, false
 }
