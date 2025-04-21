@@ -52,21 +52,31 @@ var healthDefaultEnv = []corev1.EnvVar{
 	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
 }
 
+// Deprecated: use injectHealthWithContainer instead
+// injectHealth used to inject health based on container or init container index
 func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentContainerIndex int, agentInitContainerIndex int) (corev1.Pod, error) {
+	// caller checks if there is at least one container.
+	var container *corev1.Container
+	if agentContainerIndex > -1 && agentContainerIndex < len(pod.Spec.Containers) {
+		container = &pod.Spec.Containers[agentContainerIndex]
+	} else if agentInitContainerIndex > -1 && agentContainerIndex < len(pod.Spec.InitContainers) {
+		container = &pod.Spec.InitContainers[agentInitContainerIndex]
+	} else {
+		return pod, nil
+	}
+	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+}
+
+// injectHealthWithContainer used to inject the health container (sidecar) and mounts requires, among other things
+func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, container *corev1.Container) (corev1.Pod, error) {
 	if inst.Spec.HealthAgent.IsEmpty() {
+		return pod, nil
+	}
+	if container == nil {
 		return pod, nil
 	}
 
 	originalPod := pod.DeepCopy()
-	firstContainer := 0
-
-	// caller checks if there is at least one container.
-	var container *corev1.Container
-	if agentContainerIndex > -1 {
-		container = &pod.Spec.Containers[agentContainerIndex]
-	} else if agentInitContainerIndex > -1 {
-		container = &pod.Spec.InitContainers[agentInitContainerIndex]
-	}
 
 	var err error
 	if err = validateContainerEnv(container.Env, envAgentControlHealthDeliveryLocation); err != nil {
@@ -123,7 +133,7 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrument
 		}
 	}
 
-	if isContainerVolumeMissing(&pod.Spec.Containers[firstContainer], healthVolumeName) {
+	if isContainerVolumeMissing(container, healthVolumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      healthVolumeName,
 			MountPath: healthMountPath,

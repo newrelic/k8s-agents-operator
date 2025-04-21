@@ -27,10 +27,12 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
 const (
-	DefaultLicenseKeySecretName = "newrelic-key-secret"
+	DefaultLicenseKeySecretName          = "newrelic-key-secret"
+	DescK8sAgentOperatorVersionLabelName = "newrelic-k8s-agents-operator-version"
 )
 
 // compile time type assertion
@@ -59,7 +61,12 @@ func NewNewrelicSdkInjector(logger logr.Logger, client client.Client, injectorRe
 
 // Inject is used to utilize a list of instrumentations, and if the injectors language matches the instrumentation, trigger the injector
 func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+	if len(pod.Spec.Containers) == 0 {
+		return pod
+	}
+
 	hadMatchingInjector := false
+	successfulInjection := false
 	for _, inst := range insts {
 		for _, injector := range i.injectorRegistry.GetInjectors() {
 			mutatedPod, matchedThisInjector, err := i.injectWithInjector(ctx, injector, inst, ns, pod)
@@ -67,6 +74,9 @@ func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instr
 			if err != nil {
 				i.logger.Error(err, "Skipping agent injection", "agent_language", inst.Spec.Agent.Language)
 				continue
+			}
+			if matchedThisInjector {
+				successfulInjection = true
 			}
 			pod = mutatedPod
 		}
@@ -77,6 +87,9 @@ func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instr
 			"pod_namespace", pod.Namespace,
 			"registered_injectors", i.injectorRegistry.GetInjectors().Names(),
 		)
+	}
+	if successfulInjection {
+		setPodLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
 	}
 	return pod
 }
@@ -99,6 +112,18 @@ func (i *NewrelicSdkInjector) injectWithInjector(ctx context.Context, injector a
 		"newrelic-name", inst.Name,
 	)
 
-	mutatedPod, err = injector.Inject(ctx, *inst, ns, pod)
+	if ci, ok := injector.(apm.ContainerInjector); ok {
+		mutatedPod, err = ci.InjectContainer(ctx, *inst, ns, pod, pod.Spec.Containers[0].Name)
+	} else {
+		mutatedPod, err = injector.Inject(ctx, *inst, ns, pod)
+	}
 	return mutatedPod, true, err
+}
+
+func setPodLabel(pod *corev1.Pod, key, val string) {
+	labels := pod.Labels
+	if labels == nil {
+		pod.ObjectMeta.Labels = make(map[string]string)
+	}
+	pod.ObjectMeta.Labels[key] = val
 }

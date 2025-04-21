@@ -78,6 +78,43 @@ func (ai *AnnotationInjector) ConfigureLogger(logger logr.Logger) {}
 
 func (ai *AnnotationInjector) ConfigureClient(client client.Client) {}
 
+var (
+	_ apm.Injector          = (*ContainerInjector)(nil)
+	_ apm.ContainerInjector = (*ContainerInjector)(nil)
+)
+
+type ContainerInjector struct {
+	lang string
+}
+
+func (i *ContainerInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
+}
+
+func (i *ContainerInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
+	var container *corev1.Container
+	for j, containerItem := range pod.Spec.Containers {
+		if containerItem.Name == containerName {
+			container = &pod.Spec.Containers[j]
+		}
+	}
+	if container == nil {
+		return pod, nil
+	}
+	container.Env = append(container.Env, corev1.EnvVar{
+		Name: "injected", Value: "true",
+	})
+	return pod, nil
+}
+
+func (i *ContainerInjector) Language() string {
+	return i.lang
+}
+
+func (i *ContainerInjector) ConfigureLogger(logger logr.Logger) {}
+
+func (ai *ContainerInjector) ConfigureClient(client client.Client) {}
+
 func TestNewrelicSdkInjector_Inject(t *testing.T) {
 	vtrue, vzero := true, int64(0)
 	_, _ = vtrue, vzero
@@ -116,8 +153,11 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-a": "true"}},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"injected-a": "true"},
+					Labels:      map[string]string{"newrelic-k8s-agents-operator-version": ""},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 		},
 		{
@@ -129,8 +169,11 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-b": "true"}},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"injected-b": "true"},
+					Labels:      map[string]string{"newrelic-k8s-agents-operator-version": ""},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 		},
 		{
@@ -143,8 +186,26 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-a": "true", "injected-b": "true"}},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"injected-a": "true", "injected-b": "true"},
+					Labels:      map[string]string{"newrelic-k8s-agents-operator-version": ""},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+			},
+		},
+		{
+			name: "inject 1st container",
+			langInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "c"}}},
+			},
+			pod: corev1.Pod{
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-1"}, {Name: "container-2"}}},
+			},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"newrelic-k8s-agents-operator-version": ""},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-1", Env: []corev1.EnvVar{{Name: "injected", Value: "true"}}}, {Name: "container-2"}}},
 			},
 		},
 		{
@@ -167,6 +228,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			apmInjectors := []apm.Injector{
 				&AnnotationInjector{lang: "a"},
 				&AnnotationInjector{lang: "b"},
+				&ContainerInjector{lang: "c"},
 				&ErrorInjector{err: fmt.Errorf("some error")},
 			}
 			for _, apmInjector := range apmInjectors {

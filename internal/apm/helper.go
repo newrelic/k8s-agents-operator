@@ -56,10 +56,16 @@ const instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
 var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")
 
 type Injector interface {
+	// Deprecated: use InjectContainer from the ContainerInjector interface
 	Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
 	Language() string
 	ConfigureClient(client client.Client)
 	ConfigureLogger(logger logr.Logger)
+}
+
+// ContainerInjector is used to inject a specific container, rather than always the first container
+type ContainerInjector interface {
+	InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error)
 }
 
 type Injectors []Injector
@@ -231,6 +237,7 @@ func (i *baseInjector) validate(inst current.Instrumentation) error {
 	return nil
 }
 
+// Deprecated: use setContainerEnvLicenseKey
 func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Container, licenseKeySecretName string) corev1.Container {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLicenseKey); idx == -1 {
 		optional := true
@@ -248,12 +255,14 @@ func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Co
 	return container
 }
 
+// Deprecated: use setContainerEnvDefaults
 func (i *baseInjector) injectNewrelicConfig(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, index int, licenseKeySecret string) corev1.Pod {
 	pod = i.injectNewrelicEnvConfig(ctx, pod, index)
 	pod.Spec.Containers[index] = i.injectNewrelicLicenseKeyIntoContainer(pod.Spec.Containers[index], licenseKeySecret)
 	return pod
 }
 
+// Deprecated: use setContainerEnvInjectionDefaults;
 func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, pod corev1.Pod, index int) corev1.Pod {
 	container := &pod.Spec.Containers[index]
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
@@ -314,6 +323,7 @@ func encodeAttributes(m map[string]string, fieldSeparator string, valueSeparator
 	return str
 }
 
+// Deprecated: use getAppName
 func chooseServiceName(pod corev1.Pod, index int) string {
 	for _, owner := range pod.ObjectMeta.OwnerReferences {
 		switch strings.ToLower(owner.Kind) {
@@ -327,6 +337,7 @@ func chooseServiceName(pod corev1.Pod, index int) string {
 	return pod.Spec.Containers[index].Name
 }
 
+// Deprecated: use setPodLabel
 func applyLabelToPod(pod *corev1.Pod, key, val string) *corev1.Pod {
 	labels := pod.Labels
 	if labels == nil {
@@ -382,4 +393,86 @@ func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
 			MountPath: apmConfigMountPath,
 		})
 	}
+}
+
+func (i *baseInjector) setContainerEnvLicenseKey(container *corev1.Container, licenseKeySecretName string) {
+	if idx := getIndexOfEnv(container.Env, EnvNewRelicLicenseKey); idx == -1 {
+		optional := true
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name: EnvNewRelicLicenseKey,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: licenseKeySecretName},
+					Key:                  LicenseKey,
+					Optional:             &optional,
+				},
+			},
+		})
+	}
+}
+
+func (i *baseInjector) setContainerEnvInjectionDefaults(ctx context.Context, pod *corev1.Pod, container *corev1.Container) {
+	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  EnvNewRelicAppName,
+			Value: getAppName(*pod, *container),
+		})
+	}
+	if idx := getIndexOfEnv(container.Env, EnvNewRelicLabels); idx == -1 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  EnvNewRelicLabels,
+			Value: "operator:auto-injection",
+		})
+	} else {
+		labelAttributes := decodeAttributes(container.Env[idx].Value, ";", ":")
+		labelAttributes["operator"] = "auto-injection"
+		container.Env[idx].Value = encodeAttributes(labelAttributes, ";", ":")
+	}
+	if idx := getIndexOfEnv(container.Env, EnvNewRelicK8sOperatorEnabled); idx == -1 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  EnvNewRelicK8sOperatorEnabled,
+			Value: "true",
+		})
+	}
+}
+
+func (i *baseInjector) setContainerEnvDefaults(ctx context.Context, ns corev1.Namespace, pod *corev1.Pod, container *corev1.Container, licenseKeySecret string) {
+	i.setContainerEnvInjectionDefaults(ctx, pod, container)
+	i.setContainerEnvLicenseKey(container, licenseKeySecret)
+}
+
+func getAppName(pod corev1.Pod, container corev1.Container) string {
+	//@todo: review this logic; if we instrument multiple containers, they would all have the same app name
+	for _, owner := range pod.ObjectMeta.OwnerReferences {
+		switch strings.ToLower(owner.Kind) {
+		case "deployment", "statefulset", "job", "cronjob":
+			return owner.Name
+		}
+	}
+	if pod.Name != "" {
+		return pod.Name
+	}
+	return container.Name
+}
+
+func setPodLabel(pod *corev1.Pod, key, val string) {
+	labels := pod.Labels
+	if labels == nil {
+		pod.ObjectMeta.Labels = make(map[string]string)
+	}
+	pod.ObjectMeta.Labels[key] = val
+}
+
+func getContainerByName(pod corev1.Pod, containerName string) (container *corev1.Container, isInitContainer bool) {
+	for idx, podContainer := range pod.Spec.Containers {
+		if podContainer.Name == containerName {
+			return &pod.Spec.Containers[idx], false
+		}
+	}
+	for idx, podContainer := range pod.Spec.InitContainers {
+		if podContainer.Name == containerName {
+			return &pod.Spec.Containers[idx], true
+		}
+	}
+	return nil, false
 }
