@@ -184,10 +184,17 @@ func getValueFromEnv(envVars []corev1.EnvVar, name string) (string, bool) {
 func setEnvVar(container *corev1.Container, envVarName string, envVarValue string, concatValues bool) {
 	idx := getIndexOfEnv(container.Env, envVarName)
 	if idx < 0 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  envVarName,
-			Value: envVarValue,
-		})
+		if concatValues {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  envVarName,
+				Value: ":"+envVarValue,
+			})
+		} else {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  envVarName,
+				Value: envVarValue,
+			})
+		}
 		return
 	}
 	if concatValues {
