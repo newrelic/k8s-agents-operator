@@ -29,20 +29,24 @@ import (
 // InstrumentationSpec defines the desired state of Instrumentation
 type InstrumentationSpec struct {
 	// Exporter defines exporter configuration.
+	// @todo: remove this
 	// +optional
 	Exporter `json:"exporter,omitempty"`
 
 	// Resource defines the configuration for the resource attributes, as defined by the OpenTelemetry specification.
+	// @todo: remove this
 	// +optional
 	Resource Resource `json:"resource,omitempty"`
 
 	// Propagators defines inter-process context propagation configuration.
 	// Values in this list will be set in the OTEL_PROPAGATORS env var.
 	// Enum=tracecontext;none
+	// @todo: remove this
 	// +optional
 	Propagators []common.Propagator `json:"propagators,omitempty"`
 
 	// Sampler defines sampling configuration.
+	// @todo: remove this
 	// +optional
 	Sampler `json:"sampler,omitempty"`
 
