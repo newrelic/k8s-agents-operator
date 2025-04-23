@@ -17,11 +17,9 @@ package apm
 
 import (
 	"context"
-	"errors"
-
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
 const (
@@ -50,7 +48,7 @@ func (i *DotnetInjector) Language() string {
 	return "dotnet"
 }
 
-func (i *DotnetInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod) bool {
+func (i *DotnetInjector) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
 	if inst.Spec.Agent.Language != i.Language() {
 		return false
 	}
@@ -60,7 +58,7 @@ func (i *DotnetInjector) acceptable(inst v1beta1.Instrumentation, pod corev1.Pod
 	return true
 }
 
-func (i DotnetInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
 		return pod, nil
 	}
@@ -71,18 +69,6 @@ func (i DotnetInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
-
-	// check if CORECLR_NEWRELIC_HOME env var is already set in the container
-	// if it is already set, then we assume that .NET newrelic-instrumentation is already configured for this container
-	if getIndexOfEnv(container.Env, envDotnetNewrelicHome) > -1 {
-		return pod, errors.New("CORECLR_NEWRELIC_HOME environment variable is already set in the container")
-	}
-
-	// check if CORECLR_NEWRELIC_HOME env var is already set in the .NET instrumentation spec
-	// if it is already set, then we assume that .NET newrelic-instrumentation is already configured for this container
-	if getIndexOfEnv(inst.Spec.Agent.Env, envDotnetNewrelicHome) > -1 {
-		return pod, errors.New("CORECLR_NEWRELIC_HOME environment variable is already set in the .NET instrumentation spec")
-	}
 
 	// inject .NET instrumentation spec env vars.
 	for _, env := range inst.Spec.Agent.Env {
@@ -125,7 +111,7 @@ func (i DotnetInjector) Inject(ctx context.Context, inst v1beta1.Instrumentation
 		})
 	}
 
-	pod = i.injectNewrelicConfig(ctx, inst.Spec.Resource, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
+	pod = i.injectNewrelicConfig(ctx, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
 
 	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
 
