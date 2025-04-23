@@ -84,10 +84,6 @@ type PhpInjector struct {
 	acceptVersion
 }
 
-var appendPathsEnvKeys = map[string]struct{}{
-	envIniScanDirKey: {},
-}
-
 // Inject is used to inject the PHP agent.
 func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	if !i.acceptable(inst, pod) {
@@ -116,8 +112,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 
 	// inject PHP instrumentation spec env vars.
 	for _, env := range inst.Spec.Agent.Env {
-		_, shouldConcat := appendPathsEnvKeys[env.Name]
-		setEnvVar(container, env.Name, env.Value, shouldConcat)
+		setEnvVar(container, env.Name, env.Value, false)
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {
