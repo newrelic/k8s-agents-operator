@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"runtime"
@@ -42,6 +43,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	newreliccomv1beta1 "github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
 	"github.com/newrelic/k8s-agents-operator/internal/config"
 	"github.com/newrelic/k8s-agents-operator/internal/controller"
@@ -49,9 +52,6 @@ import (
 	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/internal/migrate/upgrade"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 	"github.com/newrelic/k8s-agents-operator/internal/webhook"
-
-	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
-	newreliccomv1beta1 "github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -112,13 +112,18 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
-	webhooksvcport, err := strconv.Atoi(strings.TrimPrefix(webhooksvc, ":"))
+	webhookHost, webhhookPort, err := net.SplitHostPort(webhooksvc)
+	if err != nil {
+		setupLog.Error(err, "invalid webhook bind address")
+		os.Exit(1)
+	}
+	webhooksvcport, err := strconv.Atoi(webhhookPort)
 	if err != nil {
 		setupLog.Error(err, "invalid webhook service port")
 		os.Exit(1)
 	}
 	webhookServer := webhookruntime.NewServer(webhookruntime.Options{
-		TLSOpts: tlsOpts, Port: webhooksvcport,
+		TLSOpts: tlsOpts, Port: webhooksvcport, Host: webhookHost,
 	})
 
 	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
