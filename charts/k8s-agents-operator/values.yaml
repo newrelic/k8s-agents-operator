@@ -83,7 +83,7 @@ serviceAccount:
 # -- healthprobe settings
 # -- healthprobe is a simple HTTP server that listens on the specified port and responds with 200 OK
 # -- when the operator is healthy. It is used by Kubernetes to check the health of the operator.
-heathProbe:
+healthProbe:
   port: 8081
 
 metricsService:
