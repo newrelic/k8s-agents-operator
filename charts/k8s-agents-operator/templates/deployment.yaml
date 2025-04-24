@@ -67,7 +67,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: {{ .Values.heathProbe.port }}
+            port: {{ .Values.healthProbe.port }}
           initialDelaySeconds: 15
           periodSeconds: 20
         ports:
@@ -77,7 +77,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /readyz
-            port: {{ .Values.heathProbe.port }}
+            port: {{ .Values.healthProbe.port }}
           initialDelaySeconds: 5
           periodSeconds: 10
         resources:
