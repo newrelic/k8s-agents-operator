@@ -333,4 +333,3 @@ If you want to see a list of all available charts and releases, check [index.yam
 | csongnr |  | <https://github.com/csongnr> |
 | dbudziwojskiNR |  | <https://github.com/dbudziwojskiNR> |
 | danielstokes |  | <https://github.com/danielstokes> |
-
