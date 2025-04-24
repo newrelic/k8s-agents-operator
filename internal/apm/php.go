@@ -106,6 +106,11 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 	if err := validateContainerEnv(container.Env, envIniScanDirKey); err != nil {
 		return pod, err
 	}
+	// set a blank value, so that php will scan the config dir that was configured during compilation with --with-config-file-scan-dir
+	// do this first so we can override the behavior later.  We only set it if it was already blank or the key was not defined
+	if val, ok := getValueFromEnv(container.Env, envIniScanDirKey); !ok || val == "" {
+		setEnvVar(container, envIniScanDirKey, "", true, ":")
+	}
 	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true, ":")
 	setContainerEnvFromInst(container, inst)
 
