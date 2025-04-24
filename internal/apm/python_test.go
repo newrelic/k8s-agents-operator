@@ -117,7 +117,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "PYTHONPATH", Value: "/newrelic-instrumentation:fakepath"},
+							{Name: "PYTHONPATH", Value: "fakepath:/newrelic-instrumentation"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -142,11 +142,13 @@ func TestPythonInjector_Inject(t *testing.T) {
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
+			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
 				if err != nil {
 					break
 				}
+				testPod = actualPod
 			}
 			errStr := ""
 			if err != nil {

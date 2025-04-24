@@ -145,11 +145,13 @@ func TestRubyInjector_Inject(t *testing.T) {
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
+			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
 				if err != nil {
 					break
 				}
+				testPod = actualPod
 			}
 			errStr := ""
 			if err != nil {

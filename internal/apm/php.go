@@ -103,14 +103,11 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
-	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true)
-
-	// inject PHP instrumentation spec env vars.
-	for _, env := range inst.Spec.Agent.Env {
-		if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
-			container.Env = append(container.Env, env)
-		}
+	if err := validateContainerEnv(container.Env, envIniScanDirKey); err != nil {
+		return pod, err
 	}
+	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true, ":")
+	setContainerEnvFromInst(container, inst)
 
 	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
