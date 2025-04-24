@@ -103,13 +103,16 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
+	// set a blank value, so that php will scan the config dir that was configured during compilation with --with-config-file-scan-dir
+	// do this first so we can override the behavior later.  We only set it if it was already blank or the key was not defined
+	if val, ok := getValueFromEnv(container.Env, envIniScanDirKey); !ok || val == "" {
+		setEnvVar(container, envIniScanDirKey, "", true)
+	}
 	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true)
 
 	// inject PHP instrumentation spec env vars.
 	for _, env := range inst.Spec.Agent.Env {
-		if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
-			container.Env = append(container.Env, env)
-		}
+		setEnvVar(container, env.Name, env.Value, false)
 	}
 
 	if isContainerVolumeMissing(container, volumeName) {

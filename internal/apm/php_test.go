@@ -88,7 +88,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "a", Value: "a"},
-							{Name: "PHP_INI_SCAN_DIR", Value: "/newrelic-instrumentation/php-agent/ini"},
+							{Name: "PHP_INI_SCAN_DIR", Value: ":/newrelic-instrumentation/php-agent/ini"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -172,11 +172,13 @@ func TestPhpInjector_Inject(t *testing.T) {
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
+			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
 				if err != nil {
 					break
 				}
+				testPod = actualPod
 			}
 			errStr := ""
 			if err != nil {
