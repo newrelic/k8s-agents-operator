@@ -17,6 +17,7 @@ package apm
 
 import (
 	"context"
+	"errors"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
@@ -33,6 +34,8 @@ const (
 	dotnetNewrelicHomePath              = "/newrelic-instrumentation"
 	dotnetInitContainerName             = initContainerName + "-dotnet"
 )
+
+var errUnableToConfigureEnv = errors.New("unable to configure environment variables, they've already been set to different values")
 
 var _ Injector = (*DotnetInjector)(nil)
 
@@ -77,6 +80,18 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 	setEnvVar(container, envDotnetCoreClrProfiler, dotnetCoreClrProfilerID, false, "")
 	setEnvVar(container, envDotnetCoreClrProfilerPath, dotnetCoreClrProfilerPath, false, "")
 	setEnvVar(container, envDotnetNewrelicHome, dotnetNewrelicHomePath, false, "")
+	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrEnableProfiling); v != dotnetCoreClrEnableProfilingEnabled {
+		return pod, errUnableToConfigureEnv
+	}
+	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfiler); v != dotnetCoreClrProfilerID {
+		return pod, errUnableToConfigureEnv
+	}
+	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfilerPath); v != dotnetCoreClrProfilerPath {
+		return pod, errUnableToConfigureEnv
+	}
+	if v, _ := getValueFromEnv(container.Env, envDotnetNewrelicHome); v != dotnetNewrelicHomePath {
+		return pod, errUnableToConfigureEnv
+	}
 	setContainerEnvFromInst(container, inst)
 
 	if isContainerVolumeMissing(container, volumeName) {
