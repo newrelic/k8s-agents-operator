@@ -11,7 +11,7 @@ import (
 	_ "golang.org/x/tools/cmd/goimports"
 
 	// for code linting
-	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	_ "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 
 	// for generating CRDs
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
