@@ -1,6 +1,7 @@
 package apm
 
 import (
+	"github.com/newrelic/k8s-agents-operator/api/current"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -80,6 +81,15 @@ func TestEncodeDecodeAttributes(t *testing.T) {
 	}
 	diff = cmp.Diff("a:b;c:d;e:f", encodeAttributes(map[string]string{"a": "b", "c": "d", "e": "f"}, ";", ":"))
 	if diff != "" {
+		assert.Fail(t, diff)
+	}
+}
+
+func TestSetContainerEnvFromInst(t *testing.T) {
+	container := corev1.Container{}
+	expectedContainer := corev1.Container{Env: []corev1.EnvVar{{Name: "A", Value: "B"}}}
+	setContainerEnvFromInst(&container, current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Env: []corev1.EnvVar{{Name: "A", Value: "B"}}}}})
+	if diff := cmp.Diff(expectedContainer, container); diff != "" {
 		assert.Fail(t, diff)
 	}
 }

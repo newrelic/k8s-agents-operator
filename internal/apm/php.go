@@ -90,7 +90,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 		return pod, nil
 	}
 	if err := i.validate(inst); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	firstContainer := 0
@@ -103,17 +103,16 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
+	if err := validateContainerEnv(container.Env, envIniScanDirKey); err != nil {
+		return corev1.Pod{}, err
+	}
 	// set a blank value, so that php will scan the config dir that was configured during compilation with --with-config-file-scan-dir
 	// do this first so we can override the behavior later.  We only set it if it was already blank or the key was not defined
 	if val, ok := getValueFromEnv(container.Env, envIniScanDirKey); !ok || val == "" {
-		setEnvVar(container, envIniScanDirKey, "", true)
+		setEnvVar(container, envIniScanDirKey, "", true, ":")
 	}
-	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true)
-
-	// inject PHP instrumentation spec env vars.
-	for _, env := range inst.Spec.Agent.Env {
-		setEnvVar(container, env.Name, env.Value, false)
-	}
+	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true, ":")
+	setContainerEnvFromInst(container, inst)
 
 	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -161,7 +160,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 
 	var err error
 	if pod, err = i.injectHealth(ctx, inst, ns, pod, -1, getInitContainerIndex(pod, phpInitContainerName)); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	return pod, nil

@@ -179,9 +179,9 @@ func getValueFromEnv(envVars []corev1.EnvVar, name string) (string, bool) {
 }
 
 // setEnvVar function sets env var to the container if not exist already.
-// value of concatValues should be set to true if the env var supports multiple values separated by :.
+// value of concatValues should be set to true if the env var supports multiple values separated by a string.  It will only be appended if it does not exist
 // If it is set to false, the original container's env var value has priority.
-func setEnvVar(container *corev1.Container, envVarName string, envVarValue string, concatValues bool) {
+func setEnvVar(container *corev1.Container, envVarName string, envVarValue string, concatValues bool, separator string) {
 	idx := getIndexOfEnv(container.Env, envVarName)
 	if idx < 0 {
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -191,8 +191,16 @@ func setEnvVar(container *corev1.Container, envVarName string, envVarValue strin
 		return
 	}
 	if concatValues {
-		if !strings.Contains(":"+container.Env[idx].Value+":", ":"+envVarValue+":") {
-			container.Env[idx].Value = fmt.Sprintf("%s:%s", container.Env[idx].Value, envVarValue)
+		if !strings.Contains(separator+container.Env[idx].Value+separator, separator+envVarValue+separator) {
+			container.Env[idx].Value = container.Env[idx].Value + separator + envVarValue
+		}
+	}
+}
+
+func setContainerEnvFromInst(container *corev1.Container, inst current.Instrumentation) {
+	for _, env := range inst.Spec.Agent.Env {
+		if idx := getIndexOfEnv(container.Env, env.Name); idx == -1 {
+			container.Env = append(container.Env, env)
 		}
 	}
 }

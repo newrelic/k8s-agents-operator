@@ -17,6 +17,7 @@ package apm
 
 import (
 	"context"
+	"errors"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
@@ -33,6 +34,8 @@ const (
 	dotnetNewrelicHomePath              = "/newrelic-instrumentation"
 	dotnetInitContainerName             = initContainerName + "-dotnet"
 )
+
+var errUnableToConfigureEnv = errors.New("unable to configure environment variables, they've already been set to different values")
 
 var _ Injector = (*DotnetInjector)(nil)
 
@@ -63,25 +66,34 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 		return pod, nil
 	}
 	if err := i.validate(inst); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
-	// inject .NET instrumentation spec env vars.
-	for _, env := range inst.Spec.Agent.Env {
-		idx := getIndexOfEnv(container.Env, env.Name)
-		if idx == -1 {
-			container.Env = append(container.Env, env)
-		}
+	if err := validateContainerEnv(container.Env, envDotnetCoreClrEnableProfiling, envDotnetCoreClrProfiler, envDotnetCoreClrProfilerPath, envDotnetNewrelicHome); err != nil {
+		return corev1.Pod{}, err
 	}
 
-	setEnvVar(container, envDotnetCoreClrEnableProfiling, dotnetCoreClrEnableProfilingEnabled, false)
-	setEnvVar(container, envDotnetCoreClrProfiler, dotnetCoreClrProfilerID, false)
-	setEnvVar(container, envDotnetCoreClrProfilerPath, dotnetCoreClrProfilerPath, false)
-	setEnvVar(container, envDotnetNewrelicHome, dotnetNewrelicHomePath, false)
+	setEnvVar(container, envDotnetCoreClrEnableProfiling, dotnetCoreClrEnableProfilingEnabled, false, "")
+	setEnvVar(container, envDotnetCoreClrProfiler, dotnetCoreClrProfilerID, false, "")
+	setEnvVar(container, envDotnetCoreClrProfilerPath, dotnetCoreClrProfilerPath, false, "")
+	setEnvVar(container, envDotnetNewrelicHome, dotnetNewrelicHomePath, false, "")
+	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrEnableProfiling); v != dotnetCoreClrEnableProfilingEnabled {
+		return corev1.Pod{}, errUnableToConfigureEnv
+	}
+	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfiler); v != dotnetCoreClrProfilerID {
+		return corev1.Pod{}, errUnableToConfigureEnv
+	}
+	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfilerPath); v != dotnetCoreClrProfilerPath {
+		return corev1.Pod{}, errUnableToConfigureEnv
+	}
+	if v, _ := getValueFromEnv(container.Env, envDotnetNewrelicHome); v != dotnetNewrelicHomePath {
+		return corev1.Pod{}, errUnableToConfigureEnv
+	}
+	setContainerEnvFromInst(container, inst)
 
 	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -117,7 +129,7 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 
 	var err error
 	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	return pod, nil
