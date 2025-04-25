@@ -319,11 +319,6 @@ func TestHealthInjector_Inject(t *testing.T) {
 					},
 				},
 			},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name: "test",
-				}},
-			}},
 			expectedErrStr: "invalid env value \"not a port\" for \"NEW_RELIC_SIDECAR_LISTEN_PORT\" > invalid health listen port \"not a port\" > strconv.Atoi: parsing \"not a port\": invalid syntax",
 		},
 		{
@@ -341,11 +336,6 @@ func TestHealthInjector_Inject(t *testing.T) {
 					},
 				},
 			},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name: "test",
-				}},
-			}},
 			expectedErrStr: "invalid env value \"/a/b\" for \"NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION\" > invalid health path \"/a/b\", must be file URI",
 		},
 		{
@@ -418,11 +408,6 @@ func TestHealthInjector_Inject(t *testing.T) {
 					},
 				},
 			},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Name: "test",
-				}},
-			}},
 			expectedErrStr: "invalid env value \"file:///file.yml\" for \"NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION\" > invalid mount path \"file:///file.yml\", cannot have a file extension",
 		},
 	}
