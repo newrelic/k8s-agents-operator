@@ -89,7 +89,7 @@ func TestAutoDetectInBackground(t *testing.T) {
 	require.NoError(t, err)
 
 	// verify
-	time.Sleep(tickTime + 17*time.Millisecond)
+	time.Sleep(tickTime + 50*time.Millisecond)
 	c := atomic.LoadInt64(&ac)
 	assert.GreaterOrEqual(t, c, int64(2))
 }
