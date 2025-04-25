@@ -39,6 +39,8 @@ spec:
           args:
             - --leader-elect
             - --health-probe-bind-address=:8081
+            - --metrics-bind-address=0
+            - --webhook-service-bind-address=:9443
           image: controller:latest
           name: manager
           securityContext:

@@ -21,9 +21,11 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,6 +43,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	newreliccomv1beta1 "github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
 	"github.com/newrelic/k8s-agents-operator/internal/config"
 	"github.com/newrelic/k8s-agents-operator/internal/controller"
@@ -48,9 +52,6 @@ import (
 	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/internal/migrate/upgrade"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 	"github.com/newrelic/k8s-agents-operator/internal/webhook"
-
-	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
-	newreliccomv1beta1 "github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -74,6 +75,7 @@ func main() {
 	var (
 		metricsAddr          string
 		probeAddr            string
+		webhooksvc           string
 		enableLeaderElection bool
 		secureMetrics        bool
 		enableHTTP2          bool
@@ -82,6 +84,7 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&webhooksvc, "webhook-service-bind-address", ":9443", "The address the webhook service endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -109,8 +112,18 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
+	webhookHost, webhhookPort, err := net.SplitHostPort(webhooksvc)
+	if err != nil {
+		setupLog.Error(err, "invalid webhook bind address")
+		os.Exit(1)
+	}
+	webhooksvcport, err := strconv.Atoi(webhhookPort)
+	if err != nil {
+		setupLog.Error(err, "invalid webhook service port")
+		os.Exit(1)
+	}
 	webhookServer := webhookruntime.NewServer(webhookruntime.Options{
-		TLSOpts: tlsOpts,
+		TLSOpts: tlsOpts, Port: webhooksvcport, Host: webhookHost,
 	})
 
 	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
