@@ -7,7 +7,7 @@ require (
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.36.3
+	github.com/onsi/gomega v1.37.0
 	github.com/openshift/api v0.0.0-20250424124720-1ee228b6ff0d
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.35.0
