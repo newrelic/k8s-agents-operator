@@ -184,7 +184,7 @@ $(CT): $(LOCALBIN)
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint
 $(GOLANGCI_LINT): $(LOCALBIN)
-	@test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN) go -C ./tools install github.com/golangci/golangci-lint/cmd/golangci-lint
+	@test -s $(GOLANGCI_LINT) || GOBIN=$(LOCALBIN) go -C ./tools install github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 .PHONY: helm
 helm: $(HELM) ## Download helmo
