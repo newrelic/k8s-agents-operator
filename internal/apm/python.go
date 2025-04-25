@@ -17,12 +17,8 @@ package apm
 
 import (
 	"context"
-	"fmt"
-	"strings"
-
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -60,37 +56,18 @@ func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentatio
 		return pod, nil
 	}
 	if err := i.validate(inst); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
-	err := validateContainerEnv(container.Env, envPythonPath)
-	if err != nil {
-		return pod, err
+	if err := validateContainerEnv(container.Env, envPythonPath); err != nil {
+		return corev1.Pod{}, err
 	}
-
-	// inject Python instrumentation spec env vars.
-	for _, env := range inst.Spec.Agent.Env {
-		idx := getIndexOfEnv(container.Env, env.Name)
-		if idx == -1 {
-			container.Env = append(container.Env, env)
-		}
-	}
-
-	idx := getIndexOfEnv(container.Env, envPythonPath)
-	if idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  envPythonPath,
-			Value: pythonPathPrefix,
-		})
-	} else if idx > -1 {
-		if !strings.Contains(":"+container.Env[idx].Value+":", ":"+pythonPathPrefix+":") {
-			container.Env[idx].Value = fmt.Sprintf("%s:%s", pythonPathPrefix, container.Env[idx].Value)
-		}
-	}
+	setEnvVar(container, envPythonPath, pythonPathPrefix, true, ":")
+	setContainerEnvFromInst(container, inst)
 
 	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -124,8 +101,9 @@ func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentatio
 
 	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
 
+	var err error
 	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	return pod, nil

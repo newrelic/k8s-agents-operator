@@ -55,11 +55,24 @@ func TestRubyInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
 			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}}},
+		},
+		{
+			name: "a container, instrumentation with env already set to ValueFrom",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envRubyOpt, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
+			}}},
+			expectedErrStr: "the container defines env var value via ValueFrom, envVar: RUBYOPT",
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "VALID"}},
+		},
+		{
+			name: "a container, instrumentation with env NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION already set using ValueFrom",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envAgentControlHealthDeliveryLocation, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
+			}}},
+			expectedErrStr: "the container defines env var value via ValueFrom, envVar: NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION",
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "VALID", HealthAgent: current.HealthAgent{Image: "health"}}},
 		},
 		{
 			name: "a container, instrumentation",
@@ -145,11 +158,13 @@ func TestRubyInjector_Inject(t *testing.T) {
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
+			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
 				if err != nil {
 					break
 				}
+				testPod = actualPod
 			}
 			errStr := ""
 			if err != nil {

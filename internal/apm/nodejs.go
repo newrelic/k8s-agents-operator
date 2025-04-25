@@ -17,8 +17,6 @@ package apm
 
 import (
 	"context"
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
@@ -59,37 +57,18 @@ func (i *NodejsInjector) Inject(ctx context.Context, inst current.Instrumentatio
 		return pod, nil
 	}
 	if err := i.validate(inst); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]
 
-	err := validateContainerEnv(container.Env, envNodeOptions)
-	if err != nil {
-		return pod, err
+	if err := validateContainerEnv(container.Env, envNodeOptions); err != nil {
+		return corev1.Pod{}, err
 	}
-
-	// inject NodeJS instrumentation spec env vars.
-	for _, env := range inst.Spec.Agent.Env {
-		idx := getIndexOfEnv(container.Env, env.Name)
-		if idx == -1 {
-			container.Env = append(container.Env, env)
-		}
-	}
-
-	idx := getIndexOfEnv(container.Env, envNodeOptions)
-	if idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  envNodeOptions,
-			Value: nodeRequireArgument,
-		})
-	} else if idx > -1 {
-		if !strings.Contains(" "+container.Env[idx].Value+" ", " "+nodeRequireArgument+" ") {
-			container.Env[idx].Value = container.Env[idx].Value + " " + nodeRequireArgument
-		}
-	}
+	setEnvVar(container, envNodeOptions, nodeRequireArgument, true, " ")
+	setContainerEnvFromInst(container, inst)
 
 	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -123,8 +102,9 @@ func (i *NodejsInjector) Inject(ctx context.Context, inst current.Instrumentatio
 
 	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
 
+	var err error
 	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	return pod, nil

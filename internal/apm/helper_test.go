@@ -1,8 +1,10 @@
 package apm
 
 import (
-	"github.com/newrelic/k8s-agents-operator/internal/util"
 	"testing"
+
+	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -236,6 +238,15 @@ func TestSetContainerEnvLicenseKey(t *testing.T) {
 	}
 	container := corev1.Container{}
 	setContainerEnvLicenseKey(&container, "secret-name")
+	if diff := cmp.Diff(expectedContainer, container); diff != "" {
+		assert.Fail(t, diff)
+	}
+}
+
+func TestSetContainerEnvFromInst(t *testing.T) {
+	container := corev1.Container{}
+	expectedContainer := corev1.Container{Env: []corev1.EnvVar{{Name: "A", Value: "B"}}}
+	setContainerEnvFromInst(&container, current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Env: []corev1.EnvVar{{Name: "A", Value: "B"}}}}})
 	if diff := cmp.Diff(expectedContainer, container); diff != "" {
 		assert.Fail(t, diff)
 	}

@@ -55,11 +55,24 @@ func TestPhpInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
 			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3"}}},
+		},
+		{
+			name: "a container, instrumentation with env already set to ValueFrom",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envIniScanDirKey, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
+			}}},
+			expectedErrStr: "the container defines env var value via ValueFrom, envVar: PHP_INI_SCAN_DIR",
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3"}, LicenseKeySecret: "VALID"}},
+		},
+		{
+			name: "a container, instrumentation with env NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION already set using ValueFrom",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envAgentControlHealthDeliveryLocation, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
+			}}},
+			expectedErrStr: "the container defines env var value via ValueFrom, envVar: NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION",
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3"}, LicenseKeySecret: "VALID", HealthAgent: current.HealthAgent{Image: "health"}}},
 		},
 		{
 			name: "a container, instrumentation",
@@ -88,7 +101,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "a", Value: "a"},
-							{Name: "PHP_INI_SCAN_DIR", Value: "/newrelic-instrumentation/php-agent/ini"},
+							{Name: "PHP_INI_SCAN_DIR", Value: ":/newrelic-instrumentation/php-agent/ini"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -172,11 +185,13 @@ func TestPhpInjector_Inject(t *testing.T) {
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
+			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, test.pod)
+				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
 				if err != nil {
 					break
 				}
+				testPod = actualPod
 			}
 			errStr := ""
 			if err != nil {

@@ -76,11 +76,9 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 		return pod, nil
 	}
 
-	originalPod := pod.DeepCopy()
-
 	var err error
 	if err = validateContainerEnv(container.Env, envAgentControlHealthDeliveryLocation); err != nil {
-		return *originalPod, err
+		return corev1.Pod{}, err
 	}
 
 	var sidecarContainerEnv []corev1.EnvVar
@@ -121,7 +119,7 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 	healthMountPath := defaultHealthDeliveryLocation
 	if v, ok := getValueFromEnv(sidecarContainerEnv, envAgentControlHealthDeliveryLocation); ok && v != "" {
 		if healthMountPath, err = i.validateHealthFilepath(v); err != nil {
-			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envAgentControlHealthDeliveryLocation, err)
+			return corev1.Pod{}, fmt.Errorf("invalid env value %q for %q > %w", v, envAgentControlHealthDeliveryLocation, err)
 		}
 	}
 
@@ -129,7 +127,7 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 	if v, ok := getValueFromEnv(sidecarContainerEnv, envHealthListenPort); ok {
 		sidecarListenPort, err = i.validateHealthListenPort(v)
 		if err != nil {
-			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthListenPort, err)
+			return corev1.Pod{}, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthListenPort, err)
 		}
 	}
 
