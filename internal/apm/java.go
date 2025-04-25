@@ -59,7 +59,7 @@ func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation,
 		return pod, nil
 	}
 	if err := i.validate(inst); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	firstContainer := 0
@@ -67,7 +67,7 @@ func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation,
 	container := &pod.Spec.Containers[firstContainer]
 
 	if err := validateContainerEnv(container.Env, envJavaToolsOptions); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 	setEnvVar(container, envJavaToolsOptions, javaJVMArgument, true, " ")
 	setContainerEnvFromInst(container, inst)
@@ -118,7 +118,7 @@ func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation,
 
 	var err error
 	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	return pod, nil

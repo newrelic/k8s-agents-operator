@@ -55,11 +55,48 @@ func TestDotnetInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
 			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet"}}},
+		},
+		{
+			name: "a container, instrumentation with env already set to ValueFrom",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetCoreClrEnableProfiling, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
+			}}},
+			expectedErrStr: "the container defines env var value via ValueFrom, envVar: CORECLR_ENABLE_PROFILING",
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet"}, LicenseKeySecret: "VALID"}},
+		},
+		{
+			name: "a container, instrumentation with env CORECLR_ENABLE_PROFILING already set",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetCoreClrEnableProfiling, Value: "INVALID"}}},
+			}}},
+			expectedErrStr: errUnableToConfigureEnv.Error(),
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet"}, LicenseKeySecret: "VALID"}},
+		},
+		{
+			name: "a container, instrumentation with env CORECLR_PROFILER already set",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetCoreClrProfiler, Value: "INVALID"}}},
+			}}},
+			expectedErrStr: errUnableToConfigureEnv.Error(),
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet"}, LicenseKeySecret: "VALID"}},
+		},
+		{
+			name: "a container, instrumentation with env CORECLR_PROFILER_PATH already set",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetCoreClrProfilerPath, Value: "INVALID"}}},
+			}}},
+			expectedErrStr: errUnableToConfigureEnv.Error(),
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet"}, LicenseKeySecret: "VALID"}},
+		},
+		{
+			name: "a container, instrumentation with env CORECLR_NEWRELIC_HOME already set",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetNewrelicHome, Value: "INVALID"}}},
+			}}},
+			expectedErrStr: errUnableToConfigureEnv.Error(),
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet"}, LicenseKeySecret: "VALID"}},
 		},
 		{
 			name: "a container, instrumentation",

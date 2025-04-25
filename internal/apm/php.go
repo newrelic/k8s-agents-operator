@@ -90,7 +90,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 		return pod, nil
 	}
 	if err := i.validate(inst); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	firstContainer := 0
@@ -104,7 +104,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 	container := &pod.Spec.Containers[firstContainer]
 
 	if err := validateContainerEnv(container.Env, envIniScanDirKey); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 	// set a blank value, so that php will scan the config dir that was configured during compilation with --with-config-file-scan-dir
 	// do this first so we can override the behavior later.  We only set it if it was already blank or the key was not defined
@@ -160,7 +160,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 
 	var err error
 	if pod, err = i.injectHealth(ctx, inst, ns, pod, -1, getInitContainerIndex(pod, phpInitContainerName)); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	return pod, nil

@@ -57,7 +57,7 @@ func (i *NodejsInjector) Inject(ctx context.Context, inst current.Instrumentatio
 		return pod, nil
 	}
 	if err := i.validate(inst); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	firstContainer := 0
@@ -65,7 +65,7 @@ func (i *NodejsInjector) Inject(ctx context.Context, inst current.Instrumentatio
 	container := &pod.Spec.Containers[firstContainer]
 
 	if err := validateContainerEnv(container.Env, envNodeOptions); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 	setEnvVar(container, envNodeOptions, nodeRequireArgument, true, " ")
 	setContainerEnvFromInst(container, inst)
@@ -104,7 +104,7 @@ func (i *NodejsInjector) Inject(ctx context.Context, inst current.Instrumentatio
 
 	var err error
 	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	return pod, nil

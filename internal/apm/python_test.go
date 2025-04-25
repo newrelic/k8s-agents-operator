@@ -55,11 +55,16 @@ func TestPythonInjector_Inject(t *testing.T) {
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
 			}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
 			expectedErrStr: "licenseKeySecret must not be blank",
 			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python"}}},
+		},
+		{
+			name: "a container, instrumentation with env already set to ValueFrom",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: envPythonPath, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
+			}}},
+			expectedErrStr: "the container defines env var value via ValueFrom, envVar: PYTHONPATH",
+			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python"}, LicenseKeySecret: "VALID"}},
 		},
 		{
 			name: "a container, instrumentation",

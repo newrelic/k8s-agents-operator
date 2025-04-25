@@ -66,7 +66,7 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 		return pod, nil
 	}
 	if err := i.validate(inst); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	firstContainer := 0
@@ -74,23 +74,24 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 	container := &pod.Spec.Containers[firstContainer]
 
 	if err := validateContainerEnv(container.Env, envDotnetCoreClrEnableProfiling, envDotnetCoreClrProfiler, envDotnetCoreClrProfilerPath, envDotnetNewrelicHome); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
+
 	setEnvVar(container, envDotnetCoreClrEnableProfiling, dotnetCoreClrEnableProfilingEnabled, false, "")
 	setEnvVar(container, envDotnetCoreClrProfiler, dotnetCoreClrProfilerID, false, "")
 	setEnvVar(container, envDotnetCoreClrProfilerPath, dotnetCoreClrProfilerPath, false, "")
 	setEnvVar(container, envDotnetNewrelicHome, dotnetNewrelicHomePath, false, "")
 	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrEnableProfiling); v != dotnetCoreClrEnableProfilingEnabled {
-		return pod, errUnableToConfigureEnv
+		return corev1.Pod{}, errUnableToConfigureEnv
 	}
 	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfiler); v != dotnetCoreClrProfilerID {
-		return pod, errUnableToConfigureEnv
+		return corev1.Pod{}, errUnableToConfigureEnv
 	}
 	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfilerPath); v != dotnetCoreClrProfilerPath {
-		return pod, errUnableToConfigureEnv
+		return corev1.Pod{}, errUnableToConfigureEnv
 	}
 	if v, _ := getValueFromEnv(container.Env, envDotnetNewrelicHome); v != dotnetNewrelicHomePath {
-		return pod, errUnableToConfigureEnv
+		return corev1.Pod{}, errUnableToConfigureEnv
 	}
 	setContainerEnvFromInst(container, inst)
 
@@ -128,7 +129,7 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 
 	var err error
 	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
-		return pod, err
+		return corev1.Pod{}, err
 	}
 
 	return pod, nil
