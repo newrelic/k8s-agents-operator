@@ -89,9 +89,7 @@ func TestSetContainerEnvFromInst(t *testing.T) {
 	container := corev1.Container{}
 	expectedContainer := corev1.Container{Env: []corev1.EnvVar{{Name: "A", Value: "B"}}}
 	setContainerEnvFromInst(&container, current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Env: []corev1.EnvVar{{Name: "A", Value: "B"}}}}})
-	var diff string
-	diff = cmp.Diff(expectedContainer, container)
-	if diff != "" {
+	if diff := cmp.Diff(expectedContainer, container); diff != "" {
 		assert.Fail(t, diff)
 	}
 }
