@@ -71,10 +71,6 @@ type PhpInjector struct {
 
 // Inject is used to inject the PHP agent.
 func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	if err := i.validate(inst); err != nil {
-		return corev1.Pod{}, err
-	}
-
 	firstContainer := 0
 
 	apiNum, ok := phpApiMap[acceptVersion(i.Language())]

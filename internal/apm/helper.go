@@ -257,13 +257,6 @@ func (i *baseInjector) Language() string {
 	return i.lang
 }
 
-func (i *baseInjector) validate(inst current.Instrumentation) error {
-	if inst.Spec.LicenseKeySecret == "" {
-		return fmt.Errorf("licenseKeySecret must not be blank")
-	}
-	return nil
-}
-
 // Deprecated: use setContainerEnvLicenseKey
 func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Container, licenseKeySecretName string) corev1.Container {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLicenseKey); idx == -1 {
