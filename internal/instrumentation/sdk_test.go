@@ -30,10 +30,7 @@ func (ei *ErrorInjector) Language() string {
 }
 
 func (ei *ErrorInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language == ei.Language() {
-		return true
-	}
-	return false
+	return inst.Spec.Agent.Language == ei.Language()
 }
 
 func (ei *ErrorInjector) ConfigureLogger(logger logr.Logger) {}
@@ -59,10 +56,7 @@ func (ai *AnnotationInjector) Language() string {
 }
 
 func (ai *AnnotationInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language == ai.Language() {
-		return true
-	}
-	return false
+	return inst.Spec.Agent.Language == ai.Language()
 }
 
 func (ai *AnnotationInjector) ConfigureLogger(logger logr.Logger) {}
@@ -103,10 +97,7 @@ func (i *ContainerInjector) Language() string {
 }
 
 func (i *ContainerInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language == i.Language() {
-		return true
-	}
-	return false
+	return inst.Spec.Agent.Language == i.Language()
 }
 
 func (i *ContainerInjector) ConfigureLogger(logger logr.Logger) {}

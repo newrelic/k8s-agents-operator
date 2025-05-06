@@ -18,6 +18,7 @@ package apm
 import (
 	"context"
 	"errors"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
