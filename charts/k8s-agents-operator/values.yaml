@@ -41,6 +41,9 @@ hostNetwork: false
 
 kubernetesClusterDomain: cluster.local
 
+crds:
+  enabled: true
+
 controllerManager:
   replicas: 1
 
