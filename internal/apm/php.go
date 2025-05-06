@@ -129,6 +129,7 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
+			Resources: *inst.Spec.Agent.Resources.DeepCopy(),
 		}
 		initContainer = i.injectNewrelicLicenseKeyIntoContainer(initContainer, inst.Spec.LicenseKeySecret)
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)

@@ -74,6 +74,7 @@ func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation,
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
+			Resources: *inst.Spec.Agent.Resources.DeepCopy(),
 		})
 	}
 

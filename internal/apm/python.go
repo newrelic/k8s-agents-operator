@@ -73,6 +73,7 @@ func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentatio
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
+			Resources: *inst.Spec.Agent.Resources.DeepCopy(),
 		})
 	}
 
