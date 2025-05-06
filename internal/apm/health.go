@@ -59,7 +59,7 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrument
 	var container *corev1.Container
 	if agentContainerIndex >= 0 && agentContainerIndex < len(pod.Spec.Containers) {
 		container = &pod.Spec.Containers[agentContainerIndex]
-	} else if agentInitContainerIndex >= 0 && agentContainerIndex < len(pod.Spec.InitContainers) {
+	} else if agentInitContainerIndex >= 0 && agentInitContainerIndex < len(pod.Spec.InitContainers) {
 		container = &pod.Spec.InitContainers[agentInitContainerIndex]
 	} else {
 		return pod, nil
