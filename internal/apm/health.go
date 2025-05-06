@@ -57,9 +57,9 @@ var healthDefaultEnv = []corev1.EnvVar{
 func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentContainerIndex int, agentInitContainerIndex int) (corev1.Pod, error) {
 	// caller checks if there is at least one container.
 	var container *corev1.Container
-	if agentContainerIndex > -1 && agentContainerIndex < len(pod.Spec.Containers) {
+	if agentContainerIndex >= 0 && agentContainerIndex < len(pod.Spec.Containers) {
 		container = &pod.Spec.Containers[agentContainerIndex]
-	} else if agentInitContainerIndex > -1 && agentContainerIndex < len(pod.Spec.InitContainers) {
+	} else if agentInitContainerIndex >= 0 && agentContainerIndex < len(pod.Spec.InitContainers) {
 		container = &pod.Spec.InitContainers[agentInitContainerIndex]
 	} else {
 		return pod, nil
