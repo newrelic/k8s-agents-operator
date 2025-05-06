@@ -14,10 +14,6 @@ import (
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
-func TestPhpInjector_Language(t *testing.T) {
-	require.Equal(t, "php", (&PhpInjector{acceptVersion: acceptVersion("php")}).Language())
-}
-
 func TestPhpInjector_Inject(t *testing.T) {
 	vtrue := true
 	tests := []struct {
@@ -28,36 +24,6 @@ func TestPhpInjector_Inject(t *testing.T) {
 		expectedPod    corev1.Pod
 		expectedErrStr string
 	}{
-		{
-			name: "nothing",
-		},
-		{
-			name: "a container, no instrumentation",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-		},
-		{
-			name: "a container, wrong instrumentation (not the correct lang)",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "not-this"}}},
-		},
-		{
-			name: "a container, instrumentation with blank licenseKeySecret",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			expectedErrStr: "licenseKeySecret must not be blank",
-			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3"}}},
-		},
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
@@ -181,12 +147,16 @@ func TestPhpInjector_Inject(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			i := &PhpInjector{acceptVersion: acceptVersion("php-8.3")}
+			i := &PhpInjector{baseInjector{lang: "php-8.3"}}
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
 			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
+				if !i.Accepts(test.inst, test.ns, testPod) {
+					actualPod = testPod
+					continue
+				}
 				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
 				if err != nil {
 					break
