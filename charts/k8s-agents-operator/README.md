@@ -302,6 +302,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
 | controllerManager.replicas | int | `1` |  |
+| crds.enabled | bool | `true` |  |
 | dnsConfig | object | `{}` | Sets pod's dnsConfig. Can be configured also with `global.dnsConfig` |
 | healthProbe | object | `{"port":8081}` | when the operator is healthy. It is used by Kubernetes to check the health of the operator. |
 | hostNetwork | bool | `false` |  |
