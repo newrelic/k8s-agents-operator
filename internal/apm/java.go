@@ -33,35 +33,14 @@ const (
 var _ Injector = (*JavaInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&JavaInjector{})
+	DefaultInjectorRegistry.MustRegister(&JavaInjector{baseInjector{lang: "java"}})
 }
 
 type JavaInjector struct {
 	baseInjector
 }
 
-func (i *JavaInjector) Language() string {
-	return "java"
-}
-
-func (i *JavaInjector) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != i.Language() {
-		return false
-	}
-	if len(pod.Spec.Containers) == 0 {
-		return false
-	}
-	return true
-}
-
 func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	if !i.acceptable(inst, pod) {
-		return pod, nil
-	}
-	if err := i.validate(inst); err != nil {
-		return corev1.Pod{}, err
-	}
-
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]

@@ -40,35 +40,14 @@ var errUnableToConfigureEnv = errors.New("unable to configure environment variab
 var _ Injector = (*DotnetInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&DotnetInjector{})
+	DefaultInjectorRegistry.MustRegister(&DotnetInjector{baseInjector{lang: "dotnet"}})
 }
 
 type DotnetInjector struct {
 	baseInjector
 }
 
-func (i *DotnetInjector) Language() string {
-	return "dotnet"
-}
-
-func (i *DotnetInjector) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != i.Language() {
-		return false
-	}
-	if len(pod.Spec.Containers) == 0 {
-		return false
-	}
-	return true
-}
-
 func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	if !i.acceptable(inst, pod) {
-		return pod, nil
-	}
-	if err := i.validate(inst); err != nil {
-		return corev1.Pod{}, err
-	}
-
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]

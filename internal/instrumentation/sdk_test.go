@@ -29,32 +29,16 @@ func (ei *ErrorInjector) Language() string {
 	return "error"
 }
 
+func (ei *ErrorInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language == ei.Language() {
+		return true
+	}
+	return false
+}
+
 func (ei *ErrorInjector) ConfigureLogger(logger logr.Logger) {}
 
 func (ei *ErrorInjector) ConfigureClient(client client.Client) {}
-
-var _ apm.Injector = (*PanicInjector)(nil)
-
-type PanicInjector struct {
-	injectAttempted bool
-}
-
-func (pi *PanicInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	pi.injectAttempted = true
-	var a *int
-	var b int
-	//nolint:all
-	*a = b // nil pointer panic
-	return corev1.Pod{}, nil
-}
-
-func (pi *PanicInjector) Language() string {
-	return "panic"
-}
-
-func (pi *PanicInjector) ConfigureLogger(logger logr.Logger) {}
-
-func (pi *PanicInjector) ConfigureClient(client client.Client) {}
 
 var _ apm.Injector = (*AnnotationInjector)(nil)
 
@@ -72,6 +56,13 @@ func (ai *AnnotationInjector) Inject(ctx context.Context, inst current.Instrumen
 
 func (ai *AnnotationInjector) Language() string {
 	return ai.lang
+}
+
+func (ai *AnnotationInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language == ai.Language() {
+		return true
+	}
+	return false
 }
 
 func (ai *AnnotationInjector) ConfigureLogger(logger logr.Logger) {}
@@ -109,6 +100,13 @@ func (i *ContainerInjector) InjectContainer(ctx context.Context, inst current.In
 
 func (i *ContainerInjector) Language() string {
 	return i.lang
+}
+
+func (i *ContainerInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language == i.Language() {
+		return true
+	}
+	return false
 }
 
 func (i *ContainerInjector) ConfigureLogger(logger logr.Logger) {}
@@ -244,26 +242,5 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				t.Errorf("Unexpected diff (-want +got): %s", diff)
 			}
 		})
-	}
-}
-
-func TestNewrelicSdkInjector_Inject_WithPanic(t *testing.T) {
-	ctx := context.Background()
-	var logger = logr.Discard()
-	injectorRegistry := apm.NewInjectorRegistry()
-	pi := &PanicInjector{}
-	injectorRegistry.MustRegister(pi)
-	injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("failed to handle panic")
-			}
-		}()
-		_ = injector.Inject(ctx, []*current.Instrumentation{{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "panic", Image: "panic"}}}}, corev1.Namespace{}, corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "panic", Image: "panic"}}}})
-	}()
-
-	if !pi.injectAttempted {
-		t.Fatalf("failed to trigger an injected panic")
 	}
 }

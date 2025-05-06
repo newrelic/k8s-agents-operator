@@ -59,6 +59,7 @@ type Injector interface {
 	// Deprecated: use InjectContainer from the ContainerInjector interface
 	Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
 	Language() string
+	Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool
 	ConfigureClient(client client.Client)
 	ConfigureLogger(logger logr.Logger)
 }
@@ -228,6 +229,7 @@ func validateContainerEnv(envs []corev1.EnvVar, envsToBeValidated ...string) err
 type baseInjector struct {
 	logger logr.Logger
 	client client.Client
+	lang   string
 }
 
 func (i *baseInjector) ConfigureLogger(logger logr.Logger) {
@@ -236,6 +238,23 @@ func (i *baseInjector) ConfigureLogger(logger logr.Logger) {
 
 func (i *baseInjector) ConfigureClient(client client.Client) {
 	i.client = client
+}
+
+func (i *baseInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
+	if inst.Spec.Agent.Language != i.lang {
+		return false
+	}
+	if len(pod.Spec.Containers) == 0 {
+		return false
+	}
+	if inst.Spec.LicenseKeySecret == "" {
+		return false
+	}
+	return true
+}
+
+func (i *baseInjector) Language() string {
+	return i.lang
 }
 
 func (i *baseInjector) validate(inst current.Instrumentation) error {

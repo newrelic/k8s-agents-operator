@@ -31,35 +31,14 @@ const (
 var _ Injector = (*RubyInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&RubyInjector{})
+	DefaultInjectorRegistry.MustRegister(&RubyInjector{baseInjector{lang: "ruby"}})
 }
 
 type RubyInjector struct {
 	baseInjector
 }
 
-func (i *RubyInjector) Language() string {
-	return "ruby"
-}
-
-func (i *RubyInjector) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != i.Language() {
-		return false
-	}
-	if len(pod.Spec.Containers) == 0 {
-		return false
-	}
-	return true
-}
-
 func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	if !i.acceptable(inst, pod) {
-		return pod, nil
-	}
-	if err := i.validate(inst); err != nil {
-		return corev1.Pod{}, err
-	}
-
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]

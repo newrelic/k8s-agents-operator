@@ -35,7 +35,7 @@ var _ Injector = (*PhpInjector)(nil)
 
 func init() {
 	for _, v := range phpAcceptVersions {
-		DefaultInjectorRegistry.MustRegister(&PhpInjector{acceptVersion: v})
+		DefaultInjectorRegistry.MustRegister(&PhpInjector{baseInjector{lang: string(v)}})
 	}
 }
 
@@ -65,30 +65,12 @@ var phpAcceptVersions = []acceptVersion{php72, php73, php74, php80, php81, php82
 
 type acceptVersion string
 
-func (al acceptVersion) Language() string {
-	return string(al)
-}
-
-func (al acceptVersion) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != string(al) {
-		return false
-	}
-	if len(pod.Spec.Containers) == 0 {
-		return false
-	}
-	return true
-}
-
 type PhpInjector struct {
 	baseInjector
-	acceptVersion
 }
 
 // Inject is used to inject the PHP agent.
 func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	if !i.acceptable(inst, pod) {
-		return pod, nil
-	}
 	if err := i.validate(inst); err != nil {
 		return corev1.Pod{}, err
 	}
