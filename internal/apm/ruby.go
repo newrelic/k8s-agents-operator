@@ -17,10 +17,12 @@ package apm
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 )
 
 const (
@@ -40,9 +42,22 @@ type RubyInjector struct {
 }
 
 func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	firstContainer := 0
-	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[firstContainer]
+	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
+}
+
+func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
+	if containerName == "init-test" {
+		for ci, cName := range pod.Spec.InitContainers {
+			fmt.Printf("init container: %q, index: %d\n", cName.Name, ci)
+		}
+		for ci, cName := range pod.Spec.Containers {
+			fmt.Printf("container: %q, index: %d\n", cName.Name, ci)
+		}
+	}
+	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
+	if container == nil {
+		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
+	}
 
 	if err := validateContainerEnv(container.Env, envRubyOpt); err != nil {
 		return corev1.Pod{}, err
@@ -67,7 +82,7 @@ func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation,
 				}})
 		}
 
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
+		newContainer := corev1.Container{
 			Name:    rubyInitContainerName,
 			Image:   inst.Spec.Agent.Image,
 			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
@@ -75,17 +90,23 @@ func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation,
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
-		})
+		}
+		if isTargetInitContainer {
+			index := getInitContainerIndex(pod, containerName)
+			initContainers := make([]corev1.Container, len(pod.Spec.InitContainers)+1)
+			copy(initContainers, pod.Spec.InitContainers[0:index])
+			initContainers[index] = newContainer
+			copy(initContainers[index+1:], pod.Spec.InitContainers[index:])
+			pod.Spec.InitContainers = initContainers
+		} else {
+			pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
+		}
 	}
 
-	pod = i.injectNewrelicConfig(ctx, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
-
-	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
-
-	var err error
-	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
+	setContainerEnvInjectionDefaults(&pod, container)
+	setContainerEnvLicenseKey(container, inst.Spec.LicenseKeySecret)
+	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-
-	return pod, nil
+	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
 }
