@@ -367,6 +367,7 @@ func applyLabelToPod(pod *corev1.Pod, key, val string) *corev1.Pod {
 	return pod
 }
 
+// Deprecated: use setPodAnnotationFromInstrumentationVersion
 func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev1.Pod, inst current.Instrumentation) corev1.Pod {
 	logger := log.FromContext(ctx)
 	instName := types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()
@@ -389,6 +390,26 @@ func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev
 	}
 	pod.Annotations[instrumentationVersionAnnotation] = string(instVersionBytes)
 	return pod
+}
+
+func setPodAnnotationFromInstrumentationVersion(pod *corev1.Pod, inst current.Instrumentation) error {
+	instName := types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()
+	instVersions := map[string]string{}
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+	if v, ok := pod.Annotations[instrumentationVersionAnnotation]; ok {
+		if err := json.Unmarshal([]byte(v), &instVersions); err != nil {
+			return fmt.Errorf("failed to unmarshal instrumentation version annotation, skipping adding new instrumentation version to pod annotation > %w", err)
+		}
+	}
+	instVersions[instName] = fmt.Sprintf("%s/%d", inst.UID, inst.Generation)
+	instVersionBytes, err := json.Marshal(instVersions)
+	if err != nil {
+		return fmt.Errorf("failed to marshal instrumentation version annotation > %w", err)
+	}
+	pod.Annotations[instrumentationVersionAnnotation] = string(instVersionBytes)
+	return nil
 }
 
 func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
