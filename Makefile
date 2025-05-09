@@ -106,7 +106,7 @@ e2e-tests: ## Run e2e tests with k8s version specified by $E2E_K8S_VERSION
 	    exit 1; \
 	  fi; \
 	done
-	cd tests/e2e && ./e2e-tests.sh --k8s_version $(E2E_K8S_VERSION) --license_key $(LICENSE_KEY) --run_tests
+	cd tests/e2e && ./e2e-tests.sh --run_tests --k8s_version $(E2E_K8S_VERSION) --license_key $(LICENSE_KEY)
 
 .PHONY: all-e2e-tests
 all-e2e-tests: ## Run e2e tests with all k8s versions specified by $ALL_E2E_K8S_VERSIONS
