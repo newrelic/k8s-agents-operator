@@ -23,8 +23,10 @@ import (
 
 const (
 	envPythonPath           = "PYTHONPATH"
+	envPythonApmConfigFile  = "NEW_RELIC_CONFIG_FILE"
 	pythonPathPrefix        = "/newrelic-instrumentation"
 	pythonInitContainerName = initContainerName + "-python"
+	pythonApmConfigFile     = "newrelic.toml"
 )
 
 var _ Injector = (*PythonInjector)(nil)
@@ -68,6 +70,20 @@ func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentatio
 	}
 	setEnvVar(container, envPythonPath, pythonPathPrefix, true, ":")
 	setContainerEnvFromInst(container, inst)
+
+	if inst.Spec.AgentConfigMap != "" {
+		agentCMVolumeName := apmConfigMountPath + "-" + "python" + "-" + container.Name
+		agentCMMountPath := apmConfigMountPath + "-" + "python" + "-" + container.Name
+		agentCMFile := agentCMMountPath + "/" + pythonApmConfigFile
+		setAgentConfigMap(&pod, container.Name, agentCMVolumeName, agentCMMountPath, inst.Spec.AgentConfigMap)
+
+		if apmIdx := getIndexOfEnv(container.Env, envPythonApmConfigFile); apmIdx == -1 {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  envPythonApmConfigFile,
+				Value: agentCMFile,
+			})
+		}
+	}
 
 	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{

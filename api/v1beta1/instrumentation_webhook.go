@@ -125,6 +125,14 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 		return nil, fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
 	}
 
+	acceptLangsForAgentConfigMap := []string{"java", "python", "ruby", "php"}
+	if inst.Spec.AgentConfigMap != "" {
+		if !slices.Contains(acceptLangsForAgentConfigMap, inst.Spec.Agent.Language) {
+			strings.Join(acceptableLangs, ", ")
+			return nil, fmt.Errorf("instrumentation agent language %q does not support an agentConfigMap, agentConfigMap can only be configured with one of these languages (%q)", agentLang, strings.Join(acceptLangsForAgentConfigMap, ", "))
+		}
+	}
+
 	if err := r.validateEnv(inst.Spec.Agent.Env); err != nil {
 		return nil, err
 	}
