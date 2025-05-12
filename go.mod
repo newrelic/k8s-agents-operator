@@ -1,6 +1,6 @@
 module github.com/newrelic/k8s-agents-operator
 
-go 1.24.2
+go 1.24.3
 
 require (
 	github.com/go-logr/logr v1.4.2
