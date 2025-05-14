@@ -49,7 +49,6 @@ func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrum
 	if container == nil {
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
-
 	if err := validateContainerEnv(container.Env, envRubyOpt); err != nil {
 		return corev1.Pod{}, err
 	}
