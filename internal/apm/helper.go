@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 
@@ -114,6 +115,9 @@ func (ir *InjectorRegistery) GetInjectors() Injectors {
 	defer ir.mu.Unlock()
 	injectors := make([]Injector, len(ir.injectors))
 	copy(injectors, ir.injectors)
+	sort.Slice(injectors, func(i, j int) bool {
+		return strings.Compare(injectors[i].Language(), injectors[j].Language()) < 0
+	})
 	return injectors
 }
 
@@ -495,4 +499,20 @@ func getAppName(pod *corev1.Pod, container *corev1.Container) string {
 		return pod.Name
 	}
 	return container.Name
+}
+
+func insertContainerBeforeIndex(containers []corev1.Container, index int, newContainer corev1.Container) []corev1.Container {
+	initContainers := make([]corev1.Container, len(containers)+1)
+	copy(initContainers, containers[0:index])
+	initContainers[index] = newContainer
+	copy(initContainers[index+1:], containers[index:])
+	return initContainers
+}
+
+func removeContainerByIndex(containers []corev1.Container, index int) ([]corev1.Container, corev1.Container) {
+	oldContainer := containers[index]
+	newContainers := make([]corev1.Container, len(containers)-1)
+	copy(newContainers, containers[0:index])
+	copy(newContainers[index:], containers[index+1:])
+	return newContainers, oldContainer
 }
