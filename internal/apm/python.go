@@ -17,8 +17,10 @@ package apm
 
 import (
 	"context"
-	"github.com/newrelic/k8s-agents-operator/api/current"
+
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
 const (
@@ -30,35 +32,14 @@ const (
 var _ Injector = (*PythonInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&PythonInjector{})
+	DefaultInjectorRegistry.MustRegister(&PythonInjector{baseInjector{lang: "python"}})
 }
 
 type PythonInjector struct {
 	baseInjector
 }
 
-func (i *PythonInjector) Language() string {
-	return "python"
-}
-
-func (i *PythonInjector) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != i.Language() {
-		return false
-	}
-	if len(pod.Spec.Containers) == 0 {
-		return false
-	}
-	return true
-}
-
 func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	if !i.acceptable(inst, pod) {
-		return pod, nil
-	}
-	if err := i.validate(inst); err != nil {
-		return corev1.Pod{}, err
-	}
-
 	firstContainer := 0
 	// caller checks if there is at least one container.
 	container := &pod.Spec.Containers[firstContainer]

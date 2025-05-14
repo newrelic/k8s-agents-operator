@@ -14,10 +14,6 @@ import (
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
-func TestJavaInjector_Language(t *testing.T) {
-	require.Equal(t, "java", (&JavaInjector{}).Language())
-}
-
 func TestJavaInjector_Inject(t *testing.T) {
 	vtrue := true
 	tests := []struct {
@@ -28,36 +24,6 @@ func TestJavaInjector_Inject(t *testing.T) {
 		expectedPod    corev1.Pod
 		expectedErrStr string
 	}{
-		{
-			name: "nothing",
-		},
-		{
-			name: "a container, no instrumentation",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-		},
-		{
-			name: "a container, wrong instrumentation (not the correct lang)",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "not-this"}}},
-		},
-		{
-			name: "a container, instrumentation with blank licenseKeySecret",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			expectedErrStr: "licenseKeySecret must not be blank",
-			inst:           current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java"}}},
-		},
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{

@@ -18,8 +18,6 @@ package instrumentation
 
 import (
 	"context"
-	"fmt"
-	"runtime/debug"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -27,10 +25,13 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
+	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
 const (
-	DefaultLicenseKeySecretName = "newrelic-key-secret"
+	DefaultLicenseKeySecretName          = "newrelic-key-secret"
+	DescK8sAgentOperatorVersionLabelName = "newrelic-k8s-agents-operator-version"
 )
 
 // compile time type assertion
@@ -59,15 +60,38 @@ func NewNewrelicSdkInjector(logger logr.Logger, client client.Client, injectorRe
 
 // Inject is used to utilize a list of instrumentations, and if the injectors language matches the instrumentation, trigger the injector
 func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+	if len(pod.Spec.Containers) == 0 {
+		return pod
+	}
+
 	hadMatchingInjector := false
+	successfulInjection := false
 	for _, inst := range insts {
 		for _, injector := range i.injectorRegistry.GetInjectors() {
-			mutatedPod, matchedThisInjector, err := i.injectWithInjector(ctx, injector, inst, ns, pod)
-			hadMatchingInjector = hadMatchingInjector || matchedThisInjector
+			if !injector.Accepts(*inst, ns, pod) {
+				continue
+			}
+			hadMatchingInjector = true
+			injector.ConfigureClient(i.client)
+			injector.ConfigureLogger(i.logger.WithValues("injector", injector.Language()))
+			i.logger.V(1).Info("injecting instrumentation into pod",
+				"agent_language", inst.Spec.Agent.Language,
+				"newrelic-namespace", inst.Namespace,
+				"newrelic-name", inst.Name,
+			)
+			var mutatedPod corev1.Pod
+			var err error
+			if ci, ok := injector.(apm.ContainerInjector); ok {
+				mutatedPod, err = ci.InjectContainer(ctx, *inst, ns, pod, pod.Spec.Containers[0].Name)
+			} else {
+				//nolint:staticcheck
+				mutatedPod, err = injector.Inject(ctx, *inst, ns, pod)
+			}
 			if err != nil {
 				i.logger.Error(err, "Skipping agent injection", "agent_language", inst.Spec.Agent.Language)
 				continue
 			}
+			successfulInjection = true
 			pod = mutatedPod
 		}
 	}
@@ -78,27 +102,8 @@ func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instr
 			"registered_injectors", i.injectorRegistry.GetInjectors().Names(),
 		)
 	}
-	return pod
-}
-
-func (i *NewrelicSdkInjector) injectWithInjector(ctx context.Context, injector apm.Injector, inst *current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (mutatedPod corev1.Pod, hadMatchingInjector bool, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v, stacktrace: %s", r, debug.Stack())
-		}
-	}()
-
-	if injector.Language() != inst.Spec.Agent.Language {
-		return pod, false, nil
+	if successfulInjection {
+		util.SetPodLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
 	}
-	injector.ConfigureClient(i.client)
-	injector.ConfigureLogger(i.logger.WithValues("injector", injector.Language()))
-	i.logger.V(1).Info("injecting instrumentation into pod",
-		"agent_language", inst.Spec.Agent.Language,
-		"newrelic-namespace", inst.Namespace,
-		"newrelic-name", inst.Name,
-	)
-
-	mutatedPod, err = injector.Inject(ctx, *inst, ns, pod)
-	return mutatedPod, true, err
+	return pod
 }

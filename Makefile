@@ -22,7 +22,8 @@ TEST_PACKAGES = ./api/v1beta1 \
 	./internal/instrumentation/util/worker \
 	./internal/migrate/upgrade \
 	./internal/version \
-	./internal/webhook
+	./internal/webhook \
+	./internal/util
 
 ## Tool Versions
 SETUP_ENVTEST            ?= $(LOCALBIN)/setup-envtest
