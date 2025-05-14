@@ -22,7 +22,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 		inst           current.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
-		containerName  string
+		containerNames []string
 		useNewMethod   bool
 	}{
 		{
@@ -73,9 +73,9 @@ func TestRubyInjector_Inject(t *testing.T) {
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
 		{
-			name:          "2 containers, inject the 2nd, instrumentation",
-			containerName: "test-2",
-			useNewMethod:  true,
+			name:           "2 containers, inject the 2nd, instrumentation",
+			containerNames: []string{"test-2"},
+			useNewMethod:   true,
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"}, {Name: "test-2"},
 			}}},
@@ -106,9 +106,9 @@ func TestRubyInjector_Inject(t *testing.T) {
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
 		{
-			name:          "1 container, 1 init container, inject the init container, instrumentation",
-			containerName: "init-test",
-			useNewMethod:  true,
+			name:           "1 container, 1 init container, inject the init container, instrumentation",
+			containerNames: []string{"init-test"},
+			useNewMethod:   true,
 			pod: corev1.Pod{Spec: corev1.PodSpec{
 				InitContainers: []corev1.Container{{Name: "init-test"}},
 				Containers:     []corev1.Container{{Name: "test"}},
@@ -131,6 +131,108 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /newrelic-instrumentation/lib/boot/strap"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-test"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+							},
+							VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						},
+					},
+					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				}},
+			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "newrelic-key-secret"}},
+		},
+		{
+			name:           "1 container, 3 init containers, inject 2nd init container, instrumentation",
+			containerNames: []string{"init-b"},
+			useNewMethod:   true,
+			pod: corev1.Pod{Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{{Name: "init-a"}, {Name: "init-b"}, {Name: "init-c"}},
+				Containers:     []corev1.Container{{Name: "test"}},
+			}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				}, Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "test"}},
+					InitContainers: []corev1.Container{
+						{
+							Name: "init-a",
+						},
+						{
+							Name:         "newrelic-instrumentation-ruby",
+							Command:      []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+							VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						},
+						{
+							Name: "init-b",
+							Env: []corev1.EnvVar{
+								{Name: "RUBYOPT", Value: "-r /newrelic-instrumentation/lib/boot/strap"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "init-b"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+							},
+							VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						},
+						{
+							Name: "init-c",
+						},
+					},
+					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				}},
+			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "newrelic-key-secret"}},
+		},
+		{
+			name:           "1 container, 3 init containers, inject all the init containers in reverse order, instrumentation",
+			containerNames: []string{"init-c", "init-b", "init-a"},
+			useNewMethod:   true,
+			pod: corev1.Pod{Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{{Name: "init-a"}, {Name: "init-b"}, {Name: "init-c"}},
+				Containers:     []corev1.Container{{Name: "test"}},
+			}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				}, Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "test"}},
+					InitContainers: []corev1.Container{
+						{
+							Name:         "newrelic-instrumentation-ruby",
+							Command:      []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+							VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						},
+						{
+							Name: "init-a",
+							Env: []corev1.EnvVar{
+								{Name: "RUBYOPT", Value: "-r /newrelic-instrumentation/lib/boot/strap"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "init-a"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+							},
+							VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						},
+						{
+							Name: "init-b",
+							Env: []corev1.EnvVar{
+								{Name: "RUBYOPT", Value: "-r /newrelic-instrumentation/lib/boot/strap"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "init-b"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+							},
+							VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						},
+						{
+							Name: "init-c",
+							Env: []corev1.EnvVar{
+								{Name: "RUBYOPT", Value: "-r /newrelic-instrumentation/lib/boot/strap"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "init-c"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
@@ -184,10 +286,6 @@ func TestRubyInjector_Inject(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			containerName := test.containerName
-			if containerName == "" && len(test.pod.Spec.Containers) > 0 {
-				containerName = test.pod.Spec.Containers[0].Name
-			}
 			ctx := context.Background()
 			i := &RubyInjector{}
 			// inject multiple times to assert that it's idempotent
@@ -196,7 +294,15 @@ func TestRubyInjector_Inject(t *testing.T) {
 			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
 				if test.useNewMethod {
-					actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, test.pod, containerName)
+					var containerNames []string
+					if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
+						containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
+					} else {
+						containerNames = append(containerNames, test.containerNames...)
+					}
+					for _, containerName := range containerNames {
+						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, test.pod, containerName)
+					}
 				} else {
 					actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
 				}

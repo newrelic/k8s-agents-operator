@@ -18,7 +18,6 @@ package apm
 import (
 	"context"
 	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
@@ -46,14 +45,6 @@ func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation,
 }
 
 func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
-	if containerName == "init-test" {
-		for ci, cName := range pod.Spec.InitContainers {
-			fmt.Printf("init container: %q, index: %d\n", cName.Name, ci)
-		}
-		for ci, cName := range pod.Spec.Containers {
-			fmt.Printf("container: %q, index: %d\n", cName.Name, ci)
-		}
-	}
 	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
 	if container == nil {
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
@@ -93,13 +84,20 @@ func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrum
 		}
 		if isTargetInitContainer {
 			index := getInitContainerIndex(pod, containerName)
-			initContainers := make([]corev1.Container, len(pod.Spec.InitContainers)+1)
-			copy(initContainers, pod.Spec.InitContainers[0:index])
-			initContainers[index] = newContainer
-			copy(initContainers[index+1:], pod.Spec.InitContainers[index:])
-			pod.Spec.InitContainers = initContainers
+			pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
 		} else {
 			pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
+		}
+	} else {
+		if isTargetInitContainer {
+			agentIndex := getInitContainerIndex(pod, rubyInitContainerName)
+			targetIndex := getInitContainerIndex(pod, containerName)
+			if targetIndex < agentIndex {
+				// move our agent before the target, so that it runs before the target!
+				var agentContainer corev1.Container
+				pod.Spec.InitContainers, agentContainer = removeContainerByIndex(pod.Spec.InitContainers, agentIndex)
+				pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, targetIndex, agentContainer)
+			}
 		}
 	}
 
