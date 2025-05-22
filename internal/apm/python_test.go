@@ -55,20 +55,20 @@ func TestPythonInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "PYTHONPATH", Value: "/newrelic-instrumentation"},
+							{Name: "PYTHONPATH", Value: "/nri-python--test"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "newrelic-instrumentation-python",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Name:         "nri-python--test",
+						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-python--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				}},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
@@ -91,20 +91,20 @@ func TestPythonInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "PYTHONPATH", Value: "fakepath:/newrelic-instrumentation"},
+							{Name: "PYTHONPATH", Value: "fakepath:/nri-python--test"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "newrelic-instrumentation-python",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Name:         "nri-python--test",
+						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-python--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				}},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
@@ -117,6 +117,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 			var err error
 			var actualPod corev1.Pod
 			testPod := test.pod
+		loop:
 			for ic := 0; ic < 3; ic++ {
 				if !i.Accepts(test.inst, test.ns, testPod) {
 					actualPod = testPod
@@ -130,7 +131,11 @@ func TestPythonInjector_Inject(t *testing.T) {
 						containerNames = append(containerNames, test.containerNames...)
 					}
 					for _, containerName := range containerNames {
-						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, test.pod, containerName)
+						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
+						if err != nil {
+							break loop
+						}
+						testPod = actualPod
 					}
 				} else {
 					actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)

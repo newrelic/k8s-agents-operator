@@ -26,11 +26,8 @@ import (
 )
 
 const (
-	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
-	envApmConfigFile      = "NEWRELIC_FILE"
-	javaJVMArgument       = "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"
-	javaInitContainerName = initContainerName + "-java"
-	javaApmConfigPath     = apmConfigMountPath + "/newrelic.yaml"
+	envJavaToolsOptions = "JAVA_TOOL_OPTIONS"
+	envApmConfigFile    = "NEWRELIC_FILE"
 )
 
 var _ Injector = (*JavaInjector)(nil)
@@ -54,6 +51,15 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
 
+	initContainerName := "nri-java--" + containerName
+	volumeName := initContainerName
+	mountPath := "/" + volumeName
+	javaJVMArgument := "-javaagent:" + mountPath + "/newrelic-agent.jar"
+
+	configVolumeName := "nri-cfg--" + containerName
+	configMountPath := "/" + configVolumeName
+	configPath := configMountPath + "/newrelic.yaml"
+
 	if err := validateContainerEnv(container.Env, envJavaToolsOptions); err != nil {
 		return corev1.Pod{}, err
 	}
@@ -61,52 +67,35 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 	setContainerEnvFromInst(container, inst)
 
 	if inst.Spec.AgentConfigMap != "" {
-		setAgentConfigMap(&pod, inst.Spec.AgentConfigMap, container)
+		setAgentConfigMap(&pod, container, inst.Spec.AgentConfigMap, configVolumeName, configMountPath)
 
 		// Add ENV
 		if apmIdx := getIndexOfEnv(container.Env, envApmConfigFile); apmIdx == -1 {
 			container.Env = append(container.Env, corev1.EnvVar{
 				Name:  envApmConfigFile,
-				Value: javaApmConfigPath,
+				Value: configPath,
 			})
 		}
 	}
 
-	if isContainerVolumeMissing(container, volumeName) {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: "/newrelic-instrumentation",
-		})
-	}
+	pod = addPodVolumeIfMissing(pod, volumeName)
+	container = addContainerVolumeIfMissing(container, volumeName, mountPath)
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, javaInitContainerName) {
-		if isPodVolumeMissing(pod, volumeName) {
-			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				}})
-		}
-
+	if isInitContainerMissing(pod, initContainerName) {
 		newContainer := corev1.Container{
-			Name:    javaInitContainerName,
+			Name:    initContainerName,
 			Image:   inst.Spec.Agent.Image,
-			Command: []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
+			Command: []string{"cp", "/newrelic-agent.jar", mountPath + "/newrelic-agent.jar"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
-				MountPath: "/newrelic-instrumentation",
+				MountPath: mountPath,
 			}},
 		}
-		if isTargetInitContainer {
-			index := getInitContainerIndex(pod, containerName)
-			pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
-		} else {
-			pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
-		}
+		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
 	} else {
 		if isTargetInitContainer {
-			agentIndex := getInitContainerIndex(pod, rubyInitContainerName)
+			agentIndex := getInitContainerIndex(pod, initContainerName)
 			targetIndex := getInitContainerIndex(pod, containerName)
 			if targetIndex < agentIndex {
 				// move our agent before the target, so that it runs before the target!

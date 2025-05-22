@@ -20,9 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 	"slices"
 	"sort"
 	"strings"
@@ -33,7 +30,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -42,13 +42,6 @@ import (
 )
 
 const LicenseKey = "new_relic_license_key"
-
-const (
-	volumeName          = "newrelic-instrumentation"
-	initContainerName   = "newrelic-instrumentation"
-	apmConfigVolumeName = "newrelic-apm-config"
-	apmConfigMountPath  = "/newrelic-apm-config"
-)
 
 const (
 	EnvNewRelicAppName                   = "NEW_RELIC_APP_NAME"
@@ -267,6 +260,41 @@ func (i *baseInjector) Language() string {
 	return i.lang
 }
 
+func addPodVolumeIfMissing(
+	pod corev1.Pod,
+	volumeName string,
+) corev1.Pod {
+	if isPodVolumeMissing(pod, volumeName) {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	}
+	return pod
+}
+
+func addContainerVolumeIfMissing(container *corev1.Container, volumeName string, mountPath string) *corev1.Container {
+	if isContainerVolumeMissing(container, volumeName) {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: mountPath,
+		})
+	}
+	return container
+}
+
+func addContainer(isTargetInitContainer bool, targetContainerName string, pod corev1.Pod, newContainer corev1.Container) corev1.Pod {
+	if isTargetInitContainer {
+		index := getInitContainerIndex(pod, targetContainerName)
+		pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
+	} else {
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
+	}
+	return pod
+}
+
 // Deprecated: use setContainerEnvLicenseKey
 func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Container, licenseKeySecretName string) corev1.Container {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLicenseKey); idx == -1 {
@@ -422,10 +450,10 @@ func setPodAnnotationFromInstrumentationVersion(pod *corev1.Pod, inst current.In
 	return nil
 }
 
-func setAgentConfigMap(pod *corev1.Pod, configMapName string, container *corev1.Container) {
-	if isPodVolumeMissing(*pod, apmConfigVolumeName) {
+func setAgentConfigMap(pod *corev1.Pod, container *corev1.Container, configMapName string, volumeName string, mountPath string) {
+	if isPodVolumeMissing(*pod, volumeName) {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: apmConfigVolumeName,
+			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -436,10 +464,10 @@ func setAgentConfigMap(pod *corev1.Pod, configMapName string, container *corev1.
 		})
 	}
 
-	if isContainerVolumeMissing(container, apmConfigVolumeName) {
+	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      apmConfigVolumeName,
-			MountPath: apmConfigMountPath,
+			Name:      volumeName,
+			MountPath: mountPath,
 		})
 	}
 }

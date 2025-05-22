@@ -26,9 +26,7 @@ import (
 )
 
 const (
-	envPythonPath           = "PYTHONPATH"
-	pythonPathPrefix        = "/newrelic-instrumentation"
-	pythonInitContainerName = initContainerName + "-python"
+	envPythonPath = "PYTHONPATH"
 )
 
 var _ Injector = (*PythonInjector)(nil)
@@ -51,47 +49,36 @@ func (i *PythonInjector) InjectContainer(ctx context.Context, inst current.Instr
 	if container == nil {
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
+
+	initContainerName := "nri-python--" + containerName
+	volumeName := initContainerName
+	mountPath := "/" + volumeName
+	pythonPathPrefix := mountPath
+
 	if err := validateContainerEnv(container.Env, envPythonPath); err != nil {
 		return corev1.Pod{}, err
 	}
 	setEnvVar(container, envPythonPath, pythonPathPrefix, true, ":")
 	setContainerEnvFromInst(container, inst)
 
-	if isContainerVolumeMissing(container, volumeName) {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: "/newrelic-instrumentation",
-		})
-	}
+	pod = addPodVolumeIfMissing(pod, volumeName)
+	container = addContainerVolumeIfMissing(container, volumeName, mountPath)
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, pythonInitContainerName) {
-		if isPodVolumeMissing(pod, volumeName) {
-			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				}})
-		}
-
+	if isInitContainerMissing(pod, initContainerName) {
 		newContainer := corev1.Container{
-			Name:    pythonInitContainerName,
+			Name:    initContainerName,
 			Image:   inst.Spec.Agent.Image,
-			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+			Command: []string{"cp", "-a", "/instrumentation/.", mountPath + "/"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
-				MountPath: "/newrelic-instrumentation",
+				MountPath: mountPath,
 			}},
 		}
-		if isTargetInitContainer {
-			index := getInitContainerIndex(pod, containerName)
-			pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
-		} else {
-			pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
-		}
+		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
 	} else {
 		if isTargetInitContainer {
-			agentIndex := getInitContainerIndex(pod, rubyInitContainerName)
+			agentIndex := getInitContainerIndex(pod, initContainerName)
 			targetIndex := getInitContainerIndex(pod, containerName)
 			if targetIndex < agentIndex {
 				// move our agent before the target, so that it runs before the target!

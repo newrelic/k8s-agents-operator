@@ -66,15 +66,15 @@ func TestPhpInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "a", Value: "a"},
-							{Name: "PHP_INI_SCAN_DIR", Value: ":/newrelic-instrumentation/php-agent/ini"},
+							{Name: "PHP_INI_SCAN_DIR", Value: ":/nri-php--test/php-agent/ini"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name: "newrelic-instrumentation-php",
+						Name: "nri-php--test",
 						Env: []corev1.EnvVar{
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
@@ -82,10 +82,10 @@ func TestPhpInjector_Inject(t *testing.T) {
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
 						Command:      []string{"/bin/sh"},
-						Args:         []string{"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh 20230831 && /newrelic-instrumentation/nr_env_to_ini.sh"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Args:         []string{"-c", "cp -a /instrumentation/. /nri-php--test/ && /nri-php--test/k8s-php-install.sh 20230831 && /nri-php--test/nr_env_to_ini.sh"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-php--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				},
 			},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3"}, LicenseKeySecret: "newrelic-key-secret"}},
@@ -116,15 +116,15 @@ func TestPhpInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "a", Value: "a"},
-							{Name: "PHP_INI_SCAN_DIR", Value: "fakepath:/newrelic-instrumentation/php-agent/ini"},
+							{Name: "PHP_INI_SCAN_DIR", Value: "fakepath:/nri-php--test/php-agent/ini"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name: "newrelic-instrumentation-php",
+						Name: "nri-php--test",
 						Env: []corev1.EnvVar{
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
@@ -132,10 +132,10 @@ func TestPhpInjector_Inject(t *testing.T) {
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
 						Command:      []string{"/bin/sh"},
-						Args:         []string{"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh 20230831 && /newrelic-instrumentation/nr_env_to_ini.sh"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Args:         []string{"-c", "cp -a /instrumentation/. /nri-php--test/ && /nri-php--test/k8s-php-install.sh 20230831 && /nri-php--test/nr_env_to_ini.sh"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-php--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				},
 			},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3"}, LicenseKeySecret: "newrelic-key-secret"}},
@@ -149,12 +149,29 @@ func TestPhpInjector_Inject(t *testing.T) {
 			var err error
 			var actualPod corev1.Pod
 			testPod := test.pod
+		loop:
 			for ic := 0; ic < 3; ic++ {
 				if !i.Accepts(test.inst, test.ns, testPod) {
 					actualPod = testPod
 					continue
 				}
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+				if test.useNewMethod {
+					var containerNames []string
+					if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
+						containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
+					} else {
+						containerNames = append(containerNames, test.containerNames...)
+					}
+					for _, containerName := range containerNames {
+						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
+						if err != nil {
+							break loop
+						}
+						testPod = actualPod
+					}
+				} else {
+					actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+				}
 				if err != nil {
 					break
 				}

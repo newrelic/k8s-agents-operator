@@ -33,9 +33,6 @@ const (
 	envDotnetNewrelicHome               = "CORECLR_NEWRELIC_HOME"
 	dotnetCoreClrEnableProfilingEnabled = "1"
 	dotnetCoreClrProfilerID             = "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
-	dotnetCoreClrProfilerPath           = "/newrelic-instrumentation/libNewRelicProfiler.so"
-	dotnetNewrelicHomePath              = "/newrelic-instrumentation"
-	dotnetInitContainerName             = initContainerName + "-dotnet"
 )
 
 var errUnableToConfigureEnv = errors.New("unable to configure environment variables, they've already been set to different values")
@@ -61,63 +58,52 @@ func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instr
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
 
+	initContainerName := "nri-dotnet--" + containerName
+	volumeName := initContainerName
+	mountPath := "/" + volumeName
+	coreClrProfilerPath := mountPath + "/libNewRelicProfiler.so"
+	newrelicHomePath := mountPath
+
 	if err := validateContainerEnv(container.Env, envDotnetCoreClrEnableProfiling, envDotnetCoreClrProfiler, envDotnetCoreClrProfilerPath, envDotnetNewrelicHome); err != nil {
 		return corev1.Pod{}, err
 	}
 
 	setEnvVar(container, envDotnetCoreClrEnableProfiling, dotnetCoreClrEnableProfilingEnabled, false, "")
 	setEnvVar(container, envDotnetCoreClrProfiler, dotnetCoreClrProfilerID, false, "")
-	setEnvVar(container, envDotnetCoreClrProfilerPath, dotnetCoreClrProfilerPath, false, "")
-	setEnvVar(container, envDotnetNewrelicHome, dotnetNewrelicHomePath, false, "")
+	setEnvVar(container, envDotnetCoreClrProfilerPath, coreClrProfilerPath, false, "")
+	setEnvVar(container, envDotnetNewrelicHome, newrelicHomePath, false, "")
 	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrEnableProfiling); v != dotnetCoreClrEnableProfilingEnabled {
 		return corev1.Pod{}, errUnableToConfigureEnv
 	}
 	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfiler); v != dotnetCoreClrProfilerID {
 		return corev1.Pod{}, errUnableToConfigureEnv
 	}
-	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfilerPath); v != dotnetCoreClrProfilerPath {
+	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfilerPath); v != coreClrProfilerPath {
 		return corev1.Pod{}, errUnableToConfigureEnv
 	}
-	if v, _ := getValueFromEnv(container.Env, envDotnetNewrelicHome); v != dotnetNewrelicHomePath {
+	if v, _ := getValueFromEnv(container.Env, envDotnetNewrelicHome); v != newrelicHomePath {
 		return corev1.Pod{}, errUnableToConfigureEnv
 	}
 	setContainerEnvFromInst(container, inst)
 
-	if isContainerVolumeMissing(container, volumeName) {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: "/newrelic-instrumentation",
-		})
-	}
+	pod = addPodVolumeIfMissing(pod, volumeName)
+	container = addContainerVolumeIfMissing(container, volumeName, mountPath)
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, dotnetInitContainerName) {
-		if isPodVolumeMissing(pod, volumeName) {
-			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				}})
-		}
-
+	if isInitContainerMissing(pod, initContainerName) {
 		newContainer := corev1.Container{
-			Name:    dotnetInitContainerName,
+			Name:    initContainerName,
 			Image:   inst.Spec.Agent.Image,
-			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+			Command: []string{"cp", "-a", "/instrumentation/.", mountPath + "/"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
-				MountPath: "/newrelic-instrumentation",
+				MountPath: mountPath,
 			}},
 		}
-		if isTargetInitContainer {
-			index := getInitContainerIndex(pod, containerName)
-			pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
-		} else {
-			pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
-		}
+		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
 	} else {
 		if isTargetInitContainer {
-			agentIndex := getInitContainerIndex(pod, rubyInitContainerName)
+			agentIndex := getInitContainerIndex(pod, initContainerName)
 			targetIndex := getInitContainerIndex(pod, containerName)
 			if targetIndex < agentIndex {
 				// move our agent before the target, so that it runs before the target!
