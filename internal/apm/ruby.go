@@ -25,8 +25,10 @@ import (
 )
 
 const (
+	rubyVolumeName        = "newrelic-instrumentation-ruby"
+	rubyMountPath         = "/" + rubyVolumeName
 	envRubyOpt            = "RUBYOPT"
-	rubyOptRequire        = "-r /newrelic-instrumentation/lib/boot/strap"
+	rubyOptRequire        = "-r " + rubyMountPath + "/lib/boot/strap"
 	rubyInitContainerName = initContainerName + "-ruby"
 )
 
@@ -56,38 +58,16 @@ func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrum
 	setEnvVar(container, envRubyOpt, rubyOptRequire, true, " ")
 	setContainerEnvFromInst(container, inst)
 
-	if isContainerVolumeMissing(container, volumeName) {
+	if isContainerVolumeMissing(container, rubyVolumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: "/newrelic-instrumentation",
+			Name:      rubyVolumeName,
+			MountPath: rubyMountPath,
 		})
 	}
 
 	// We just inject Volumes and init containers for the first processed container.
 	if isInitContainerMissing(pod, rubyInitContainerName) {
-		if isPodVolumeMissing(pod, volumeName) {
-			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				}})
-		}
-
-		newContainer := corev1.Container{
-			Name:    rubyInitContainerName,
-			Image:   inst.Spec.Agent.Image,
-			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      volumeName,
-				MountPath: "/newrelic-instrumentation",
-			}},
-		}
-		if isTargetInitContainer {
-			index := getInitContainerIndex(pod, containerName)
-			pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
-		} else {
-			pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
-		}
+		pod = i.addContainer(pod, inst.Spec.Agent.Image, containerName, isTargetInitContainer)
 	} else {
 		if isTargetInitContainer {
 			agentIndex := getInitContainerIndex(pod, rubyInitContainerName)
@@ -110,4 +90,30 @@ func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrum
 		return corev1.Pod{}, err
 	}
 	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+}
+
+func (i *RubyInjector) addContainer(pod corev1.Pod, agentContainerImage string, targetContainerName string, isTargetInitContainer bool) corev1.Pod {
+	if isPodVolumeMissing(pod, rubyVolumeName) {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: rubyVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			}})
+	}
+	newContainer := corev1.Container{
+		Name:    rubyInitContainerName,
+		Image:   agentContainerImage,
+		Command: []string{"cp", "-a", "/instrumentation/.", rubyMountPath + "/"},
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      rubyVolumeName,
+			MountPath: rubyMountPath,
+		}},
+	}
+	if isTargetInitContainer {
+		index := getInitContainerIndex(pod, targetContainerName)
+		pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
+	} else {
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
+	}
+	return pod
 }
