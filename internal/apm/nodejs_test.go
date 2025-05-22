@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
 func TestNodejsInjector_Inject(t *testing.T) {
@@ -23,6 +22,8 @@ func TestNodejsInjector_Inject(t *testing.T) {
 		inst           current.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
+		containerNames []string
+		useNewMethod   bool
 	}{
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
@@ -47,9 +48,6 @@ func TestNodejsInjector_Inject(t *testing.T) {
 			}}},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
-					},
 					Annotations: map[string]string{
 						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
 					},
@@ -87,9 +85,6 @@ func TestNodejsInjector_Inject(t *testing.T) {
 			}}},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
-					},
 					Annotations: map[string]string{
 						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
 					},
@@ -119,13 +114,29 @@ func TestNodejsInjector_Inject(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			i := &NodejsInjector{}
+			i := &NodejsInjector{baseInjector{lang: "nodejs"}}
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
 			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+				if !i.Accepts(test.inst, test.ns, testPod) {
+					actualPod = testPod
+					continue
+				}
+				if test.useNewMethod {
+					var containerNames []string
+					if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
+						containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
+					} else {
+						containerNames = append(containerNames, test.containerNames...)
+					}
+					for _, containerName := range containerNames {
+						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, test.pod, containerName)
+					}
+				} else {
+					actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+				}
 				if err != nil {
 					break
 				}

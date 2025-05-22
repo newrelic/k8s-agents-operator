@@ -20,12 +20,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -416,9 +422,7 @@ func setPodAnnotationFromInstrumentationVersion(pod *corev1.Pod, inst current.In
 	return nil
 }
 
-func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
-	container := &pod.Spec.Containers[index]
-
+func setAgentConfigMap(pod *corev1.Pod, configMapName string, container *corev1.Container) {
 	if isPodVolumeMissing(*pod, apmConfigVolumeName) {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name: apmConfigVolumeName,
@@ -456,13 +460,7 @@ func setContainerEnvLicenseKey(container *corev1.Container, licenseKeySecretName
 	}
 }
 
-func setContainerEnvInjectionDefaults(pod *corev1.Pod, container *corev1.Container) {
-	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  EnvNewRelicAppName,
-			Value: getAppName(pod, container),
-		})
-	}
+func setContainerEnvInjectionDefaults(container *corev1.Container) {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLabels); idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  EnvNewRelicLabels,
@@ -481,24 +479,60 @@ func setContainerEnvInjectionDefaults(pod *corev1.Pod, container *corev1.Contain
 	}
 }
 
-func getAppName(pod *corev1.Pod, container *corev1.Container) string {
-	//@todo: review this logic; if we instrument multiple containers, they would all have the same app name
-	var lateName string
+func (i *baseInjector) setContainerEnvAppName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod, container *corev1.Container) error {
+	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
+		name, err := i.getRootResourceName(ctx, ns, pod)
+		if err != nil {
+			return fmt.Errorf("failed to get root resource name for pod > %w", err)
+		}
+		if name == "" {
+			name = container.Name
+		}
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  EnvNewRelicAppName,
+			Value: name,
+		})
+	}
+	return nil
+}
+
+func (i *baseInjector) getRootResourceName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod) (string, error) {
 	for _, owner := range pod.ObjectMeta.OwnerReferences {
 		switch strings.ToLower(owner.Kind) {
 		case "deployment", "statefulset", "cronjob", "daemonset":
-			return owner.Name
-		case "job", "replicaset":
-			lateName = owner.Name
+			return owner.Name, nil
 		}
 	}
-	if lateName != "" {
-		return lateName
+	checkError := func(err error) bool { return apierrors.IsNotFound(err) }
+	backOff := wait.Backoff{Duration: 10 * time.Millisecond, Factor: 1.5, Jitter: 0.1, Steps: 20, Cap: 2 * time.Second}
+	for _, owner := range pod.ObjectMeta.OwnerReferences {
+		ownerName := types.NamespacedName{Namespace: ns.Name, Name: owner.Name}
+		switch strings.ToLower(owner.Kind) {
+		case "job":
+			obj := batchv1.Job{}
+			if err := retry.OnError(backOff, checkError, func() error { return i.client.Get(ctx, ownerName, &obj) }); err != nil {
+				return "", fmt.Errorf("failed to get parent name > %w", err)
+			}
+			for _, parentOwner := range obj.ObjectMeta.OwnerReferences {
+				if strings.ToLower(parentOwner.Kind) == "cronjob" {
+					return parentOwner.Name, nil
+				}
+			}
+			return owner.Name, nil
+		case "replicaset":
+			obj := appsv1.ReplicaSet{}
+			if err := retry.OnError(backOff, checkError, func() error { return i.client.Get(ctx, ownerName, &obj) }); err != nil {
+				return "", fmt.Errorf("failed to get parent name > %w", err)
+			}
+			for _, parentOwner := range obj.ObjectMeta.OwnerReferences {
+				if strings.ToLower(parentOwner.Kind) == "deployment" {
+					return parentOwner.Name, nil
+				}
+			}
+			return owner.Name, nil
+		}
 	}
-	if pod.Name != "" {
-		return pod.Name
-	}
-	return container.Name
+	return pod.Name, nil
 }
 
 func insertContainerBeforeIndex(containers []corev1.Container, index int, newContainer corev1.Container) []corev1.Container {

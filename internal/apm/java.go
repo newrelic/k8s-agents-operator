@@ -17,10 +17,12 @@ package apm
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 )
 
 const (
@@ -32,6 +34,7 @@ const (
 )
 
 var _ Injector = (*JavaInjector)(nil)
+var _ ContainerInjector = (*JavaInjector)(nil)
 
 func init() {
 	DefaultInjectorRegistry.MustRegister(&JavaInjector{baseInjector{lang: "java"}})
@@ -42,9 +45,14 @@ type JavaInjector struct {
 }
 
 func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	firstContainer := 0
-	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[firstContainer]
+	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
+}
+
+func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
+	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
+	if container == nil {
+		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
+	}
 
 	if err := validateContainerEnv(container.Env, envJavaToolsOptions); err != nil {
 		return corev1.Pod{}, err
@@ -53,7 +61,7 @@ func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation,
 	setContainerEnvFromInst(container, inst)
 
 	if inst.Spec.AgentConfigMap != "" {
-		injectAgentConfigMap(&pod, firstContainer, inst.Spec.AgentConfigMap)
+		setAgentConfigMap(&pod, inst.Spec.AgentConfigMap, container)
 
 		// Add ENV
 		if apmIdx := getIndexOfEnv(container.Env, envApmConfigFile); apmIdx == -1 {
@@ -81,7 +89,7 @@ func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation,
 				}})
 		}
 
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
+		newContainer := corev1.Container{
 			Name:    javaInitContainerName,
 			Image:   inst.Spec.Agent.Image,
 			Command: []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
@@ -89,17 +97,33 @@ func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation,
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
-		})
+		}
+		if isTargetInitContainer {
+			index := getInitContainerIndex(pod, containerName)
+			pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
+		} else {
+			pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
+		}
+	} else {
+		if isTargetInitContainer {
+			agentIndex := getInitContainerIndex(pod, rubyInitContainerName)
+			targetIndex := getInitContainerIndex(pod, containerName)
+			if targetIndex < agentIndex {
+				// move our agent before the target, so that it runs before the target!
+				var agentContainer corev1.Container
+				pod.Spec.InitContainers, agentContainer = removeContainerByIndex(pod.Spec.InitContainers, agentIndex)
+				pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, targetIndex, agentContainer)
+			}
+		}
 	}
 
-	pod = i.injectNewrelicConfig(ctx, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
-
-	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
-
-	var err error
-	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
+	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {
 		return corev1.Pod{}, err
 	}
-
-	return pod, nil
+	setContainerEnvInjectionDefaults(container)
+	setContainerEnvLicenseKey(container, inst.Spec.LicenseKeySecret)
+	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
+		return corev1.Pod{}, err
+	}
+	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
 }

@@ -18,10 +18,12 @@ package apm
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 )
 
 const (
@@ -39,6 +41,7 @@ const (
 var errUnableToConfigureEnv = errors.New("unable to configure environment variables, they've already been set to different values")
 
 var _ Injector = (*DotnetInjector)(nil)
+var _ ContainerInjector = (*DotnetInjector)(nil)
 
 func init() {
 	DefaultInjectorRegistry.MustRegister(&DotnetInjector{baseInjector{lang: "dotnet"}})
@@ -48,10 +51,15 @@ type DotnetInjector struct {
 	baseInjector
 }
 
-func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	firstContainer := 0
-	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[firstContainer]
+func (i *DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
+}
+
+func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
+	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
+	if container == nil {
+		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
+	}
 
 	if err := validateContainerEnv(container.Env, envDotnetCoreClrEnableProfiling, envDotnetCoreClrProfiler, envDotnetCoreClrProfilerPath, envDotnetNewrelicHome); err != nil {
 		return corev1.Pod{}, err
@@ -92,7 +100,7 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 				}})
 		}
 
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
+		newContainer := corev1.Container{
 			Name:    dotnetInitContainerName,
 			Image:   inst.Spec.Agent.Image,
 			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
@@ -100,17 +108,33 @@ func (i DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation
 				Name:      volumeName,
 				MountPath: "/newrelic-instrumentation",
 			}},
-		})
+		}
+		if isTargetInitContainer {
+			index := getInitContainerIndex(pod, containerName)
+			pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
+		} else {
+			pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
+		}
+	} else {
+		if isTargetInitContainer {
+			agentIndex := getInitContainerIndex(pod, rubyInitContainerName)
+			targetIndex := getInitContainerIndex(pod, containerName)
+			if targetIndex < agentIndex {
+				// move our agent before the target, so that it runs before the target!
+				var agentContainer corev1.Container
+				pod.Spec.InitContainers, agentContainer = removeContainerByIndex(pod.Spec.InitContainers, agentIndex)
+				pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, targetIndex, agentContainer)
+			}
+		}
 	}
 
-	pod = i.injectNewrelicConfig(ctx, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
-
-	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
-
-	var err error
-	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
+	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {
 		return corev1.Pod{}, err
 	}
-
-	return pod, nil
+	setContainerEnvInjectionDefaults(container)
+	setContainerEnvLicenseKey(container, inst.Spec.LicenseKeySecret)
+	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
+		return corev1.Pod{}, err
+	}
+	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
 }

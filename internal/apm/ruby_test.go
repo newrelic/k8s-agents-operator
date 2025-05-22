@@ -287,12 +287,16 @@ func TestRubyInjector_Inject(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			i := &RubyInjector{}
+			i := &RubyInjector{baseInjector{lang: "ruby"}}
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
 			testPod := test.pod
 			for ic := 0; ic < 3; ic++ {
+				if !i.Accepts(test.inst, test.ns, testPod) {
+					actualPod = testPod
+					continue
+				}
 				if test.useNewMethod {
 					var containerNames []string
 					if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {

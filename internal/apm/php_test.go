@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
 func TestPhpInjector_Inject(t *testing.T) {
@@ -23,6 +22,8 @@ func TestPhpInjector_Inject(t *testing.T) {
 		inst           current.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
+		containerNames []string
+		useNewMethod   bool
 	}{
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
@@ -59,8 +60,6 @@ func TestPhpInjector_Inject(t *testing.T) {
 						"instrumentation.newrelic.com/php-version": "8.3",
 						"newrelic.com/instrumentation-versions":    `{"/":"/0"}`,
 					},
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -111,8 +110,6 @@ func TestPhpInjector_Inject(t *testing.T) {
 						"instrumentation.newrelic.com/php-version": "8.3",
 						"newrelic.com/instrumentation-versions":    `{"/":"/0"}`,
 					},
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{

@@ -31,6 +31,7 @@ const (
 )
 
 var _ Injector = (*RubyInjector)(nil)
+var _ ContainerInjector = (*RubyInjector)(nil)
 
 func init() {
 	DefaultInjectorRegistry.MustRegister(&RubyInjector{baseInjector{lang: "ruby"}})
@@ -100,7 +101,10 @@ func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrum
 		}
 	}
 
-	setContainerEnvInjectionDefaults(&pod, container)
+	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {
+		return corev1.Pod{}, err
+	}
+	setContainerEnvInjectionDefaults(container)
 	setContainerEnvLicenseKey(container, inst.Spec.LicenseKeySecret)
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
