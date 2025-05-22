@@ -18,20 +18,21 @@ package apm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 )
 
 const (
-	envIniScanDirKey     = "PHP_INI_SCAN_DIR"
-	envIniScanDirVal     = "/newrelic-instrumentation/php-agent/ini"
-	phpInitContainerName = initContainerName + "-php"
+	envIniScanDirKey = "PHP_INI_SCAN_DIR"
 )
 
 var _ Injector = (*PhpInjector)(nil)
+var _ ContainerInjector = (*PhpInjector)(nil)
 
 func init() {
 	for _, v := range phpAcceptVersions {
@@ -69,17 +70,24 @@ type PhpInjector struct {
 	baseInjector
 }
 
-// Inject is used to inject the PHP agent.
 func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	firstContainer := 0
+	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
+}
 
+func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
+	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
+	if container == nil {
+		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
+	}
 	apiNum, ok := phpApiMap[acceptVersion(i.Language())]
 	if !ok {
 		return pod, errors.New("invalid php version")
 	}
 
-	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[firstContainer]
+	initContainerName := "nri-php--" + containerName
+	volumeName := initContainerName
+	mountPath := "/" + initContainerName
+	envIniScanDirVal := mountPath + "/php-agent/ini"
 
 	if err := validateContainerEnv(container.Env, envIniScanDirKey); err != nil {
 		return corev1.Pod{}, err
@@ -92,54 +100,52 @@ func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, 
 	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true, ":")
 	setContainerEnvFromInst(container, inst)
 
-	if isContainerVolumeMissing(container, volumeName) {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: "/newrelic-instrumentation",
-		})
-	}
+	pod = addPodVolumeIfMissing(pod, volumeName)
+	container = addContainerVolumeIfMissing(container, volumeName, mountPath)
 
-	pod = i.injectNewrelicEnvConfig(ctx, pod, firstContainer)
+	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {
+		return corev1.Pod{}, err
+	}
+	setContainerEnvInjectionDefaults(container)
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, phpInitContainerName) {
-		if isPodVolumeMissing(pod, volumeName) {
-			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				}})
-		}
-
+	if isInitContainerMissing(pod, initContainerName) {
 		copyOfContainerEnv := make([]corev1.EnvVar, 0, len(container.Env))
 		for _, entry := range container.Env {
 			if strings.HasPrefix(entry.Name, "NEWRELIC_") || strings.HasPrefix(entry.Name, "NEW_RELIC_") {
 				copyOfContainerEnv = append(copyOfContainerEnv, *entry.DeepCopy())
 			}
 		}
-		initContainer := corev1.Container{
-			Name:    phpInitContainerName,
+		newContainer := corev1.Container{
+			Name:    initContainerName,
 			Image:   inst.Spec.Agent.Image,
 			Command: []string{"/bin/sh"},
 			Args: []string{
-				"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh " + apiNum + " && /newrelic-instrumentation/nr_env_to_ini.sh",
+				"-c", "cp -a /instrumentation/. " + mountPath + "/ && " + mountPath + "/k8s-php-install.sh " + apiNum + " && " + mountPath + "/nr_env_to_ini.sh",
 			},
 			Env: copyOfContainerEnv,
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
-				MountPath: "/newrelic-instrumentation",
+				MountPath: mountPath,
 			}},
 		}
-		initContainer = i.injectNewrelicLicenseKeyIntoContainer(initContainer, inst.Spec.LicenseKeySecret)
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
+		setContainerEnvLicenseKey(&newContainer, inst.Spec.LicenseKeySecret)
+		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
+	} else {
+		if isTargetInitContainer {
+			agentIndex := getInitContainerIndex(pod, initContainerName)
+			targetIndex := getInitContainerIndex(pod, containerName)
+			if targetIndex < agentIndex {
+				// move our agent before the target, so that it runs before the target!
+				var agentContainer corev1.Container
+				pod.Spec.InitContainers, agentContainer = removeContainerByIndex(pod.Spec.InitContainers, agentIndex)
+				pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, targetIndex, agentContainer)
+			}
+		}
 	}
 
-	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
-
-	var err error
-	if pod, err = i.injectHealth(ctx, inst, ns, pod, -1, getInitContainerIndex(pod, phpInitContainerName)); err != nil {
+	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-
-	return pod, nil
+	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
 }
