@@ -8,7 +8,7 @@ require (
 	github.com/helm-unittest/helm-unittest v0.8.2
 	github.com/helm/chart-testing/v3 v3.13.0
 	github.com/norwoodj/helm-docs v1.14.2
-	golang.org/x/tools v0.32.0
+	golang.org/x/tools v0.33.0
 	helm.sh/helm/v3 v3.18.2
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250407161039-6ad5c1dd4418
 	sigs.k8s.io/controller-tools v0.18.0
