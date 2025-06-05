@@ -84,13 +84,16 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 	// We just inject Volumes and init containers for the first processed container.
 	if isInitContainerMissing(pod, initContainerName) {
 		newContainer := corev1.Container{
-			Name:    initContainerName,
-			Image:   inst.Spec.Agent.Image,
-			Command: []string{"cp", "/newrelic-agent.jar", mountPath + "/newrelic-agent.jar"},
+			Name:            initContainerName,
+			Image:           inst.Spec.Agent.Image,
+			ImagePullPolicy: inst.Spec.Agent.ImagePullPolicy,
+			Command:         []string{"cp", "/newrelic-agent.jar", mountPath + "/newrelic-agent.jar"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
 				MountPath: mountPath,
 			}},
+			Resources:       *inst.Spec.Agent.Resources.DeepCopy(),
+			SecurityContext: inst.Spec.Agent.SecurityContext.DeepCopy(),
 		}
 		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
 	} else {

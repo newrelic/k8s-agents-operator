@@ -14,42 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1beta2
 
 import (
-	"reflect"
-
-	"github.com/newrelic/k8s-agents-operator/api/common"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"reflect"
 )
 
 // InstrumentationSpec defines the desired state of Instrumentation
 type InstrumentationSpec struct {
-	// Exporter defines exporter configuration.
-	// @todo: remove this
-	// +optional
-	Exporter `json:"exporter,omitempty"`
-
-	// Resource defines the configuration for the resource attributes, as defined by the OpenTelemetry specification.
-	// @todo: remove this
-	// +optional
-	Resource Resource `json:"resource,omitempty"`
-
-	// Propagators defines inter-process context propagation configuration.
-	// Values in this list will be set in the OTEL_PROPAGATORS env var.
-	// Enum=tracecontext;none
-	// @todo: remove this
-	// +optional
-	Propagators []common.Propagator `json:"propagators,omitempty"`
-
-	// Sampler defines sampling configuration.
-	// @todo: remove this
-	// +optional
-	Sampler `json:"sampler,omitempty"`
-
 	// PodLabelSelector defines to which pods the config should be applied.
 	// +optional
 	PodLabelSelector metav1.LabelSelector `json:"podLabelSelector"`
@@ -57,6 +32,10 @@ type InstrumentationSpec struct {
 	// PodLabelSelector defines to which pods the config should be applied.
 	// +optional
 	NamespaceLabelSelector metav1.LabelSelector `json:"namespaceLabelSelector"`
+
+	// ContainerSelector defines to which pods the config should be applied.
+	// +optional
+	ContainerSelector ContainerSelector `json:"containerSelector"`
 
 	// LicenseKeySecret defines where to take the licenseKeySecret from.
 	// it should be present in the operator namespace.
@@ -75,44 +54,17 @@ type InstrumentationSpec struct {
 	HealthAgent HealthAgent `json:"healthAgent,omitempty"`
 }
 
-// Resource is the attributes that are added to the resource
-type Resource struct {
-	// Attributes defines attributes that are added to the resource.
-	// For example environment: dev
-	// +optional
-	Attributes map[string]string `json:"resourceAttributes,omitempty"`
-
-	// AddK8sUIDAttributes defines whether K8s UID attributes should be collected (e.g. k8s.deployment.uid).
-	// +optional
-	AddK8sUIDAttributes bool `json:"addK8sUIDAttributes,omitempty"`
+type ContainerSelector struct {
+	NamesFromPodLabel      string        `json:"namesFromPodLabel,omitempty"`
+	NamesFromPodAnnotation string        `json:"namesFromPodAnnotation,omitempty"`
+	EnvSelector            EnvSelector   `json:"envSelector"`
+	ImageSelector          ImageSelector `json:"imageSelector,omitempty"`
+	NameSelector           NameSelector  `json:"nameSelector,omitempty"`
 }
 
-// IsEmpty is used to check if the resource is empty
-func (r Resource) IsEmpty() bool {
-	return !r.AddK8sUIDAttributes && len(r.Attributes) == 0
-}
-
-// Exporter defines OTLP exporter configuration.
-type Exporter struct {
-	// Endpoint is address of the collector with OTLP endpoint.
-	// +optional
-	Endpoint string `json:"endpoint,omitempty"`
-}
-
-// Sampler defines sampling configuration.
-type Sampler struct {
-	// Type defines sampler type.
-	// The value will be set in the OTEL_TRACES_SAMPLER env var.
-	// The value can be for instance parentbased_always_on, parentbased_always_off, parentbased_traceidratio...
-	// +optional
-	Type common.SamplerType `json:"type,omitempty"`
-
-	// Argument defines sampler argument.
-	// The value depends on the sampler type.
-	// For instance for parentbased_traceidratio sampler type it is a number in range [0..1] e.g. 0.25.
-	// The value will be set in the OTEL_TRACES_SAMPLER_ARG env var.
-	// +optional
-	Argument string `json:"argument,omitempty"`
+// IsEmpty is used to check if the container selector is empty
+func (a *ContainerSelector) IsEmpty() bool {
+	return a.NamesFromPodLabel == "" && a.NamesFromPodAnnotation == "" && a.EnvSelector.IsEmpty() && a.NameSelector.IsEmpty() && a.ImageSelector.IsEmpty()
 }
 
 // Agent is the configuration for the agent
@@ -122,6 +74,14 @@ type Agent struct {
 
 	// Image is a container image with Go SDK and auto-instrumentation.
 	Image string `json:"image,omitempty"`
+
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
 
 	// VolumeSizeLimit defines size limit for volume used for auto-instrumentation.
 	// The default size is 200Mi.
@@ -137,6 +97,12 @@ type Agent struct {
 	// Resources describes the compute resource requirements.
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resourceRequirements,omitempty"`
+
+	// SecurityContext defines the security options the container should be run with.
+	// If set, the fields of SecurityContext override the equivalent fields of PodSecurityContext.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+	// +optional
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
 
 // IsEmpty is used to check if the agent is empty, excluding `.Language`
@@ -159,11 +125,29 @@ type HealthAgent struct {
 	// Image is a container image with Go SDK and auto-instrumentation.
 	Image string `json:"image,omitempty"`
 
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	// +optional
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
+
 	// Env defines Go specific env vars. There are four layers for env vars' definitions and
 	// the precedence order is: `original container env vars` > `language specific env vars` > `common env vars` > `instrument spec configs' vars`.
 	// If the former var had been defined, then the other vars would be ignored.
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
+
+	// Resources describes the compute resource requirements.
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resourceRequirements,omitempty"`
+
+	// SecurityContext defines the security options the container should be run with.
+	// If set, the fields of SecurityContext override the equivalent fields of PodSecurityContext.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+	// +optional
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
 
 // IsEmpty is used to check if the health agent is empty
@@ -192,8 +176,10 @@ type InstrumentationStatus struct {
 	PodsUnhealthy       int64               `json:"podsUnhealthy,omitempty"`
 	UnhealthyPodsErrors []UnhealthyPodError `json:"unhealthyPodsErrors,omitempty"`
 	LastUpdated         metav1.Time         `json:"lastUpdated,omitempty"`
+	ObservedVersion     string              `json:"observedVersion,omitempty"`
 }
 
+// +kubebuilder:storageversion
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=nragent;nragents
 // +kubebuilder:subresource:status

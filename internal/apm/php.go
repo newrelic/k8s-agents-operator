@@ -117,9 +117,10 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 			}
 		}
 		newContainer := corev1.Container{
-			Name:    initContainerName,
-			Image:   inst.Spec.Agent.Image,
-			Command: []string{"/bin/sh"},
+			Name:            initContainerName,
+			Image:           inst.Spec.Agent.Image,
+			ImagePullPolicy: inst.Spec.Agent.ImagePullPolicy,
+			Command:         []string{"/bin/sh"},
 			Args: []string{
 				"-c", "cp -a /instrumentation/. " + mountPath + "/ && " + mountPath + "/k8s-php-install.sh " + apiNum + " && " + mountPath + "/nr_env_to_ini.sh",
 			},
@@ -128,6 +129,8 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 				Name:      volumeName,
 				MountPath: mountPath,
 			}},
+			Resources:       *inst.Spec.Agent.Resources.DeepCopy(),
+			SecurityContext: inst.Spec.Agent.SecurityContext.DeepCopy(),
 		}
 		setContainerEnvLicenseKey(&newContainer, inst.Spec.LicenseKeySecret)
 		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
