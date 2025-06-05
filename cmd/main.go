@@ -21,8 +21,6 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
 	"os"
@@ -242,28 +240,6 @@ func main() {
 		setupLog.Error(err, "failed to add/run bootstrap dependencies to the controller manager")
 		os.Exit(1)
 	}
-
-	k8sCfg, err := rest.InClusterConfig()
-	if err != nil {
-		setupLog.Error(err, "failed to get in cluster config")
-		os.Exit(1)
-	}
-	k8sClientset, err := kubernetes.NewForConfig(k8sCfg)
-	if err != nil {
-		setupLog.Error(err, "failed to get clientset")
-		os.Exit(1)
-	}
-	permChecker := instrumentation.NewAuthClient(k8sClientset.AuthorizationV1())
-	syncSecrets, err := permChecker.CanISyncSecrets(ctx, "*")
-	if err != nil {
-		setupLog.Error(err, "failed to check if we can sync secrets")
-	}
-	setupLog.Info("secrets syncable: %v", syncSecrets)
-	syncConfigMaps, err := permChecker.CanISyncConfigMaps(ctx, "*")
-	if err != nil {
-		setupLog.Error(err, "failed to check if we can sync configmaps")
-	}
-	setupLog.Info("configmaps syncable: %v", syncConfigMaps)
 
 	instrumentationStatusUpdater := instrumentation.NewInstrumentationStatusUpdater(mgr.GetClient())
 	healthApi := instrumentation.NewHealthCheckApi(http.DefaultClient)
