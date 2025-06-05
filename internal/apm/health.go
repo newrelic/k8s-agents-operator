@@ -150,9 +150,10 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 
 		restartAlways := corev1.ContainerRestartPolicyAlways
 		sidecarContainer := corev1.Container{
-			Name:          HealthSidecarContainerName,
-			Image:         inst.Spec.HealthAgent.Image,
-			RestartPolicy: &restartAlways,
+			Name:            HealthSidecarContainerName,
+			Image:           inst.Spec.HealthAgent.Image,
+			ImagePullPolicy: inst.Spec.HealthAgent.ImagePullPolicy,
+			RestartPolicy:   &restartAlways,
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      healthVolumeName,
 				MountPath: healthMountPath,
@@ -160,7 +161,9 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 			Ports: []corev1.ContainerPort{
 				{ContainerPort: int32(sidecarListenPort)},
 			},
-			Env: sidecarContainerEnv,
+			Env:             sidecarContainerEnv,
+			Resources:       *inst.Spec.HealthAgent.Resources.DeepCopy(),
+			SecurityContext: inst.Spec.HealthAgent.SecurityContext.DeepCopy(),
 		}
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, sidecarContainer)

@@ -142,6 +142,7 @@ func (im *instrumentationMetric) syncStatus() {
 	im.instrumentation.Status.PodsHealthy = im.podsHealthy
 	im.instrumentation.Status.PodsUnhealthy = im.podsUnhealthy
 	im.instrumentation.Status.UnhealthyPodsErrors = im.unhealthyPods
+	im.instrumentation.Status.ObservedVersion = im.instrumentation.ResourceVersion
 }
 
 // podMetric contains the pod, it's id (used for logging), health (empty by default), and doneCh - which is closed once health has been retrieved

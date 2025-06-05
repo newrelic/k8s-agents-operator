@@ -21,12 +21,19 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -35,13 +42,6 @@ import (
 )
 
 const LicenseKey = "new_relic_license_key"
-
-const (
-	volumeName          = "newrelic-instrumentation"
-	initContainerName   = "newrelic-instrumentation"
-	apmConfigVolumeName = "newrelic-apm-config"
-	apmConfigMountPath  = "/newrelic-apm-config"
-)
 
 const (
 	EnvNewRelicAppName                   = "NEW_RELIC_APP_NAME"
@@ -114,6 +114,9 @@ func (ir *InjectorRegistery) GetInjectors() Injectors {
 	defer ir.mu.Unlock()
 	injectors := make([]Injector, len(ir.injectors))
 	copy(injectors, ir.injectors)
+	sort.Slice(injectors, func(i, j int) bool {
+		return strings.Compare(injectors[i].Language(), injectors[j].Language()) < 0
+	})
 	return injectors
 }
 
@@ -255,6 +258,41 @@ func (i *baseInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace
 
 func (i *baseInjector) Language() string {
 	return i.lang
+}
+
+func addPodVolumeIfMissing(
+	pod corev1.Pod,
+	volumeName string,
+) corev1.Pod {
+	if isPodVolumeMissing(pod, volumeName) {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	}
+	return pod
+}
+
+func addContainerVolumeIfMissing(container *corev1.Container, volumeName string, mountPath string) *corev1.Container {
+	if isContainerVolumeMissing(container, volumeName) {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: mountPath,
+		})
+	}
+	return container
+}
+
+func addContainer(isTargetInitContainer bool, targetContainerName string, pod corev1.Pod, newContainer corev1.Container) corev1.Pod {
+	if isTargetInitContainer {
+		index := getInitContainerIndex(pod, targetContainerName)
+		pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
+	} else {
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
+	}
+	return pod
 }
 
 // Deprecated: use setContainerEnvLicenseKey
@@ -412,12 +450,10 @@ func setPodAnnotationFromInstrumentationVersion(pod *corev1.Pod, inst current.In
 	return nil
 }
 
-func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
-	container := &pod.Spec.Containers[index]
-
-	if isPodVolumeMissing(*pod, apmConfigVolumeName) {
+func setAgentConfigMap(pod *corev1.Pod, container *corev1.Container, configMapName string, volumeName string, mountPath string) {
+	if isPodVolumeMissing(*pod, volumeName) {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: apmConfigVolumeName,
+			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -428,10 +464,10 @@ func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
 		})
 	}
 
-	if isContainerVolumeMissing(container, apmConfigVolumeName) {
+	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      apmConfigVolumeName,
-			MountPath: apmConfigMountPath,
+			Name:      volumeName,
+			MountPath: mountPath,
 		})
 	}
 }
@@ -452,13 +488,7 @@ func setContainerEnvLicenseKey(container *corev1.Container, licenseKeySecretName
 	}
 }
 
-func setContainerEnvInjectionDefaults(pod *corev1.Pod, container *corev1.Container) {
-	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  EnvNewRelicAppName,
-			Value: getAppName(pod, container),
-		})
-	}
+func setContainerEnvInjectionDefaults(container *corev1.Container) {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLabels); idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  EnvNewRelicLabels,
@@ -477,22 +507,74 @@ func setContainerEnvInjectionDefaults(pod *corev1.Pod, container *corev1.Contain
 	}
 }
 
-func getAppName(pod *corev1.Pod, container *corev1.Container) string {
-	//@todo: review this logic; if we instrument multiple containers, they would all have the same app name
-	var lateName string
+func (i *baseInjector) setContainerEnvAppName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod, container *corev1.Container) error {
+	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
+		name, err := i.getRootResourceName(ctx, ns, pod)
+		if err != nil {
+			return fmt.Errorf("failed to get root resource name for pod > %w", err)
+		}
+		if name == "" {
+			name = container.Name
+		}
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  EnvNewRelicAppName,
+			Value: name,
+		})
+	}
+	return nil
+}
+
+func (i *baseInjector) getRootResourceName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod) (string, error) {
 	for _, owner := range pod.ObjectMeta.OwnerReferences {
 		switch strings.ToLower(owner.Kind) {
 		case "deployment", "statefulset", "cronjob", "daemonset":
-			return owner.Name
-		case "job", "replicaset":
-			lateName = owner.Name
+			return owner.Name, nil
 		}
 	}
-	if lateName != "" {
-		return lateName
+	checkError := func(err error) bool { return apierrors.IsNotFound(err) }
+	backOff := wait.Backoff{Duration: 10 * time.Millisecond, Factor: 1.5, Jitter: 0.1, Steps: 20, Cap: 2 * time.Second}
+	for _, owner := range pod.ObjectMeta.OwnerReferences {
+		ownerName := types.NamespacedName{Namespace: ns.Name, Name: owner.Name}
+		switch strings.ToLower(owner.Kind) {
+		case "job":
+			obj := batchv1.Job{}
+			if err := retry.OnError(backOff, checkError, func() error { return i.client.Get(ctx, ownerName, &obj) }); err != nil {
+				return "", fmt.Errorf("failed to get parent name > %w", err)
+			}
+			for _, parentOwner := range obj.ObjectMeta.OwnerReferences {
+				if strings.ToLower(parentOwner.Kind) == "cronjob" {
+					return parentOwner.Name, nil
+				}
+			}
+			return owner.Name, nil
+		case "replicaset":
+			obj := appsv1.ReplicaSet{}
+			if err := retry.OnError(backOff, checkError, func() error { return i.client.Get(ctx, ownerName, &obj) }); err != nil {
+				return "", fmt.Errorf("failed to get parent name > %w", err)
+			}
+			for _, parentOwner := range obj.ObjectMeta.OwnerReferences {
+				if strings.ToLower(parentOwner.Kind) == "deployment" {
+					return parentOwner.Name, nil
+				}
+			}
+			return owner.Name, nil
+		}
 	}
-	if pod.Name != "" {
-		return pod.Name
-	}
-	return container.Name
+	return pod.Name, nil
+}
+
+func insertContainerBeforeIndex(containers []corev1.Container, index int, newContainer corev1.Container) []corev1.Container {
+	initContainers := make([]corev1.Container, len(containers)+1)
+	copy(initContainers, containers[0:index])
+	initContainers[index] = newContainer
+	copy(initContainers[index+1:], containers[index:])
+	return initContainers
+}
+
+func removeContainerByIndex(containers []corev1.Container, index int) ([]corev1.Container, corev1.Container) {
+	oldContainer := containers[index]
+	newContainers := make([]corev1.Container, len(containers)-1)
+	copy(newContainers, containers[0:index])
+	copy(newContainers[index:], containers[index+1:])
+	return newContainers, oldContainer
 }

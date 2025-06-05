@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
 func TestNodejsInjector_Inject(t *testing.T) {
@@ -23,6 +22,8 @@ func TestNodejsInjector_Inject(t *testing.T) {
 		inst           current.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
+		containerNames []string
+		useNewMethod   bool
 	}{
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
@@ -47,9 +48,6 @@ func TestNodejsInjector_Inject(t *testing.T) {
 			}}},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
-					},
 					Annotations: map[string]string{
 						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
 					},
@@ -58,20 +56,20 @@ func TestNodejsInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "NODE_OPTIONS", Value: "--require /newrelic-instrumentation/newrelicinstrumentation.js"},
+							{Name: "NODE_OPTIONS", Value: "--require /nri-nodejs--test/newrelicinstrumentation.js"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-nodejs--test", MountPath: "/nri-nodejs--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "newrelic-instrumentation-nodejs",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Name:         "nri-nodejs--test",
+						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-nodejs--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-nodejs--test", MountPath: "/nri-nodejs--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-nodejs--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				}},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
@@ -87,9 +85,6 @@ func TestNodejsInjector_Inject(t *testing.T) {
 			}}},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
-					},
 					Annotations: map[string]string{
 						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
 					},
@@ -98,20 +93,20 @@ func TestNodejsInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "NODE_OPTIONS", Value: "--require somelib --require /newrelic-instrumentation/newrelicinstrumentation.js"},
+							{Name: "NODE_OPTIONS", Value: "--require somelib --require /nri-nodejs--test/newrelicinstrumentation.js"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-nodejs--test", MountPath: "/nri-nodejs--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "newrelic-instrumentation-nodejs",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Name:         "nri-nodejs--test",
+						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-nodejs--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-nodejs--test", MountPath: "/nri-nodejs--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-nodejs--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				}},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
@@ -119,13 +114,34 @@ func TestNodejsInjector_Inject(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			i := &NodejsInjector{}
+			i := &NodejsInjector{baseInjector{lang: "nodejs"}}
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
 			testPod := test.pod
+		loop:
 			for ic := 0; ic < 3; ic++ {
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+				if !i.Accepts(test.inst, test.ns, testPod) {
+					actualPod = testPod
+					continue
+				}
+				if test.useNewMethod {
+					var containerNames []string
+					if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
+						containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
+					} else {
+						containerNames = append(containerNames, test.containerNames...)
+					}
+					for _, containerName := range containerNames {
+						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
+						if err != nil {
+							break loop
+						}
+						testPod = actualPod
+					}
+				} else {
+					actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+				}
 				if err != nil {
 					break
 				}

@@ -21,6 +21,8 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
 	"os"
@@ -206,10 +208,10 @@ func main() {
 		// the manager stops, so would be fine to enable this option. However,
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
-		LeaseDuration: &leaseDuration,
-		RenewDeadline: &renewDeadline,
-		RetryPeriod:   &retryPeriod,
+		LeaderElectionReleaseOnCancel: true,
+		LeaseDuration:                 &leaseDuration,
+		RenewDeadline:                 &renewDeadline,
+		RetryPeriod:                   &retryPeriod,
 	}
 
 	watchNamespace, found := os.LookupEnv("WATCH_NAMESPACE")
@@ -241,6 +243,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	k8sCfg, err := rest.InClusterConfig()
+	if err != nil {
+		setupLog.Error(err, "failed to get in cluster config")
+		os.Exit(1)
+	}
+	k8sClientset, err := kubernetes.NewForConfig(k8sCfg)
+	if err != nil {
+		setupLog.Error(err, "failed to get clientset")
+		os.Exit(1)
+	}
+	permChecker := instrumentation.NewAuthClient(k8sClientset.AuthorizationV1())
+	syncSecrets, err := permChecker.CanISyncSecrets(ctx, "*")
+	if err != nil {
+		setupLog.Error(err, "failed to check if we can sync secrets")
+	}
+	setupLog.Info("secrets syncable: %v", syncSecrets)
+	syncConfigMaps, err := permChecker.CanISyncConfigMaps(ctx, "*")
+	if err != nil {
+		setupLog.Error(err, "failed to check if we can sync configmaps")
+	}
+	setupLog.Info("configmaps syncable: %v", syncConfigMaps)
+
 	instrumentationStatusUpdater := instrumentation.NewInstrumentationStatusUpdater(mgr.GetClient())
 	healthApi := instrumentation.NewHealthCheckApi(http.DefaultClient)
 	healthMonitor := instrumentation.NewHealthMonitor(
@@ -251,8 +275,8 @@ func main() {
 		logger.Info("Shutting down health checker")
 		stopCtx, stopCtxCancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer stopCtxCancel()
-		if err = healthMonitor.Shutdown(stopCtx); err != nil {
-			setupLog.Error(err, "failed to shutdown health checker")
+		if err = healthMonitor.Stop(stopCtx); err != nil {
+			setupLog.Error(err, "failed to stop health checker")
 		} else {
 			logger.Info("Shut down health checker")
 		}

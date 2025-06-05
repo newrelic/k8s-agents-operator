@@ -29,6 +29,7 @@ var (
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete;deletecollection;patch;update;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;create;delete;deletecollection;patch;update;watch
 
 // PodMutationHandler is a webhook handler for mutating Pods
 type PodMutationHandler struct {
@@ -70,13 +71,14 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 	}
 
 	for _, mutator := range m.Mutators {
-		pod, err = mutator.Mutate(ctx, ns, pod)
+		mutatedPod, err := mutator.Mutate(ctx, ns, *pod.DeepCopy())
 		if err != nil {
 			//@todo: actually print the error message
 			res := admission.Errored(http.StatusInternalServerError, err)
 			res.Allowed = true
 			return res
 		}
+		pod = mutatedPod
 	}
 
 	marshaledPod, err := json.Marshal(pod)
@@ -97,6 +99,7 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 	injectorRegistry := apm.DefaultInjectorRegistry
 	injector := instrumentation.NewNewrelicSdkInjector(logger, mgrClient, injectorRegistry)
 	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, mgrClient)
+	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(logger, mgrClient)
 	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, mgrClient, operatorNamespace)
 
 	hookServer := mgr.GetWebhookServer()
@@ -109,6 +112,7 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 				mgrClient,
 				injector,
 				secretReplicator,
+				configMapReplicator,
 				instrumentationLocator,
 				operatorNamespace,
 			),

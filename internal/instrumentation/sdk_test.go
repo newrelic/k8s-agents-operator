@@ -16,12 +16,17 @@ import (
 )
 
 var _ apm.Injector = (*ErrorInjector)(nil)
+var _ apm.ContainerInjector = (*ErrorInjector)(nil)
 
 type ErrorInjector struct {
 	err error
 }
 
 func (ei *ErrorInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	return ei.InjectContainer(ctx, inst, ns, pod, "")
+}
+
+func (ei *ErrorInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
 	return pod, ei.err
 }
 
@@ -38,12 +43,17 @@ func (ei *ErrorInjector) ConfigureLogger(logger logr.Logger) {}
 func (ei *ErrorInjector) ConfigureClient(client client.Client) {}
 
 var _ apm.Injector = (*AnnotationInjector)(nil)
+var _ apm.ContainerInjector = (*AnnotationInjector)(nil)
 
 type AnnotationInjector struct {
 	lang string
 }
 
 func (ai *AnnotationInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+	return ai.InjectContainer(ctx, inst, ns, pod, "")
+}
+
+func (ai *AnnotationInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}
@@ -115,6 +125,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 		pod           corev1.Pod
 		containerName string
 		expectedPod   corev1.Pod
+		useNewMethod  bool
 	}{
 		{
 			name: "empty",
@@ -228,7 +239,12 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				_ = defaulter.Default(ctx, langInst)
 			}
 			injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
-			pod := injector.Inject(ctx, test.langInsts, test.ns, test.pod)
+			var pod corev1.Pod
+			if test.useNewMethod {
+				pod = injector.InjectContainers(ctx, map[string][]*current.Instrumentation{test.pod.Spec.Containers[0].Name: test.langInsts}, test.ns, test.pod)
+			} else {
+				pod = injector.Inject(ctx, test.langInsts, test.ns, test.pod)
+			}
 			if diff := cmp.Diff(test.expectedPod, pod); diff != "" {
 				t.Errorf("Unexpected diff (-want +got): %s", diff)
 			}

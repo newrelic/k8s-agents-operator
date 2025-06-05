@@ -36,10 +36,15 @@ const (
 
 // compile time type assertion
 var _ SdkInjector = (*NewrelicSdkInjector)(nil)
+var _ SdkContainerInjector = (*NewrelicSdkInjector)(nil)
 
 // SdkInjector is used to inject our instrumentation into a pod
 type SdkInjector interface {
 	Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
+}
+
+type SdkContainerInjector interface {
+	InjectContainers(ctx context.Context, containerInsts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
 }
 
 // NewrelicSdkInjector is the base struct used to inject our instrumentation into a pod
@@ -58,41 +63,56 @@ func NewNewrelicSdkInjector(logger logr.Logger, client client.Client, injectorRe
 	}
 }
 
-// Inject is used to utilize a list of instrumentations, and if the injectors language matches the instrumentation, trigger the injector
-func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+func (i *NewrelicSdkInjector) InjectContainers(ctx context.Context, containerInsts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
 	if len(pod.Spec.Containers) == 0 {
 		return pod
 	}
 
+	//extract container names in the order in which they occur, so we can instrument the first containers as needed
+	//otherwise we have to reorder the out init agent container
+	containerNames := make([]string, 0, len(pod.Spec.InitContainers)+len(pod.Spec.Containers))
+	for _, container := range pod.Spec.InitContainers {
+		if _, ok := containerInsts[container.Name]; ok {
+			containerNames = append(containerNames, container.Name)
+		}
+	}
+	for _, container := range pod.Spec.Containers {
+		if _, ok := containerInsts[container.Name]; ok {
+			containerNames = append(containerNames, container.Name)
+		}
+	}
+
 	hadMatchingInjector := false
 	successfulInjection := false
-	for _, inst := range insts {
-		for _, injector := range i.injectorRegistry.GetInjectors() {
-			if !injector.Accepts(*inst, ns, pod) {
-				continue
+	for _, containerName := range containerNames {
+		for _, inst := range containerInsts[containerName] {
+			for _, injector := range i.injectorRegistry.GetInjectors() {
+				if !injector.Accepts(*inst, ns, pod) {
+					continue
+				}
+				hadMatchingInjector = true
+				injector.ConfigureClient(i.client)
+				injector.ConfigureLogger(i.logger.WithValues("injector", injector.Language()))
+				i.logger.V(1).Info("injecting instrumentation into pod",
+					"agent_language", inst.Spec.Agent.Language,
+					"newrelic-namespace", inst.Namespace,
+					"newrelic-name", inst.Name,
+				)
+				var mutatedPod corev1.Pod
+				var err error
+				if ci, ok := injector.(apm.ContainerInjector); ok {
+					mutatedPod, err = ci.InjectContainer(ctx, *inst, ns, pod, pod.Spec.Containers[0].Name)
+				} else {
+					//nolint:staticcheck
+					mutatedPod, err = injector.Inject(ctx, *inst, ns, pod)
+				}
+				if err != nil {
+					i.logger.Error(err, "Skipping agent injection", "agent_language", inst.Spec.Agent.Language)
+					continue
+				}
+				successfulInjection = true
+				pod = mutatedPod
 			}
-			hadMatchingInjector = true
-			injector.ConfigureClient(i.client)
-			injector.ConfigureLogger(i.logger.WithValues("injector", injector.Language()))
-			i.logger.V(1).Info("injecting instrumentation into pod",
-				"agent_language", inst.Spec.Agent.Language,
-				"newrelic-namespace", inst.Namespace,
-				"newrelic-name", inst.Name,
-			)
-			var mutatedPod corev1.Pod
-			var err error
-			if ci, ok := injector.(apm.ContainerInjector); ok {
-				mutatedPod, err = ci.InjectContainer(ctx, *inst, ns, pod, pod.Spec.Containers[0].Name)
-			} else {
-				//nolint:staticcheck
-				mutatedPod, err = injector.Inject(ctx, *inst, ns, pod)
-			}
-			if err != nil {
-				i.logger.Error(err, "Skipping agent injection", "agent_language", inst.Spec.Agent.Language)
-				continue
-			}
-			successfulInjection = true
-			pod = mutatedPod
 		}
 	}
 	if !hadMatchingInjector {
@@ -106,4 +126,12 @@ func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instr
 		util.SetPodLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
 	}
 	return pod
+}
+
+// Inject is used to utilize a list of instrumentations, and if the injectors language matches the instrumentation, trigger the injector
+func (i *NewrelicSdkInjector) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+	if len(pod.Spec.Containers) == 0 {
+		return pod
+	}
+	return i.InjectContainers(ctx, map[string][]*current.Instrumentation{pod.Spec.Containers[0].Name: insts}, ns, pod)
 }
