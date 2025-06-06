@@ -116,13 +116,27 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 				copyOfContainerEnv = append(copyOfContainerEnv, *entry.DeepCopy())
 			}
 		}
+		commands := []string{
+			"cp -a /instrumentation/. " + mountPath + "/",
+
+			// fix up the paths
+			"sed -i 's@/newrelic-instrumentation@" + mountPath + "@g' " + mountPath + "/php-agent/ini/newrelic.ini",
+			"sed -i 's@/newrelic-instrumentation@" + mountPath + "@g' " + mountPath + "/k8s-php-install.sh",
+			"sed -i 's@/newrelic-instrumentation@" + mountPath + "@g' " + mountPath + "/nr_env_to_ini.sh",
+
+			// setup the correct libs and bins
+			mountPath + "/k8s-php-install.sh " + apiNum,
+
+			// copy env based on mapping to newrelic.ini
+			mountPath + "/nr_env_to_ini.sh",
+		}
 		newContainer := corev1.Container{
 			Name:            initContainerName,
 			Image:           inst.Spec.Agent.Image,
 			ImagePullPolicy: inst.Spec.Agent.ImagePullPolicy,
 			Command:         []string{"/bin/sh"},
 			Args: []string{
-				"-c", "cp -a /instrumentation/. " + mountPath + "/ && " + mountPath + "/k8s-php-install.sh " + apiNum + " && " + mountPath + "/nr_env_to_ini.sh",
+				"-c", strings.Join(commands, " && "),
 			},
 			Env: copyOfContainerEnv,
 			VolumeMounts: []corev1.VolumeMount{{

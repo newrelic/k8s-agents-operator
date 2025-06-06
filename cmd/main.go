@@ -45,6 +45,7 @@ import (
 
 	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
 	newreliccomv1beta1 "github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	newreliccomv1beta2 "github.com/newrelic/k8s-agents-operator/api/v1beta2"
 	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
 	"github.com/newrelic/k8s-agents-operator/internal/config"
 	"github.com/newrelic/k8s-agents-operator/internal/controller"
@@ -68,6 +69,7 @@ func init() {
 	utilruntime.Must(routev1.AddToScheme(scheme)) // TODO: Update this to not use a deprecated method
 	utilruntime.Must(newreliccomv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(newreliccomv1beta1.AddToScheme(scheme))
+	utilruntime.Must(newreliccomv1beta2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -299,9 +301,11 @@ func setupWebhooks(mgr manager.Manager, operatorNamespace string) error {
 	if err = newreliccomv1alpha2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
 		return fmt.Errorf("unable to create v1alpha2 Instrumentation webhook: %w", err)
 	}
-
 	if err = newreliccomv1beta1.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
 		return fmt.Errorf("unable to create v1beta1 Instrumentation webhook: %w", err)
+	}
+	if err = newreliccomv1beta2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
+		return fmt.Errorf("unable to create v1beta2 Instrumentation webhook: %w", err)
 	}
 
 	// Register the Pod mutation webhook

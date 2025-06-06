@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"io"
 	"net"
 	"os"
@@ -51,6 +50,7 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
 	"github.com/newrelic/k8s-agents-operator/internal/version"

@@ -164,6 +164,12 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 		return corev1.Pod{}, err
 	}
 
+	// ensure that the health sidecar is not being used with an init container
+	if err := validateContainerWithHealthAgent(instrumentations, &pod); err != nil {
+		logger.Error(err, "failed to select a New Relic Instrumentation instance for this Pod")
+		return corev1.Pod{}, err
+	}
+
 	if pm.secretReplicationIsEnabled {
 		secrets := GetLicenseKeySecretsFromInstrumentations(instrumentations)
 		if pm.envSecretReplicationIsEnabled {
@@ -454,15 +460,42 @@ func validateInstrumentationLicenseKeySecrets(candidates map[string][]*current.I
 
 func validateHealthAgents(candidates map[string][]*current.Instrumentation) error {
 	healthAgents := 0
+	var matchedContainers []string
 	for _, cInsts := range candidates {
 		for _, inst := range cInsts {
 			if !inst.Spec.HealthAgent.IsEmpty() {
 				healthAgents++
+				matchedContainers = append(matchedContainers, inst.Name)
 			}
 		}
 	}
 	if healthAgents > 1 {
-		return fmt.Errorf("too many health agents, only 1 per pod on a single agent container is supported; healthAgents: %d", healthAgents)
+		return fmt.Errorf("too many health agents, only 1 per pod on a single agent container is supported; healthAgents: %d, matched containers: %v", healthAgents, matchedContainers)
+	}
+	return nil
+}
+
+func validateContainerWithHealthAgent(candidates map[string][]*current.Instrumentation, pod *corev1.Pod) error {
+	if len(pod.Spec.InitContainers) == 0 {
+		return nil
+	}
+	initContainers := map[string]struct{}{}
+	for _, c := range pod.Spec.InitContainers {
+		initContainers[c.Name] = struct{}{}
+	}
+	var matchedContainers []string
+	for containerName, cInsts := range candidates {
+		if _, ok := initContainers[containerName]; !ok {
+			continue
+		}
+		for _, inst := range cInsts {
+			if !inst.Spec.HealthAgent.IsEmpty() {
+				matchedContainers = append(matchedContainers, inst.Name)
+			}
+		}
+	}
+	if len(matchedContainers) > 0 {
+		return fmt.Errorf("healthAgent can't be used with initContainers; matched init containers: %v", matchedContainers)
 	}
 	return nil
 }

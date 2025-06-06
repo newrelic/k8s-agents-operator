@@ -11,6 +11,9 @@ LICENSE_KEY=""
 # Set to true if you additionally want to run tests
 RUN_TESTS=""
 
+SCRIPT_PATH=$(dirname $0)
+REPO_ROOT=$(realpath $SCRIPT_PATH/../../..)
+
 function main() {
     parse_args "$@"
     create_cluster
@@ -80,10 +83,7 @@ function create_cluster() {
     minikube start --container-runtime=containerd --kubernetes-version=${K8S_VERSION} --profile ${CLUSTER_NAME} > /dev/null
 
     echo "🔄 Building Docker image"
-    cd ../..
-    export DOCKER_BUILDKIT=1
-    docker build --tag e2e/k8s-agents-operator:e2e  . --quiet > /dev/null
-    cd tests/e2e
+    DOCKER_BUILDKIT=1 docker build --tag e2e/k8s-agents-operator:e2e ${REPO_ROOT} --quiet > /dev/null
 
     echo "🔄 Loading image into cluster"
     minikube image load e2e/k8s-agents-operator:e2e --profile ${CLUSTER_NAME} > /dev/null
@@ -91,13 +91,13 @@ function create_cluster() {
     echo "🔄 Adding Helm repositories"
     helm repo add newrelic https://helm-charts.newrelic.com > /dev/null
     helm repo update > /dev/null
-    helm dependency update ../../charts/k8s-agents-operator > /dev/null
+    helm dependency update ${REPO_ROOT}/charts/k8s-agents-operator > /dev/null
 
     echo "🔄 Installing operator"
-    helm upgrade --install k8s-agents-operator ../../charts/k8s-agents-operator \
+    helm upgrade --install k8s-agents-operator ${REPO_ROOT}/charts/k8s-agents-operator \
       --namespace k8s-agents-operator \
       --create-namespace \
-      --values e2e-values.yml \
+      --values ${SCRIPT_PATH}/e2e-values.yml \
       --set licenseKey=${LICENSE_KEY}
 
     echo "🔄 Waiting for operator to settle"
@@ -114,15 +114,15 @@ function create_cluster() {
     #  --from-literal=new_relic_license_key=${LICENSE_KEY}
 
     echo "🔄 Installing instrumentation"
-    for i in $(find . -maxdepth 1 -type f -name 'e2e-instrumentation-*.yml'); do
+    for i in $(find ${SCRIPT_PATH} -maxdepth 1 -type f -name 'e2e-instrumentation-*.yml'); do
       kubectl apply --namespace k8s-agents-operator --filename $i
     done
 
     echo "🔄 Installing apps"
-    kubectl apply --namespace e2e-namespace --filename apps/
+    kubectl apply --namespace e2e-namespace --filename ${SCRIPT_PATH}/apps/
 
     echo "🔄 Waiting for apps to settle"
-    for label in $(find ./apps -type f -name '*.yaml' -exec yq '. | select(.kind == "Deployment") | .metadata.name' {} \;); do
+    for label in $(find ${SCRIPT_PATH}/apps -type f -name '*.yaml' -exec yq '. | select(.kind == "Deployment") | .metadata.name' {} \;); do
       kubectl wait --timeout=120s --for=jsonpath='{.status.phase}'=Running --namespace e2e-namespace -l="app=$label" pod
     done
 }
@@ -130,12 +130,12 @@ function create_cluster() {
 function run_tests() {
     echo "🔄 Starting E2E tests"
     initContainers=$(kubectl get pods --namespace e2e-namespace --output yaml | yq '.items[].spec.initContainers[].name' | wc -l)
-    local expected=$(ls apps | wc -l)
+    local expected=$(ls ${SCRIPT_PATH}/apps | wc -l)
     if [[ ${initContainers} -lt $expected ]]; then
       echo "❌ Error: not all apps were instrumented. Expected $expected, got ${initContainers}"
       exit 1
     fi
-    echo "✅ Success: all apps were instrumented"
+    echo "✅  Success: all apps were instrumented"
 }
 
 function teardown() {
