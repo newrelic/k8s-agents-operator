@@ -29,7 +29,6 @@ const (
 	envPythonPath = "PYTHONPATH"
 )
 
-var _ Injector = (*PythonInjector)(nil)
 var _ ContainerInjector = (*PythonInjector)(nil)
 
 func init() {
@@ -38,10 +37,6 @@ func init() {
 
 type PythonInjector struct {
 	baseInjector
-}
-
-func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
 }
 
 func (i *PythonInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {

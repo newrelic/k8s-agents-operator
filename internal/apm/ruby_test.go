@@ -23,7 +23,6 @@ func TestRubyInjector_Inject(t *testing.T) {
 		expectedPod    corev1.Pod
 		expectedErrStr string
 		containerNames []string
-		useNewMethod   bool
 	}{
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
@@ -75,7 +74,6 @@ func TestRubyInjector_Inject(t *testing.T) {
 		{
 			name:           "2 containers, inject the 2nd, instrumentation",
 			containerNames: []string{"test-2"},
-			useNewMethod:   true,
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"}, {Name: "test-2"},
 			}}},
@@ -110,7 +108,6 @@ func TestRubyInjector_Inject(t *testing.T) {
 		{
 			name:           "1 container, 1 init container, inject the init container, instrumentation",
 			containerNames: []string{"init-test"},
-			useNewMethod:   true,
 			pod: corev1.Pod{Spec: corev1.PodSpec{
 				InitContainers: []corev1.Container{{Name: "init-test"}},
 				Containers:     []corev1.Container{{Name: "test"}},
@@ -147,7 +144,6 @@ func TestRubyInjector_Inject(t *testing.T) {
 		{
 			name:           "1 container, 3 init containers, inject 2nd init container, instrumentation",
 			containerNames: []string{"init-b"},
-			useNewMethod:   true,
 			pod: corev1.Pod{Spec: corev1.PodSpec{
 				InitContainers: []corev1.Container{{Name: "init-a"}, {Name: "init-b"}, {Name: "init-c"}},
 				Containers:     []corev1.Container{{Name: "test"}},
@@ -190,7 +186,6 @@ func TestRubyInjector_Inject(t *testing.T) {
 		{
 			name:           "1 container, 3 init containers, inject all the init containers in reverse order, instrumentation",
 			containerNames: []string{"init-c", "init-b", "init-a"},
-			useNewMethod:   true,
 			pod: corev1.Pod{Spec: corev1.PodSpec{
 				InitContainers: []corev1.Container{{Name: "init-a"}, {Name: "init-b"}, {Name: "init-c"}},
 				Containers:     []corev1.Container{{Name: "test"}},
@@ -314,22 +309,18 @@ func TestRubyInjector_Inject(t *testing.T) {
 					actualPod = testPod
 					continue
 				}
-				if test.useNewMethod {
-					var containerNames []string
-					if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
-						containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
-					} else {
-						containerNames = append(containerNames, test.containerNames...)
-					}
-					for _, containerName := range containerNames {
-						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
-						if err != nil {
-							break loop
-						}
-						testPod = actualPod
-					}
+				var containerNames []string
+				if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
+					containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
 				} else {
-					actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+					containerNames = append(containerNames, test.containerNames...)
+				}
+				for _, containerName := range containerNames {
+					actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
+					if err != nil {
+						break loop
+					}
+					testPod = actualPod
 				}
 				if err != nil {
 					break

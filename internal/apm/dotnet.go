@@ -37,7 +37,6 @@ const (
 
 var errUnableToConfigureEnv = errors.New("unable to configure environment variables, they've already been set to different values")
 
-var _ Injector = (*DotnetInjector)(nil)
 var _ ContainerInjector = (*DotnetInjector)(nil)
 
 func init() {
@@ -46,10 +45,6 @@ func init() {
 
 type DotnetInjector struct {
 	baseInjector
-}
-
-func (i *DotnetInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
 }
 
 func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {

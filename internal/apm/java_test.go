@@ -23,7 +23,6 @@ func TestJavaInjector_Inject(t *testing.T) {
 		expectedPod    corev1.Pod
 		expectedErrStr string
 		containerNames []string
-		useNewMethod   bool
 	}{
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
@@ -216,22 +215,18 @@ func TestJavaInjector_Inject(t *testing.T) {
 					actualPod = testPod
 					continue
 				}
-				if test.useNewMethod {
-					var containerNames []string
-					if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
-						containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
-					} else {
-						containerNames = append(containerNames, test.containerNames...)
-					}
-					for _, containerName := range containerNames {
-						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
-						if err != nil {
-							break loop
-						}
-						testPod = actualPod
-					}
+				var containerNames []string
+				if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
+					containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
 				} else {
-					actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+					containerNames = append(containerNames, test.containerNames...)
+				}
+				for _, containerName := range containerNames {
+					actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
+					if err != nil {
+						break loop
+					}
+					testPod = actualPod
 				}
 				if err != nil {
 					break

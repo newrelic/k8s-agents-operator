@@ -30,7 +30,6 @@ const (
 	envApmConfigFile    = "NEWRELIC_FILE"
 )
 
-var _ Injector = (*JavaInjector)(nil)
 var _ ContainerInjector = (*JavaInjector)(nil)
 
 func init() {
@@ -39,10 +38,6 @@ func init() {
 
 type JavaInjector struct {
 	baseInjector
-}
-
-func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
 }
 
 func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {

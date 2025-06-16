@@ -1,9 +1,9 @@
 package v1beta2
 
 import (
-	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/newrelic/k8s-agents-operator/internal/selector"
 )
 
 // EnvSelectorOperator A env selector operator is the set of operators that can be used in a selector requirement.
@@ -12,6 +12,8 @@ type EnvSelectorOperator string
 const (
 	EnvSelectorOpIn           EnvSelectorOperator = "In"
 	EnvSelectorOpNotIn        EnvSelectorOperator = "NotIn"
+	EnvSelectorOpEquals       EnvSelectorOperator = "=="
+	EnvSelectorOpNotEquals    EnvSelectorOperator = "!="
 	EnvSelectorOpExists       EnvSelectorOperator = "Exists"
 	EnvSelectorOpDoesNotExist EnvSelectorOperator = "DoesNotExist"
 )
@@ -21,6 +23,8 @@ var acceptableEnvSelectorOps = map[EnvSelectorOperator]struct{}{
 	EnvSelectorOpNotIn:        {},
 	EnvSelectorOpExists:       {},
 	EnvSelectorOpDoesNotExist: {},
+	EnvSelectorOpEquals:       {},
+	EnvSelectorOpNotEquals:    {},
 }
 
 type EnvSelectorRequirement struct {
@@ -55,35 +59,33 @@ func (s *EnvSelector) IsEmpty() bool {
 	return len(s.MatchEnvs) == 0 && len(s.MatchExpressions) == 0
 }
 
-func (s *EnvSelector) AsSelector() (labels.Selector, error) {
+func (s *EnvSelector) AsSelector() (selector.Selector, error) {
 	var err error
-	selector := labels.NewSelector()
+	sel, err := selector.New(&selector.SimpleSelector{})
 	if !s.IsEmpty() {
-		lsr := make([]metav1.LabelSelectorRequirement, len(s.MatchExpressions))
+		lsr := make([]selector.SelectorRequirement, len(s.MatchExpressions))
 		for i, entry := range s.MatchExpressions {
-			lsr[i] = metav1.LabelSelectorRequirement{
+			lsr[i] = selector.SelectorRequirement{
 				Key:      string(entry.Key),
-				Operator: metav1.LabelSelectorOperator(entry.Operator),
+				Operator: selector.SelectionOperator(entry.Operator),
 				Values:   entry.Values,
 			}
 		}
-		ls := metav1.LabelSelector{
-			MatchLabels:      s.MatchEnvs,
+		ls := selector.SimpleSelector{
+			MatchExact:       s.MatchEnvs,
 			MatchExpressions: lsr,
 		}
-		selector, err = metav1.LabelSelectorAsSelector(&ls)
+		sel, err = selector.New(&ls, selector.WithOperatorValidator(validateEnvOperator))
 		if err != nil {
 			return nil, err
 		}
 	}
-	return selector, nil
+	return sel, nil
 }
 
-func (s *EnvSelector) Validate() error {
-	for _, exp := range s.MatchExpressions {
-		if _, ok := acceptableEnvSelectorOps[EnvSelectorOperator(exp.Operator)]; !ok {
-			return fmt.Errorf("invalid key selector key: %s", exp.Key)
-		}
+func validateEnvOperator(operator string, opts *field.Path) *field.Error {
+	if _, ok := acceptableEnvSelectorOps[EnvSelectorOperator(operator)]; !ok {
+		return field.Invalid(opts, operator, "invalid operator")
 	}
 	return nil
 }

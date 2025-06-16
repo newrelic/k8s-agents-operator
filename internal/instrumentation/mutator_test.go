@@ -6,13 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-logr/logr"
-	"github.com/go-logr/zapr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +32,6 @@ func (fn FakeInjector) InjectContainers(ctx context.Context, insts map[string][]
 	return fn(ctx, insts, ns, pod)
 }
 
-var _ SdkInjector = (FakeInjector)(nil)
 var _ SdkContainerInjector = (FakeInjector)(nil)
 
 type FakeSecretReplicator func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error
@@ -80,18 +76,10 @@ var _ InstrumentationLocator = (InstrumentationLocatorFn)(nil)
 
 type SdkInjectorFn func(ctx context.Context, insts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
 
-func (si SdkInjectorFn) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
-	if len(pod.Spec.Containers) > 0 {
-		return si.InjectContainers(ctx, map[string][]*current.Instrumentation{pod.Spec.Containers[0].Name: insts}, ns, pod)
-	}
-	return corev1.Pod{}
-}
-
 func (si SdkInjectorFn) InjectContainers(ctx context.Context, insts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
 	return si(ctx, insts, ns, pod)
 }
 
-var _ SdkInjector = (SdkInjectorFn)(nil)
 var _ SdkContainerInjector = (SdkInjectorFn)(nil)
 
 type SecretReplicatorFn func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error
@@ -139,7 +127,6 @@ func TestMutatePod(t *testing.T) {
 		}
 		return pod
 	}
-	var _ SdkInjector = fakeInjector
 	var _ SdkContainerInjector = fakeInjector
 
 	var fakeSecretReplicator FakeSecretReplicator = func(
@@ -184,12 +171,6 @@ func TestMutatePod(t *testing.T) {
 		}, nil
 	}
 	var _ InstrumentationLocator = fakeInstrumentationLocator
-
-	logger := logr.Discard()
-	if false {
-		zlog, _ := zap.NewDevelopment()
-		logger = zapr.NewLogger(zlog)
-	}
 
 	tests := []struct {
 		enabled     bool
@@ -363,7 +344,7 @@ func TestMutatePod(t *testing.T) {
 			injector := test.injector
 			if injector == nil {
 				injectorRegistry := apm.NewInjectorRegistry()
-				apmInjectors := []apm.Injector{
+				apmInjectors := []apm.ContainerInjector{
 					&apm.DotnetInjector{},
 					&apm.JavaInjector{},
 					&apm.NodejsInjector{},
@@ -374,23 +355,22 @@ func TestMutatePod(t *testing.T) {
 				for _, apmInjector := range apmInjectors {
 					injectorRegistry.MustRegister(apmInjector)
 				}
-				injector = NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
+				injector = NewNewrelicSdkInjector(k8sClient, injectorRegistry)
 			}
 			instrumentationLocator := test.instrumentationLocator
 			if instrumentationLocator == nil {
-				instrumentationLocator = NewNewRelicInstrumentationLocator(logger, k8sClient, test.operatorNs)
+				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
 			}
 			var secretReplicator SecretsReplicator = test.secretReplicator
 			if secretReplicator == nil {
-				secretReplicator = NewNewrelicSecretReplicator(logger, k8sClient)
+				secretReplicator = NewNewrelicSecretReplicator(k8sClient)
 			}
 			configMapReplicator := test.configMapReplicator
 			if configMapReplicator == nil {
-				configMapReplicator = NewNewrelicConfigMapReplicator(logger, k8sClient)
+				configMapReplicator = NewNewrelicConfigMapReplicator(k8sClient)
 			}
 
 			mutator := NewMutator(
-				logger,
 				k8sClient,
 				injector,
 				secretReplicator,
@@ -434,8 +414,7 @@ func TestMutatePod(t *testing.T) {
 }
 
 func TestNewrelicSecretReplicator_ReplicateSecret(t *testing.T) {
-	logger := logr.Discard()
-	secretReplicator := NewNewrelicSecretReplicator(logger, k8sClient)
+	secretReplicator := NewNewrelicSecretReplicator(k8sClient)
 
 	tests := []struct {
 		name           string
@@ -890,7 +869,6 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 }
 
 func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
-	logger := logr.Discard()
 	tests := []struct {
 		name           string
 		expectedErrStr string
@@ -1192,7 +1170,7 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 				}
 			}()
 
-			locator := NewNewRelicInstrumentationLocator(logger, k8sClient, test.operatorNs)
+			locator := NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
 			insts, err := locator.GetInstrumentations(ctx, test.ns, test.pod)
 			errStr := ""
 			if err != nil {

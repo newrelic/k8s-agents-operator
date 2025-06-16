@@ -29,7 +29,6 @@ const (
 	envNodeOptions = "NODE_OPTIONS"
 )
 
-var _ Injector = (*NodejsInjector)(nil)
 var _ ContainerInjector = (*NodejsInjector)(nil)
 
 func init() {

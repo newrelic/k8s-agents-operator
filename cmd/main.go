@@ -30,10 +30,12 @@ import (
 	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
+	//"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -82,7 +84,8 @@ func main() {
 		secureMetrics        bool
 		enableHTTP2          bool
 	)
-	var tlsOpts []func(*tls.Config)
+	var webhookTlsOpts []func(*tls.Config)
+	var metricsTlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -98,6 +101,7 @@ func main() {
 
 	logger := zap.New(zap.UseFlagOptions(&opts))
 	ctrl.SetLogger(logger)
+	klog.SetLogger(logger)
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -105,13 +109,16 @@ func main() {
 	// Rapid Reset CVEs. For more information see:
 	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
 	// - https://github.com/advisories/GHSA-4374-p667-p6c8
-	disableHTTP2 := func(c *tls.Config) {
-		setupLog.Info("disabling http/2")
-		c.NextProtos = []string{"http/1.1"}
+	disableHTTP2 := func(component string) func(c *tls.Config) {
+		return func(c *tls.Config) {
+			setupLog.Info("disabling http/2", "component", component)
+			c.NextProtos = []string{"http/1.1"}
+		}
 	}
 
 	if !enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
+		webhookTlsOpts = append(webhookTlsOpts, disableHTTP2("webhook"))
+		metricsTlsOpts = append(webhookTlsOpts, disableHTTP2("metrics"))
 	}
 
 	webhookHost, webhhookPort, err := net.SplitHostPort(webhooksvc)
@@ -125,7 +132,7 @@ func main() {
 		os.Exit(1)
 	}
 	webhookServer := webhookruntime.NewServer(webhookruntime.Options{
-		TLSOpts: tlsOpts, Port: webhooksvcport, Host: webhookHost,
+		TLSOpts: webhookTlsOpts, Port: webhooksvcport, Host: webhookHost,
 	})
 
 	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
@@ -175,7 +182,7 @@ func main() {
 		// as certificates issued by a trusted Certificate Authority (CA). The primary risk is potentially allowing
 		// unauthorized access to sensitive metrics data. Consider replacing with CertDir, CertName, and KeyName
 		// to provide certificates, ensuring the server communicates using trusted and secure certificates.
-		TLSOpts: tlsOpts,
+		TLSOpts: metricsTlsOpts,
 	}
 
 	if secureMetrics {

@@ -1,0 +1,70 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: phpapp-cfgmap
+data:
+  index.php: |
+    <?php echo 'hello world from php\n';
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpapp
+spec:
+  selector:
+    matchLabels:
+      app: phpapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: phpapp
+        app.newrelic.instrumentation: newrelic-php-agent
+      annotations:
+        mycompany.annotation: "phpapp"
+        mycompany.annotation2: "phpapp2"
+    spec:
+      containers:
+        - name: phpapp
+          image: php:8.4-alpine
+          workingDir: /app
+          command:
+            - php
+            - -S
+            - 127.0.0.1:8080
+            - index.php
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - mountPath: /app/
+              name: code
+        - name: phpapp2
+          image: php:8.3-alpine
+          workingDir: /app
+          command:
+            - php
+            - -S
+            - 127.0.0.1:8081
+            - index.php
+          ports:
+            - containerPort: 8081
+          volumeMounts:
+            - mountPath: /app/
+              name: code
+      volumes:
+        - name: code
+          configMap:
+            name: phpapp-cfgmap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: phpapp-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: phpapp

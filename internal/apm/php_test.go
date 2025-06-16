@@ -2,6 +2,7 @@ package apm
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -23,7 +24,6 @@ func TestPhpInjector_Inject(t *testing.T) {
 		expectedPod    corev1.Pod
 		expectedErrStr string
 		containerNames []string
-		useNewMethod   bool
 	}{
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
@@ -81,8 +81,15 @@ func TestPhpInjector_Inject(t *testing.T) {
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						Command:      []string{"/bin/sh"},
-						Args:         []string{"-c", "cp -a /instrumentation/. /nri-php--test/ && /nri-php--test/k8s-php-install.sh 20230831 && /nri-php--test/nr_env_to_ini.sh"},
+						Command: []string{"/bin/sh"},
+						Args: []string{"-c", strings.Join([]string{
+							"cp -a /instrumentation/. /nri-php--test/",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/php-agent/ini/newrelic.ini",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/k8s-php-install.sh",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/nr_env_to_ini.sh",
+							"/nri-php--test/k8s-php-install.sh 20230831",
+							"/nri-php--test/nr_env_to_ini.sh",
+						}, " && ")},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-php--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -131,8 +138,15 @@ func TestPhpInjector_Inject(t *testing.T) {
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						Command:      []string{"/bin/sh"},
-						Args:         []string{"-c", "cp -a /instrumentation/. /nri-php--test/ && /nri-php--test/k8s-php-install.sh 20230831 && /nri-php--test/nr_env_to_ini.sh"},
+						Command: []string{"/bin/sh"},
+						Args: []string{"-c", strings.Join([]string{
+							"cp -a /instrumentation/. /nri-php--test/",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/php-agent/ini/newrelic.ini",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/k8s-php-install.sh",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/nr_env_to_ini.sh",
+							"/nri-php--test/k8s-php-install.sh 20230831",
+							"/nri-php--test/nr_env_to_ini.sh",
+						}, " && ")},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-php--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -155,22 +169,18 @@ func TestPhpInjector_Inject(t *testing.T) {
 					actualPod = testPod
 					continue
 				}
-				if test.useNewMethod {
-					var containerNames []string
-					if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
-						containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
-					} else {
-						containerNames = append(containerNames, test.containerNames...)
-					}
-					for _, containerName := range containerNames {
-						actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
-						if err != nil {
-							break loop
-						}
-						testPod = actualPod
-					}
+				var containerNames []string
+				if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
+					containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
 				} else {
-					actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+					containerNames = append(containerNames, test.containerNames...)
+				}
+				for _, containerName := range containerNames {
+					actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
+					if err != nil {
+						break loop
+					}
+					testPod = actualPod
 				}
 				if err != nil {
 					break

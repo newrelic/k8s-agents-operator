@@ -1,10 +1,9 @@
 package v1beta2
 
 import (
-	"fmt"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"github.com/newrelic/k8s-agents-operator/internal/selector"
 )
 
 // NameSelectorOperator A name selector operator is the set of operators that can be used in a selector requirement.
@@ -65,43 +64,40 @@ func (s *NameSelector) IsEmpty() bool {
 	return len(s.MatchNames) == 0 && len(s.MatchExpressions) == 0
 }
 
-func (s *NameSelector) AsSelector() (labels.Selector, error) {
+func (s *NameSelector) AsSelector() (selector.Selector, error) {
 	var err error
-	selector := labels.NewSelector()
+	sel, err := selector.New(&selector.SimpleSelector{})
 	if !s.IsEmpty() {
-		lsr := make([]metav1.LabelSelectorRequirement, len(s.MatchExpressions))
+		lsr := make([]selector.SelectorRequirement, len(s.MatchExpressions))
 		for i, entry := range s.MatchExpressions {
-			lsr[i] = metav1.LabelSelectorRequirement{
+			lsr[i] = selector.SelectorRequirement{
 				Key:      string(entry.Key),
-				Operator: metav1.LabelSelectorOperator(entry.Operator),
+				Operator: selector.SelectionOperator(entry.Operator),
 				Values:   entry.Values,
 			}
 		}
-		ls := metav1.LabelSelector{
-			MatchLabels:      s.MatchNames,
+		ls := selector.SimpleSelector{
+			MatchExact:       s.MatchNames,
 			MatchExpressions: lsr,
 		}
-		selector, err = metav1.LabelSelectorAsSelector(&ls)
+		sel, err = selector.New(&ls, selector.WithKeyValidator(validateNameKey), selector.WithOperatorValidator(validateNameOperator))
 		if err != nil {
 			return nil, err
 		}
 	}
-	return selector, nil
+	return sel, nil
 }
 
-func (s *NameSelector) Validate() error {
-	for _, exp := range s.MatchExpressions {
-		if _, ok := acceptableNameSelectorKeys[NameSelectorKey(exp.Key)]; !ok {
-			return fmt.Errorf("invalid key selector key: %s", exp.Key)
-		}
-		if _, ok := acceptableNameSelectorOps[NameSelectorOperator(exp.Operator)]; !ok {
-			return fmt.Errorf("invalid key selector operator: %s", exp.Operator)
-		}
+func validateNameKey(key string, opts *field.Path) *field.Error {
+	if _, ok := acceptableNameSelectorKeys[NameSelectorKey(key)]; !ok {
+		return field.Invalid(opts, key, "invalid key")
 	}
-	for key := range s.MatchNames {
-		if _, ok := acceptableNameSelectorKeys[NameSelectorKey(key)]; !ok {
-			return fmt.Errorf("invalid key selector key: %s", key)
-		}
+	return nil
+}
+
+func validateNameOperator(operator string, opts *field.Path) *field.Error {
+	if _, ok := acceptableNameSelectorOps[NameSelectorOperator(operator)]; !ok {
+		return field.Invalid(opts, operator, "invalid operator")
 	}
 	return nil
 }

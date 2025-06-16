@@ -147,7 +147,10 @@ func (a *Agent) IsEmpty() bool {
 
 // IsEqual is used to compare if an agent is equal to another, excluding `.Language`
 func (a *Agent) IsEqual(b Agent) bool {
-	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) && reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) && reflect.DeepEqual(a.Resources, b.Resources)
+	return a.Image == b.Image &&
+		reflect.DeepEqual(a.Env, b.Env) &&
+		reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) &&
+		reflect.DeepEqual(a.Resources, b.Resources)
 }
 
 // HealthAgent is the configuration for the healthAgent

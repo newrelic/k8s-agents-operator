@@ -52,21 +52,6 @@ var healthDefaultEnv = []corev1.EnvVar{
 	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
 }
 
-// Deprecated: use injectHealthWithContainer instead
-// injectHealth used to inject health based on container or init container index
-func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentContainerIndex int, agentInitContainerIndex int) (corev1.Pod, error) {
-	// caller checks if there is at least one container.
-	var container *corev1.Container
-	if agentContainerIndex >= 0 && agentContainerIndex < len(pod.Spec.Containers) {
-		container = &pod.Spec.Containers[agentContainerIndex]
-	} else if agentInitContainerIndex >= 0 && agentInitContainerIndex < len(pod.Spec.InitContainers) {
-		container = &pod.Spec.InitContainers[agentInitContainerIndex]
-	} else {
-		return pod, nil
-	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
-}
-
 // injectHealthWithContainer used to inject the health container (sidecar) and mounts requires, among other things
 func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, container *corev1.Container) (corev1.Pod, error) {
 	if inst.Spec.HealthAgent.IsEmpty() {

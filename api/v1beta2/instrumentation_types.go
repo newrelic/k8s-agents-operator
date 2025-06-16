@@ -18,7 +18,7 @@ package v1beta2
 
 import (
 	"reflect"
-	
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,7 +56,6 @@ type InstrumentationSpec struct {
 }
 
 type ContainerSelector struct {
-	NamesFromPodLabel      string        `json:"namesFromPodLabel,omitempty"`
 	NamesFromPodAnnotation string        `json:"namesFromPodAnnotation,omitempty"`
 	EnvSelector            EnvSelector   `json:"envSelector"`
 	ImageSelector          ImageSelector `json:"imageSelector,omitempty"`
@@ -65,7 +64,7 @@ type ContainerSelector struct {
 
 // IsEmpty is used to check if the container selector is empty
 func (a *ContainerSelector) IsEmpty() bool {
-	return a.NamesFromPodLabel == "" && a.NamesFromPodAnnotation == "" && a.EnvSelector.IsEmpty() && a.NameSelector.IsEmpty() && a.ImageSelector.IsEmpty()
+	return a.NamesFromPodAnnotation == "" && a.EnvSelector.IsEmpty() && a.NameSelector.IsEmpty() && a.ImageSelector.IsEmpty()
 }
 
 // Agent is the configuration for the agent
@@ -118,7 +117,11 @@ func (a *Agent) IsEmpty() bool {
 
 // IsEqual is used to compare if an agent is equal to another, excluding `.Language`
 func (a *Agent) IsEqual(b Agent) bool {
-	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) && reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) && reflect.DeepEqual(a.Resources, b.Resources)
+	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) &&
+		reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) &&
+		reflect.DeepEqual(a.Resources, b.Resources) &&
+		reflect.DeepEqual(a.ImagePullPolicy, b.ImagePullPolicy) &&
+		reflect.DeepEqual(a.SecurityContext, b.SecurityContext)
 }
 
 // HealthAgent is the configuration for the healthAgent
@@ -159,7 +162,11 @@ func (a *HealthAgent) IsEmpty() bool {
 
 // IsEqual is used to compare if a health agent is equal to another
 func (a *HealthAgent) IsEqual(b HealthAgent) bool {
-	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env)
+	return a.Image == b.Image &&
+		reflect.DeepEqual(a.Env, b.Env) &&
+		reflect.DeepEqual(a.Resources, b.Resources) &&
+		reflect.DeepEqual(a.ImagePullPolicy, b.ImagePullPolicy) &&
+		reflect.DeepEqual(a.SecurityContext, b.SecurityContext)
 }
 
 type UnhealthyPodError struct {

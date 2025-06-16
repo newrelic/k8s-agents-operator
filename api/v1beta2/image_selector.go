@@ -1,38 +1,45 @@
 package v1beta2
 
 import (
-	"fmt"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"github.com/newrelic/k8s-agents-operator/internal/selector"
 )
 
 type ImageSelectorOperator string
 type ImageSelectorKey string
 
 const (
-	ImageSelectorOpIn    ImageSelectorOperator = "In"
-	ImageSelectorOpNotIn ImageSelectorOperator = "NotIn"
+	ImageSelectorOpEquals        ImageSelectorOperator = "=="
+	ImageSelectorOpNotEquals     ImageSelectorOperator = "!="
+	ImageSelectorOpIn            ImageSelectorOperator = "In"
+	ImageSelectorOpNotIn         ImageSelectorOperator = "NotIn"
+	ImageSelectorOpStartsWith    ImageSelectorOperator = "StartsWith"
+	ImageSelectorOpNotStartsWith ImageSelectorOperator = "NotStartsWith"
+	ImageSelectorOpEndsWith      ImageSelectorOperator = "EndsWith"
+	ImageSelectorOpNotEndsWith   ImageSelectorOperator = "NotEndsWith"
+	ImageSelectorOpContains      ImageSelectorOperator = "Contains"
+	ImageSelectorOpNotContains   ImageSelectorOperator = "NotContains"
 )
 const (
-	ImageSelectorKeyRegistry  ImageSelectorKey = "registry"
-	ImageSelectorKeyNamespace ImageSelectorKey = "namespace"
-	ImageSelectorKeyName      ImageSelectorKey = "name"
-	ImageSelectorKeyTag       ImageSelectorKey = "tag"
-	ImageSelectorKeyDigest    ImageSelectorKey = "digest"
+	ImageSelectorKeyUrl ImageSelectorKey = "url"
 )
 
 var acceptableImageSelectorOps = map[ImageSelectorOperator]struct{}{
-	ImageSelectorOpIn:    {},
-	ImageSelectorOpNotIn: {},
+	ImageSelectorOpEquals:        {},
+	ImageSelectorOpNotEquals:     {},
+	ImageSelectorOpIn:            {},
+	ImageSelectorOpNotIn:         {},
+	ImageSelectorOpStartsWith:    {},
+	ImageSelectorOpNotStartsWith: {},
+	ImageSelectorOpEndsWith:      {},
+	ImageSelectorOpNotEndsWith:   {},
+	ImageSelectorOpContains:      {},
+	ImageSelectorOpNotContains:   {},
 }
 
 var acceptableImageSelectorKeys = map[ImageSelectorKey]struct{}{
-	ImageSelectorKeyRegistry:  {},
-	ImageSelectorKeyNamespace: {},
-	ImageSelectorKeyName:      {},
-	ImageSelectorKeyTag:       {},
-	ImageSelectorKeyDigest:    {},
+	ImageSelectorKeyUrl: {},
 }
 
 type ImageSelectorRequirement struct {
@@ -67,43 +74,40 @@ func (s *ImageSelector) IsEmpty() bool {
 	return len(s.MatchImages) == 0 && len(s.MatchExpressions) == 0
 }
 
-func (s *ImageSelector) AsSelector() (labels.Selector, error) {
+func (s *ImageSelector) AsSelector() (selector.Selector, error) {
 	var err error
-	selector := labels.NewSelector()
+	sel, err := selector.New(&selector.SimpleSelector{})
 	if !s.IsEmpty() {
-		lsr := make([]metav1.LabelSelectorRequirement, len(s.MatchExpressions))
+		lsr := make([]selector.SelectorRequirement, len(s.MatchExpressions))
 		for i, entry := range s.MatchExpressions {
-			lsr[i] = metav1.LabelSelectorRequirement{
+			lsr[i] = selector.SelectorRequirement{
 				Key:      string(entry.Key),
-				Operator: metav1.LabelSelectorOperator(entry.Operator),
+				Operator: selector.SelectionOperator(entry.Operator),
 				Values:   entry.Values,
 			}
 		}
-		ls := metav1.LabelSelector{
-			MatchLabels:      s.MatchImages,
+		ls := selector.SimpleSelector{
+			MatchExact:       s.MatchImages,
 			MatchExpressions: lsr,
 		}
-		selector, err = metav1.LabelSelectorAsSelector(&ls)
+		sel, err = selector.New(&ls, selector.WithKeyValidator(validateImageKey), selector.WithOperatorValidator(validateImageOperator))
 		if err != nil {
 			return nil, err
 		}
 	}
-	return selector, nil
+	return sel, nil
 }
 
-func (s *ImageSelector) Validate() error {
-	for _, exp := range s.MatchExpressions {
-		if _, ok := acceptableImageSelectorKeys[ImageSelectorKey(exp.Key)]; !ok {
-			return fmt.Errorf("invalid key selector key: %s", exp.Key)
-		}
-		if _, ok := acceptableImageSelectorOps[ImageSelectorOperator(exp.Operator)]; !ok {
-			return fmt.Errorf("invalid key selector operator: %s", exp.Operator)
-		}
+func validateImageKey(key string, opts *field.Path) *field.Error {
+	if _, ok := acceptableImageSelectorKeys[ImageSelectorKey(key)]; !ok {
+		return field.Invalid(opts, key, "invalid key")
 	}
-	for key := range s.MatchImages {
-		if _, ok := acceptableImageSelectorKeys[ImageSelectorKey(key)]; !ok {
-			return fmt.Errorf("invalid key selector key: %s", key)
-		}
+	return nil
+}
+
+func validateImageOperator(operator string, opts *field.Path) *field.Error {
+	if _, ok := acceptableImageSelectorOps[ImageSelectorOperator(operator)]; !ok {
+		return field.Invalid(opts, operator, "invalid operator")
 	}
 	return nil
 }

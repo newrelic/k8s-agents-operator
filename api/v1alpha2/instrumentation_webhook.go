@@ -69,11 +69,7 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Obje
 // +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1alpha2-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1alpha2,name=vinstrumentationcreateupdate-v1alpha2.kb.io,sideEffects=none,admissionReviewVersions=v1
 // +kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1alpha2-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1alpha2,name=vinstrumentationdelete-v1alpha2.kb.io,sideEffects=none,admissionReviewVersions=v1
 
-const (
-	envNewRelicPrefix = "NEW_RELIC_"
-)
-
-var validEnvPrefixes = []string{envNewRelicPrefix}
+var validEnvPrefixes = []string{"NEW_RELIC_", "NEWRELIC_"}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
 var _ webhook.CustomValidator = &InstrumentationValidator{}

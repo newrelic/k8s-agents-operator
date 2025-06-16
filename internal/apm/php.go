@@ -31,7 +31,6 @@ const (
 	envIniScanDirKey = "PHP_INI_SCAN_DIR"
 )
 
-var _ Injector = (*PhpInjector)(nil)
 var _ ContainerInjector = (*PhpInjector)(nil)
 
 func init() {
@@ -68,10 +67,6 @@ type acceptVersion string
 
 type PhpInjector struct {
 	baseInjector
-}
-
-func (i *PhpInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
 }
 
 func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {

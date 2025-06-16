@@ -128,6 +128,9 @@ func (im *instrumentationMetric) isDiff() bool {
 	if im.instrumentation.Status.PodsUnhealthy != im.podsUnhealthy {
 		return true
 	}
+	if im.instrumentation.Status.ObservedVersion != im.instrumentation.ResourceVersion {
+		return true
+	}
 	sort.Slice(im.unhealthyPods, func(i, j int) bool { return im.unhealthyPods[i].Pod < im.unhealthyPods[j].Pod })
 	return !reflect.DeepEqual(im.unhealthyPods, im.instrumentation.Status.UnhealthyPodsErrors)
 }
@@ -313,7 +316,7 @@ func (m *HealthMonitor) resourceQueueEvent(ctx context.Context, ev event) {
 		}
 		instrumentationMetrics := m.getInstrumentationMetrics(ctx, podMetrics)
 		if len(instrumentationMetrics) == 0 {
-			logger.Info("nothing to report the health to.  No instrumentations")
+			logger.Info("nothing to report the health to.  No instrumentations with a configured health agent")
 			return
 		}
 		// use the required data at this point in time to do health checks

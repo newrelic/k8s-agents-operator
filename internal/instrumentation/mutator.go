@@ -19,6 +19,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/newrelic/k8s-agents-operator/internal/selector"
+	"slices"
 	"sort"
 	"strings"
 
@@ -76,13 +78,13 @@ var (
 )
 
 var (
-	errMultipleInstancesPossible = errors.New("multiple New Relic Instrumentation instances available, cannot determine which one to select")
-	errNoInstancesAvailable      = errors.New("no New Relic Instrumentation instances available")
-	errMultipleSecretsPossible   = errors.New("multiple license key secrets possible")
+	errMultipleInstancesPossible  = errors.New("multiple New Relic Instrumentation instances available, cannot determine which one to select")
+	errNoInstancesAvailable       = errors.New("no New Relic Instrumentation instances available")
+	errMultipleSecretsPossible    = errors.New("multiple license key secrets possible")
+	errMultipleConfigMapsPossible = errors.New("multiple agent configmaps possible")
 )
 
 type InstrumentationPodMutator struct {
-	logger                 logr.Logger
 	client                 client.Client
 	sdkInjector            SdkContainerInjector
 	secretReplicator       SecretsReplicator
@@ -99,7 +101,6 @@ type InstrumentationPodMutator struct {
 
 // NewMutator is used to get a new instance of a mutator
 func NewMutator(
-	logger logr.Logger,
 	client client.Client,
 	sdkInjector SdkContainerInjector,
 	secretReplicator SecretsReplicator,
@@ -108,7 +109,6 @@ func NewMutator(
 	operatorNamespace string,
 ) *InstrumentationPodMutator {
 	return &InstrumentationPodMutator{
-		logger:                     logger,
 		client:                     client,
 		sdkInjector:                sdkInjector,
 		secretReplicator:           secretReplicator,
@@ -121,22 +121,26 @@ func NewMutator(
 
 // Mutate is used to mutate a pod based on some instrumentation(s)
 func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	logger := pm.logger.WithValues("namespace", pod.Namespace, "name", pod.Name, "generate_name", pod.GenerateName)
+	logger, _ := logr.FromContext(ctx)
 
 	instCandidates, err := pm.instrumentationLocator.GetInstrumentations(ctx, ns, pod)
 	if err != nil {
 		// we still allow the pod to be created, but we log a message to the operator's logs
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this pod")
+		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
 	if len(instCandidates) == 0 {
-		logger.Info("no New Relic Instrumentation instance for this Pod")
+		logger.Info("no instrumentation instances for this pod")
 		return corev1.Pod{}, errNoInstancesAvailable
 	}
-	logger.Info("New Relic Instrumentation instance for this Pod", "count", len(instCandidates))
+	candidateNames := make([]string, len(instCandidates))
+	for i, candidate := range instCandidates {
+		candidateNames[i] = candidate.Name
+	}
+	logger.Info("instrumentation instances found matching pod", "count", len(instCandidates), "candidates", candidateNames)
 
 	// filter by container name; map[container.Name]=[instrumentation, instrtumentations...]
-	instrumentations := filterInstrumentations(instCandidates, &pod)
+	instrumentations := filterInstrumentations(ctx, instCandidates, &pod)
 
 	// sort, so that, given the same list of instrumentations, we always apply the mutations in the same predictable order
 	instrumentations = sortInstrumentations(instrumentations)
@@ -145,28 +149,56 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 	instrumentations, err = validateAndReduceInstrumentations(instrumentations)
 	if err != nil {
 		if errors.Is(err, errMultipleInstancesPossible) {
-			pm.logger.Info("too many Instrumentation instances for the Pod Container")
+			logger.Info("too many instrumentation instances for the pod container")
 		} else {
-			logger.Error(err, "failed to select a New Relic Instrumentation instance for this Pod")
+			logger.Error(err, "failed to select a instrumentation instance for this pod")
 		}
 		return corev1.Pod{}, err
 	}
 
+	c := 0
+	for _, insts := range instrumentations {
+		c += len(insts)
+	}
+	if c == 0 {
+		logger.Info("no instrumentation instances for this pod matched any containers")
+		// nothing matched
+		return pod, nil
+	}
+
+	matches := map[string][]string{}
+	for name, insts := range instrumentations {
+		names := make([]string, len(insts))
+		for i, inst := range insts {
+			names[i] = inst.Name
+		}
+		matches[name] = names
+	}
+
+	logger.Info("matched instrumentation instances for this pods containers",
+		"count", c, "matches", matches)
+
 	// ensure we have only one license key per container
 	if err := validateInstrumentationLicenseKeySecrets(instrumentations); err != nil {
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this Pod")
+		logger.Error(err, "failed to select a instrumentation instance for this pod")
+		return corev1.Pod{}, err
+	}
+
+	// ensure we have only one agent configmap per container
+	if err := validateInstrumentationAgentConfigMaps(instrumentations); err != nil {
+		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
 
 	// ensure we only have 1 health agent
 	if err := validateHealthAgents(instrumentations); err != nil {
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this Pod")
+		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
 
 	// ensure that the health sidecar is not being used with an init container
 	if err := validateContainerWithHealthAgent(instrumentations, &pod); err != nil {
-		logger.Error(err, "failed to select a New Relic Instrumentation instance for this Pod")
+		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
 
@@ -215,18 +247,34 @@ func reduceIdenticalInstrumentations(instCandidates []*current.Instrumentation) 
 	return instCandidates[:i]
 }
 
+var phpLangs = map[string]struct{}{
+	"php-7.2": {},
+	"php-7.3": {},
+	"php-7.4": {},
+	"php-8.0": {},
+	"php-8.1": {},
+	"php-8.2": {},
+	"php-8.3": {},
+	"php-8.4": {},
+}
+
 // validateInstrumentations is used to validate that only a single instrumentation exists for each language
 func validateInstrumentations(instCandidates []*current.Instrumentation) error {
 	languages := map[string]*current.Instrumentation{}
+
 	dups := map[string][]*current.Instrumentation{}
 	for _, candidate := range instCandidates {
-		if currentInst, ok := languages[candidate.Spec.Agent.Language]; ok {
+		candidateLang := candidate.Spec.Agent.Language
+		if _, ok := phpLangs[candidateLang]; ok {
+			candidateLang = "php"
+		}
+		if currentInst, ok := languages[candidateLang]; ok {
 			if !currentInst.Spec.Agent.IsEqual(candidate.Spec.Agent) {
-				dups[candidate.Spec.Agent.Language] = append(dups[candidate.Spec.Agent.Language], candidate)
+				dups[candidateLang] = append(dups[candidateLang], candidate)
 			}
 		} else {
-			languages[candidate.Spec.Agent.Language] = candidate
-			dups[candidate.Spec.Agent.Language] = append(dups[candidate.Spec.Agent.Language], candidate)
+			languages[candidateLang] = candidate
+			dups[candidateLang] = append(dups[candidateLang], candidate)
 		}
 	}
 	var dupIssues []string
@@ -247,15 +295,13 @@ func validateInstrumentations(instCandidates []*current.Instrumentation) error {
 
 // NewrelicInstrumentationLocator is the base struct for locating instrumentations
 type NewrelicInstrumentationLocator struct {
-	logger            logr.Logger
 	client            client.Client
 	operatorNamespace string
 }
 
 // NewNewRelicInstrumentationLocator is the constructor for getting instrumentations
-func NewNewRelicInstrumentationLocator(logger logr.Logger, client client.Client, operatorNamespace string) *NewrelicInstrumentationLocator {
+func NewNewRelicInstrumentationLocator(client client.Client, operatorNamespace string) *NewrelicInstrumentationLocator {
 	return &NewrelicInstrumentationLocator{
-		logger:            logger,
 		client:            client,
 		operatorNamespace: operatorNamespace,
 	}
@@ -264,7 +310,7 @@ func NewNewRelicInstrumentationLocator(logger logr.Logger, client client.Client,
 // GetInstrumentations is used to get all instrumentations in the cluster. While we could limit it to the operator
 // namespace, it's more helpful to list anything in the logs that may have been excluded.
 func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error) {
-	logger := il.logger.WithValues("namespace", pod.Namespace, "name", pod.Name, "generate_name", pod.GenerateName)
+	logger, _ := logr.FromContext(ctx)
 
 	var listInst current.InstrumentationList
 	if err := il.client.List(ctx, &listInst); err != nil {
@@ -319,7 +365,8 @@ func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Contex
 	return candidates, nil
 }
 
-func filterInstrumentations(insts []*current.Instrumentation, pod *corev1.Pod) map[string][]*current.Instrumentation {
+func filterInstrumentations(ctx context.Context, insts []*current.Instrumentation, pod *corev1.Pod) map[string][]*current.Instrumentation {
+	logger, _ := logr.FromContext(ctx)
 	candidates := map[string][]*current.Instrumentation{}
 	for _, inst := range insts {
 		instContainerSelector := inst.Spec.ContainerSelector
@@ -332,85 +379,31 @@ func filterInstrumentations(insts []*current.Instrumentation, pod *corev1.Pod) m
 			continue
 		}
 
-		matchConstraints := 0
-
 		containerEnvSelector, _ := instContainerSelector.EnvSelector.AsSelector()
-		matchConstraints++
-
 		containerImageSelector, _ := instContainerSelector.ImageSelector.AsSelector()
-		matchConstraints++
-
 		containerNameSelector, _ := instContainerSelector.NameSelector.AsSelector()
-		matchConstraints++
 
-		allContainerNames := map[string]struct{}{}
-		for _, container := range pod.Spec.InitContainers {
-			allContainerNames[container.Name] = struct{}{}
-		}
-		for _, container := range pod.Spec.Containers {
-			allContainerNames[container.Name] = struct{}{}
-		}
+		matchingSelectors := map[string]map[string]struct{}{}
+		matchingSelectors["envSelector"] = getContainerSetByEnvSelector(containerEnvSelector, pod)
+		matchingSelectors["nameSelector"] = getContainerSetByNameSelector(containerNameSelector, pod)
+		matchingSelectors["imageSelector"] = getContainerSetByImageSelector(containerImageSelector, pod)
+		matchingSelectors["namesFromPodAnnotation"] = getContainerSetByNamesFromPodAnnotations(inst.Spec.ContainerSelector.NamesFromPodAnnotation, pod)
 
-		partialMatchingContainers := map[string]int{}
+		currentSet := getContainerNamesSetFromPod(pod)
+		for _, set := range matchingSelectors {
+			currentSet = intersectSet(set, currentSet)
+		}
+		matchingContainers := setToList(currentSet)
 
-		if inst.Spec.ContainerSelector.NamesFromPodAnnotation != "" {
-			matchConstraints++
-		}
-		if inst.Spec.ContainerSelector.NamesFromPodLabel != "" {
-			matchConstraints++
-		}
-
-		for _, container := range pod.Spec.InitContainers {
-			if containerEnvSelector.Matches(fields.Set(util.EnvToMap(container.Env))) {
-				partialMatchingContainers[container.Name]++
-			}
-			if containerNameSelector.Matches(fields.Set(map[string]string{"initContainer": container.Name, "anyContainer": container.Name})) {
-				partialMatchingContainers[container.Name]++
-			}
-			if containerImageSelector.Matches(fields.Set(util.ParseContainerImage(container.Image))) {
-				partialMatchingContainers[container.Name]++
-			}
-		}
-		for _, container := range pod.Spec.Containers {
-			if containerEnvSelector.Matches(fields.Set(util.EnvToMap(container.Env))) {
-				partialMatchingContainers[container.Name]++
-			}
-			if containerNameSelector.Matches(fields.Set(map[string]string{"container": container.Name, "anyContainer": container.Name})) {
-				partialMatchingContainers[container.Name]++
-			}
-			if containerImageSelector.Matches(fields.Set(util.ParseContainerImage(container.Image))) {
-				partialMatchingContainers[container.Name]++
-			}
-		}
-		if len(inst.Spec.ContainerSelector.NamesFromPodAnnotation) > 0 {
-			containerNames, ok := pod.Annotations[inst.Spec.ContainerSelector.NamesFromPodAnnotation]
-			if !ok {
-				continue
-			}
-			for _, containerName := range strings.Split(containerNames, ",") {
-				if _, ok := allContainerNames[containerName]; ok {
-					partialMatchingContainers[containerName]++
-				}
-			}
-		}
-		if len(inst.Spec.ContainerSelector.NamesFromPodLabel) > 0 {
-			containerNames, ok := pod.Labels[inst.Spec.ContainerSelector.NamesFromPodLabel]
-			if !ok {
-				continue
-			}
-			for _, containerName := range strings.Split(containerNames, ",") {
-				if _, ok := allContainerNames[containerName]; ok {
-					partialMatchingContainers[containerName]++
-				}
-			}
-		}
-
-		var matchingContainers []string
-		for name, count := range partialMatchingContainers {
-			if count == matchConstraints {
-				matchingContainers = append(matchingContainers, name)
-			}
-		}
+		logger.Info("matched containers",
+			"containers", matchingContainers,
+			"matchingSelectors", map[string][]string{
+				"envSelector":            setToList(matchingSelectors["envSelector"]),
+				"nameSelector":           setToList(matchingSelectors["nameSelector"]),
+				"imageSelector":          setToList(matchingSelectors["imageSelector"]),
+				"namesFromPodAnnotation": setToList(matchingSelectors["namesFromPodAnnotation"]),
+			},
+		)
 
 		if len(matchingContainers) == 0 {
 			continue
@@ -421,6 +414,102 @@ func filterInstrumentations(insts []*current.Instrumentation, pod *corev1.Pod) m
 		}
 	}
 	return candidates
+}
+
+func intersectSet(a, b map[string]struct{}) map[string]struct{} {
+	set := map[string]struct{}{}
+	if len(a) > len(b) {
+		a, b = b, a
+	}
+	for k := range a {
+		if _, ok := b[k]; ok {
+			set[k] = struct{}{}
+		}
+	}
+	return set
+}
+
+func setToList(s map[string]struct{}) []string {
+	l := make([]string, 0, len(s))
+	for k := range s {
+		l = append(l, k)
+	}
+	slices.Sort(l)
+	return l
+}
+
+func getContainerSetByEnvSelector(containerEnvSelector selector.Selector, pod *corev1.Pod) map[string]struct{} {
+	matchingContainers := map[string]struct{}{}
+	for _, container := range pod.Spec.InitContainers {
+		if containerEnvSelector.Matches(util.EnvToMap(container.Env)) {
+			matchingContainers[container.Name] = struct{}{}
+		}
+	}
+	for _, container := range pod.Spec.Containers {
+		if containerEnvSelector.Matches(util.EnvToMap(container.Env)) {
+			matchingContainers[container.Name] = struct{}{}
+		}
+	}
+	return matchingContainers
+}
+
+func getContainerSetByNameSelector(containerNameSelector selector.Selector, pod *corev1.Pod) map[string]struct{} {
+	matchingContainers := map[string]struct{}{}
+	for _, container := range pod.Spec.InitContainers {
+		if containerNameSelector.Matches(map[string]string{"initContainer": container.Name, "anyContainer": container.Name}) {
+			matchingContainers[container.Name] = struct{}{}
+		}
+	}
+	for _, container := range pod.Spec.Containers {
+		if containerNameSelector.Matches(map[string]string{"container": container.Name, "anyContainer": container.Name}) {
+			matchingContainers[container.Name] = struct{}{}
+		}
+	}
+	return matchingContainers
+}
+
+func getContainerSetByImageSelector(containerImageSelector selector.Selector, pod *corev1.Pod) map[string]struct{} {
+	matchingContainers := map[string]struct{}{}
+	for _, container := range pod.Spec.InitContainers {
+		if containerImageSelector.Matches(util.ParseContainerImage(container.Image)) {
+			matchingContainers[container.Name] = struct{}{}
+		}
+	}
+	for _, container := range pod.Spec.Containers {
+		if containerImageSelector.Matches(util.ParseContainerImage(container.Image)) {
+			matchingContainers[container.Name] = struct{}{}
+		}
+	}
+	return matchingContainers
+}
+
+func getContainerNamesSetFromPod(pod *corev1.Pod) map[string]struct{} {
+	allContainerNames := map[string]struct{}{}
+	for _, container := range pod.Spec.InitContainers {
+		allContainerNames[container.Name] = struct{}{}
+	}
+	for _, container := range pod.Spec.Containers {
+		allContainerNames[container.Name] = struct{}{}
+	}
+	return allContainerNames
+}
+
+func getContainerSetByNamesFromPodAnnotations(annotationKey string, pod *corev1.Pod) map[string]struct{} {
+	allContainerNames := getContainerNamesSetFromPod(pod)
+	if len(annotationKey) == 0 {
+		return allContainerNames
+	}
+	containerNames, ok := pod.Annotations[annotationKey]
+	if !ok {
+		return allContainerNames
+	}
+	matchingContainers := map[string]struct{}{}
+	for _, containerName := range strings.Split(containerNames, ",") {
+		if _, ok := allContainerNames[containerName]; ok {
+			matchingContainers[containerName] = struct{}{}
+		}
+	}
+	return matchingContainers
 }
 
 func sortInstrumentations(candidates map[string][]*current.Instrumentation) map[string][]*current.Instrumentation {
@@ -453,6 +542,19 @@ func validateInstrumentationLicenseKeySecrets(candidates map[string][]*current.I
 				instNames[i] = ci.Name
 			}
 			return fmt.Errorf("failed to get licence key secret name for container %q with instrumentations names: %q: %w", containerName, instNames, err)
+		}
+	}
+	return nil
+}
+
+func validateInstrumentationAgentConfigMaps(candidates map[string][]*current.Instrumentation) error {
+	for containerName, cInsts := range candidates {
+		if err := validateAgentConfigMap(cInsts); err != nil {
+			instNames := make([]string, len(cInsts))
+			for i, ci := range cInsts {
+				instNames[i] = ci.Name
+			}
+			return fmt.Errorf("failed to get agent configmap name for container %q with instrumentations names: %q: %w", containerName, instNames, err)
 		}
 	}
 	return nil
@@ -519,6 +621,24 @@ func validateLicenseKeySecret(insts []*current.Instrumentation) error {
 	return nil
 }
 
+func validateAgentConfigMap(insts []*current.Instrumentation) error {
+	var agentConfigMap *string
+	for _, inst := range insts {
+		specAgentConfigMap := inst.Spec.AgentConfigMap
+		if agentConfigMap == nil && specAgentConfigMap != "" {
+			agentConfigMap = &specAgentConfigMap
+			continue
+		}
+		if agentConfigMap == nil {
+			continue
+		}
+		if *agentConfigMap != specAgentConfigMap {
+			return errMultipleConfigMapsPossible
+		}
+	}
+	return nil
+}
+
 // NewrelicSecretReplicator is the base struct used for copying the secrets
 type NewrelicSecretReplicator struct {
 	client client.Client
@@ -526,8 +646,8 @@ type NewrelicSecretReplicator struct {
 }
 
 // NewNewrelicSecretReplicator is the constructor for copying secrets
-func NewNewrelicSecretReplicator(logger logr.Logger, client client.Client) *NewrelicSecretReplicator {
-	return &NewrelicSecretReplicator{client: client, logger: logger}
+func NewNewrelicSecretReplicator(client client.Client) *NewrelicSecretReplicator {
+	return &NewrelicSecretReplicator{client: client}
 }
 
 func (sr *NewrelicSecretReplicator) ReplicateSecrets(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error {
@@ -541,7 +661,7 @@ func (sr *NewrelicSecretReplicator) ReplicateSecrets(ctx context.Context, ns cor
 
 // ReplicateSecret is used to copy the secret from the operator namespace to the pod namespace if the secret doesn't already exist
 func (sr *NewrelicSecretReplicator) ReplicateSecret(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretName string) error {
-	logger := sr.logger.WithValues("namespace", pod.Namespace, "name", pod.Name, "generate_name", pod.GenerateName)
+	logger, _ := logr.FromContext(ctx)
 
 	var secret corev1.Secret
 
@@ -625,12 +745,11 @@ func GetAgentConfigMapsFromInstrumentations(instrumentations map[string][]*curre
 
 type NewrelicConfigMapReplicator struct {
 	client client.Client
-	logger logr.Logger
 }
 
 // NewNewrelicConfigMapReplicator is the constructor for copying configmaps
-func NewNewrelicConfigMapReplicator(logger logr.Logger, client client.Client) *NewrelicConfigMapReplicator {
-	return &NewrelicConfigMapReplicator{client: client, logger: logger}
+func NewNewrelicConfigMapReplicator(client client.Client) *NewrelicConfigMapReplicator {
+	return &NewrelicConfigMapReplicator{client: client}
 }
 
 func (cr *NewrelicConfigMapReplicator) ReplicateConfigMaps(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapNames []string) error {
@@ -643,8 +762,7 @@ func (cr *NewrelicConfigMapReplicator) ReplicateConfigMaps(ctx context.Context, 
 }
 
 func (cr *NewrelicConfigMapReplicator) ReplicateConfigMap(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapName string) error {
-	logger := cr.logger.WithValues("namespace", pod.Namespace, "name", pod.Name)
-
+	logger, _ := logr.FromContext(ctx)
 	var configMap corev1.ConfigMap
 
 	if configMapName == "" {

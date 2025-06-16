@@ -15,7 +15,7 @@ func (src *Instrumentation) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.PodLabelSelector = src.Spec.PodLabelSelector
 	dst.Spec.NamespaceLabelSelector = src.Spec.NamespaceLabelSelector
 	dst.Spec.LicenseKeySecret = src.Spec.LicenseKeySecret
-	dst.Spec.AgentConfigMap = ""
+	dst.Spec.AgentConfigMap = src.Spec.AgentConfigMap
 	dst.Spec.Agent = current.Agent{
 		Language:        src.Spec.Agent.Language,
 		Image:           src.Spec.Agent.Image,

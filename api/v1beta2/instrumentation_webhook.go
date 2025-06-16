@@ -69,11 +69,7 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Obje
 // +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1beta2-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1beta2,name=vinstrumentationcreateupdate-v1beta2.kb.io,sideEffects=none,admissionReviewVersions=v1
 // +kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1beta2-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1beta2,name=vinstrumentationdelete-v1beta2.kb.io,sideEffects=none,admissionReviewVersions=v1
 
-const (
-	envNewRelicPrefix = "NEW_RELIC_"
-)
-
-var validEnvPrefixes = []string{envNewRelicPrefix}
+var validEnvPrefixes = []string{"NEW_RELIC_", "NEWRELIC_"}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
 var _ webhook.CustomValidator = &InstrumentationValidator{}
@@ -144,19 +140,19 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 	}
 
 	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("instrumentation %q podLabelSelector is invalid: %v", inst.Name, err)
 	}
 	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.NamespaceLabelSelector); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("instrumentation %q namespaceLabelSelector is invalid: %v", inst.Name, err)
 	}
 	if _, err := inst.Spec.ContainerSelector.NameSelector.AsSelector(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("instrumentation %q containerSelector.nameSelector is invalid: %v", inst.Name, err)
 	}
 	if _, err := inst.Spec.ContainerSelector.ImageSelector.AsSelector(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("instrumentation %q containerSelector.imageSelector is invalid: %v", inst.Name, err)
 	}
 	if _, err := inst.Spec.ContainerSelector.EnvSelector.AsSelector(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("instrumentation %q containerSelector.envSelector is invalid: %v", inst.Name, err)
 	}
 
 	return nil, nil

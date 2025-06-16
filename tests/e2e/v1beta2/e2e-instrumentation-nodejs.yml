@@ -1,0 +1,34 @@
+apiVersion: newrelic.com/v1beta2
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation-nodejs
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["newrelic-nodejs-agent"]
+  containerSelector:
+    imageSelector:
+      matchExpressions:
+        - key: registry
+          operator: NotIn
+          values: [ "gcr.io" ]
+        - key: tag
+          operator: NotIn
+          values: [ "v8.2" ]
+        - key: namespace
+          operator: NotIn
+          values: [ "library" ]
+        - key: name
+          operator: NotIn
+          values: [ "debian" ]
+        - key: url
+          operator: NotIn
+          values: [ "debian" ]
+  agent:
+    language: nodejs
+    image: newrelic/newrelic-node-init:latest

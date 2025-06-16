@@ -28,7 +28,6 @@ const (
 	envRubyOpt = "RUBYOPT"
 )
 
-var _ Injector = (*RubyInjector)(nil)
 var _ ContainerInjector = (*RubyInjector)(nil)
 
 func init() {
@@ -37,10 +36,6 @@ func init() {
 
 type RubyInjector struct {
 	baseInjector
-}
-
-func (i *RubyInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
 }
 
 func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {

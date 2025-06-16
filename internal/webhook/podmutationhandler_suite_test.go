@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -43,7 +44,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -79,8 +79,6 @@ func (w *fakeWriter) Write(p []byte) (n int, err error) {
 func TestMain(m *testing.M) {
 	ctx, cancel = context.WithCancel(context.TODO())
 	defer cancel()
-
-	logger := zap.New(zap.UseDevMode(true), zap.WriteTo(&fakeWriter{}))
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
@@ -196,17 +194,16 @@ func TestMain(m *testing.M) {
 	}
 
 	client := mgr.GetClient()
-	injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
-	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
-	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(logger, client)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
+	injector := instrumentation.NewNewrelicSdkInjector(client, injectorRegistry)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(client)
+	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(client)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(client, operatorNamespace)
 	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
 		Handler: &webhook.PodMutationHandler{
 			Client:  client,
 			Decoder: admission.NewDecoder(mgr.GetScheme()),
 			Mutators: []webhook.PodMutator{
 				instrumentation.NewMutator(
-					logger,
 					client,
 					injector,
 					secretReplicator,
@@ -322,6 +319,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 						"inject":                                 "python",
 						apm.DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
 					},
+					Generation: 1,
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
@@ -413,6 +411,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "alpine2", Namespace: "default", Labels: map[string]string{
 					"inject":                                 "php",
 					apm.DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
+					Generation: 1,
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
@@ -420,7 +419,14 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 							Name:    "nri-php--alpine",
 							Image:   "not-a-real-php-image",
 							Command: []string{"/bin/sh"},
-							Args:    []string{"-c", "cp -a /instrumentation/. /nri-php--alpine/ && /nri-php--alpine/k8s-php-install.sh 20230831 && /nri-php--alpine/nr_env_to_ini.sh"},
+							Args: []string{"-c", strings.Join([]string{
+								"cp -a /instrumentation/. /nri-php--alpine/",
+								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/php-agent/ini/newrelic.ini",
+								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/k8s-php-install.sh",
+								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/nr_env_to_ini.sh",
+								"/nri-php--alpine/k8s-php-install.sh 20230831",
+								"/nri-php--alpine/nr_env_to_ini.sh",
+							}, " && ")},
 							Env: []corev1.EnvVar{
 								{Name: "NEW_RELIC_APP_NAME", Value: "alpine2"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},

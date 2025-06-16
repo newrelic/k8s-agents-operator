@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -54,7 +55,13 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	m.Logger.Info("Mutating Pod", "name", pod.Name)
+	podName := pod.Name
+	if podName == "" {
+		podName = pod.GenerateName + "<?>"
+	}
+	logger := m.Logger.WithValues("txid", uuid.NewUUID(), "pod_name", podName, "pod_namespace", pod.Namespace)
+	logger.Info("mutating pod")
+	ctx = logr.NewContext(ctx, logger)
 
 	// we use the req.Namespace here because the pod might have not been created yet
 	ns := corev1.Namespace{}
@@ -83,7 +90,7 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 
 	marshaledPod, err := json.Marshal(pod)
 	if err != nil {
-		m.Logger.Error(err, "failed to marshal pod")
+		logger.Error(err, "failed to marshal pod")
 		res := admission.Errored(http.StatusInternalServerError, err)
 		res.Allowed = true
 		return res
@@ -97,10 +104,10 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 	// Setup InstrumentationMutator
 	mgrClient := mgr.GetClient()
 	injectorRegistry := apm.DefaultInjectorRegistry
-	injector := instrumentation.NewNewrelicSdkInjector(logger, mgrClient, injectorRegistry)
-	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, mgrClient)
-	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(logger, mgrClient)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, mgrClient, operatorNamespace)
+	injector := instrumentation.NewNewrelicSdkInjector(mgrClient, injectorRegistry)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(mgrClient)
+	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(mgrClient)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(mgrClient, operatorNamespace)
 
 	hookServer := mgr.GetWebhookServer()
 	hookServer.Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodMutationHandler{
@@ -108,7 +115,6 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 		Decoder: admission.NewDecoder(mgr.GetScheme()),
 		Mutators: []PodMutator{
 			instrumentation.NewMutator(
-				logger,
 				mgrClient,
 				injector,
 				secretReplicator,
