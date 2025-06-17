@@ -14,21 +14,9 @@ spec:
   containerSelector:
     imageSelector:
       matchExpressions:
-        - key: registry
-          operator: NotIn
-          values: [ "gcr.io" ]
-        - key: tag
-          operator: NotIn
-          values: [ "v8.2" ]
-        - key: namespace
-          operator: NotIn
-          values: [ "library" ]
-        - key: name
-          operator: NotIn
-          values: [ "debian" ]
         - key: url
-          operator: NotIn
-          values: [ "debian" ]
+          operator: StartsWith
+          values: [ "ghcr.io" ]
   agent:
     language: nodejs
     image: newrelic/newrelic-node-init:latest

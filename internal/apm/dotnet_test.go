@@ -2,6 +2,7 @@ package apm
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -15,6 +16,7 @@ import (
 
 func TestDotnetInjector_Inject(t *testing.T) {
 	vtrue := true
+	vfalse := false
 	tests := []struct {
 		name           string
 		pod            corev1.Pod
@@ -104,8 +106,82 @@ func TestDotnetInjector_Inject(t *testing.T) {
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "/nri-dotnet--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-dotnet--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
-				}},
+				},
+			},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet"}, LicenseKeySecret: "newrelic-key-secret"}},
+		},
+		{
+			name: "a container, instrumentation",
+			pod: corev1.Pod{Spec: corev1.PodSpec{
+				InitContainers: []corev1.Container{
+					{Name: "init"},
+				},
+				Containers: []corev1.Container{
+					{Name: "app"},
+				},
+			}},
+			containerNames: []string{"init"},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "app",
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name:    "nri-dotnet--init",
+							Command: []string{"cp", "-a", "/instrumentation/.", "/nri-dotnet--init/"},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("37Mi"),
+								},
+							},
+							SecurityContext: &corev1.SecurityContext{
+								RunAsNonRoot: &vtrue,
+								Privileged:   &vfalse,
+							},
+							ImagePullPolicy: corev1.PullAlways,
+							VolumeMounts:    []corev1.VolumeMount{{Name: "nri-dotnet--init", MountPath: "/nri-dotnet--init"}},
+						},
+						{
+							Name: "init",
+							Env: []corev1.EnvVar{
+								{Name: "CORECLR_ENABLE_PROFILING", Value: "1"},
+								{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
+								{Name: "CORECLR_PROFILER_PATH", Value: "/nri-dotnet--init/libNewRelicProfiler.so"},
+								{Name: "CORECLR_NEWRELIC_HOME", Value: "/nri-dotnet--init"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "init"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+							},
+							VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--init", MountPath: "/nri-dotnet--init"}},
+						},
+					},
+					Volumes: []corev1.Volume{{Name: "nri-dotnet--init", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				}},
+			inst: current.Instrumentation{Spec: current.InstrumentationSpec{
+				Agent: current.Agent{
+					Language: "dotnet",
+					Resources: corev1.ResourceRequirements{
+						Requests: map[corev1.ResourceName]resource.Quantity{
+							"memory": resource.MustParse("37Mi"),
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						RunAsNonRoot: &vtrue,
+						Privileged:   &vfalse,
+					},
+					ImagePullPolicy: corev1.PullAlways,
+				},
+				LicenseKeySecret: "newrelic-key-secret"},
+			},
 		},
 	}
 	for _, test := range tests {

@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/internal/selector"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/selector"
 	"github.com/newrelic/k8s-agents-operator/internal/util"
 )
 
@@ -186,6 +187,12 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 
 	// ensure we have only one agent configmap per container
 	if err := validateInstrumentationAgentConfigMaps(instrumentations); err != nil {
+		logger.Error(err, "failed to select a instrumentation instance for this pod")
+		return corev1.Pod{}, err
+	}
+
+	// ensure we have only one agent configmap per container
+	if err := validateContainerInstrumentationsForConflictingChanges(instrumentations); err != nil {
 		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
@@ -396,13 +403,8 @@ func filterInstrumentations(ctx context.Context, insts []*current.Instrumentatio
 		matchingContainers := setToList(currentSet)
 
 		logger.Info("matched containers",
+			"instrumentation_name", inst.Name,
 			"containers", matchingContainers,
-			"matchingSelectors", map[string][]string{
-				"envSelector":            setToList(matchingSelectors["envSelector"]),
-				"nameSelector":           setToList(matchingSelectors["nameSelector"]),
-				"imageSelector":          setToList(matchingSelectors["imageSelector"]),
-				"namesFromPodAnnotation": setToList(matchingSelectors["namesFromPodAnnotation"]),
-			},
 		)
 
 		if len(matchingContainers) == 0 {
@@ -543,6 +545,86 @@ func validateInstrumentationLicenseKeySecrets(candidates map[string][]*current.I
 			}
 			return fmt.Errorf("failed to get licence key secret name for container %q with instrumentations names: %q: %w", containerName, instNames, err)
 		}
+	}
+	return nil
+}
+
+func validateContainerInstrumentationsForConflictingChanges(candidates map[string][]*current.Instrumentation) error {
+	for containerName, cInsts := range candidates {
+		if err := validateContainerInstrumentations(cInsts); err != nil {
+			return fmt.Errorf("failed to validate that no conflicting changes occurred for container %q: %w", containerName, err)
+		}
+	}
+	return nil
+}
+
+func validateContainerInstrumentations(instCandidates []*current.Instrumentation) error {
+	var res *current.Instrumentation
+	var errs []error
+
+	var instsWithAgentConfigMap []string
+	var instsWithNewRelicFile []string
+
+	for _, candidate := range instCandidates {
+		if candidate.Spec.Agent.Language == "java" && candidate.Spec.AgentConfigMap != "" {
+			instsWithAgentConfigMap = append(instsWithAgentConfigMap, candidate.Name)
+		}
+		for _, entry := range candidate.Spec.Agent.Env {
+			if entry.Name == "NEWRELIC_FILE" {
+				instsWithNewRelicFile = append(instsWithNewRelicFile, candidate.Name)
+				break
+			}
+		}
+	}
+	if len(instsWithAgentConfigMap) > 0 && len(instsWithNewRelicFile) > 0 {
+		errs = append(errs, fmt.Errorf("agentConfigMap and env.name == NEWRELIC_FILE can't be used together; conflicting instrumentations: %v", instsWithNewRelicFile))
+	}
+
+	for _, candidate := range instCandidates {
+		if res == nil {
+			res = candidate
+			continue
+		}
+
+		if candidate.Spec.AgentConfigMap != res.Spec.AgentConfigMap {
+			errs = append(errs, fmt.Errorf("instrumentation.spec.agentConfigMap conflicts with multiple instrumentations matching the same container; instrumentations: %s, %s", res.Name, candidate.Name))
+			continue
+		}
+		if candidate.Spec.LicenseKeySecret != res.Spec.LicenseKeySecret {
+			errs = append(errs, fmt.Errorf("instrumentation.spec.agent.licenseKeySecret conflicts with multiple instrumentations matching the same container; instrumentations: %s, %s", res.Name, candidate.Name))
+			continue
+		}
+
+		if !reflect.DeepEqual(candidate.Spec.Agent.Resources, res.Spec.Agent.Resources) {
+			errs = append(errs, fmt.Errorf("instrumentation.spec.agent.resourceRequirements conflicts with multiple instrumentations matching the same container; instrumentations: %s, %s", res.Name, candidate.Name))
+			continue
+		}
+		if !reflect.DeepEqual(candidate.Spec.Agent.SecurityContext, res.Spec.Agent.SecurityContext) {
+			errs = append(errs, fmt.Errorf("instrumentation.spec.agent.securityContext conflicts with multiple instrumentations matching the same container; instrumentations: %s, %s", res.Name, candidate.Name))
+			continue
+		}
+		if !reflect.DeepEqual(candidate.Spec.Agent.Env, res.Spec.Agent.Env) {
+			candidateEnv := map[string]*corev1.EnvVar{}
+			for _, entry := range candidate.Spec.Agent.Env {
+				candidateEnv[entry.Name] = &entry
+			}
+			var unequalEntryNames []string
+			for _, entry := range res.Spec.Agent.Env {
+				candidateEnvEntry, ok := candidateEnv[entry.Name]
+				if !ok {
+					continue
+				}
+				if !reflect.DeepEqual(candidateEnvEntry, &entry) {
+					unequalEntryNames = append(unequalEntryNames, entry.Name)
+				}
+			}
+			if len(unequalEntryNames) > 0 {
+				errs = append(errs, fmt.Errorf("instrumentation.spec.agent.env with entry keys %v, conflicts with multiple instrumentations matching the same container; instrumentations: %s, %s", unequalEntryNames, res.Name, candidate.Name))
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 	return nil
 }

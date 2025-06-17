@@ -12,6 +12,7 @@ spec:
     metadata:
       labels:
         app: nodejsapp
+        app.newrelic.instrumentation: newrelic-nodejs-agent
     spec:
       initContainers:
         - name: init-one
@@ -23,6 +24,10 @@ spec:
       containers:
         - name: nodejsapp1
           image:  alpine
+          command:
+            - ash
+            - -c
+            - "sleep 3600"
           env:
             - name: NODE_PATH
               value: /usr/local/lib/node_modules

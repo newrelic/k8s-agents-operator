@@ -100,22 +100,30 @@ func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, obj runti
 	return r.validate(inst)
 }
 
+var validImagePullPolicies = map[corev1.PullPolicy]struct{}{
+	corev1.PullNever:        {},
+	corev1.PullAlways:       {},
+	corev1.PullIfNotPresent: {},
+	corev1.PullPolicy(""):   {},
+}
+
+// TODO: Maybe improve this
+var acceptableLangs = []string{
+	"dotnet",
+	"go",
+	"java",
+	"nodejs",
+	"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "php-8.4",
+	"python",
+	"ruby",
+}
+
 // validate to validate all the fields
 func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Warnings, error) {
 	if r.OperatorNamespace != inst.Namespace {
 		return nil, fmt.Errorf("instrumentation must be in operator namespace")
 	}
 
-	// TODO: Maybe improve this
-	acceptableLangs := []string{
-		"dotnet",
-		"go",
-		"java",
-		"nodejs",
-		"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "php-8.4",
-		"python",
-		"ruby",
-	}
 	agentLang := inst.Spec.Agent.Language
 	if !slices.Contains(acceptableLangs, agentLang) {
 		return nil, fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
@@ -153,6 +161,27 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 	}
 	if _, err := inst.Spec.ContainerSelector.EnvSelector.AsSelector(); err != nil {
 		return nil, fmt.Errorf("instrumentation %q containerSelector.envSelector is invalid: %v", inst.Name, err)
+	}
+
+	if _, ok := validImagePullPolicies[inst.Spec.Agent.ImagePullPolicy]; !ok {
+		return nil, fmt.Errorf("instrumentation agent.imagePullPolicy is invalid")
+	}
+	if _, ok := validImagePullPolicies[inst.Spec.HealthAgent.ImagePullPolicy]; !ok {
+		return nil, fmt.Errorf("instrumentation healthAgent.imagePullPolicy is invalid")
+	}
+
+	for _, entry := range inst.Spec.Agent.Env {
+		if entry.Name == "NEW_RELIC_LICENSE_KEY" {
+			return nil, fmt.Errorf("%q is already set by the licenseKeySecret", entry.Name)
+		}
+	}
+
+	if inst.Spec.Agent.Language == "java" && inst.Spec.AgentConfigMap != "" {
+		for _, entry := range inst.Spec.Agent.Env {
+			if entry.Name == "NEWRELIC_FILE" {
+				return nil, fmt.Errorf("%q is already set by the agentConfigMap", entry.Name)
+			}
+		}
 	}
 
 	return nil, nil

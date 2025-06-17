@@ -12,6 +12,19 @@ type (
 	InstrumentationStatus    = currentapi.InstrumentationStatus
 	InstrumentationValidator = currentapi.InstrumentationValidator
 	UnhealthyPodError        = currentapi.UnhealthyPodError
+
+	ContainerSelector = currentapi.ContainerSelector
+	EnvSelector       = currentapi.EnvSelector
+	ImageSelector     = currentapi.ImageSelector
+	NameSelector      = currentapi.NameSelector
+
+	EnvSelectorOperator   = currentapi.EnvSelectorOperator
+	ImageSelectorOperator = currentapi.ImageSelectorOperator
+	NameSelectorOperator  = currentapi.NameSelectorOperator
+
+	EnvSelectorRequirement   = currentapi.EnvSelectorRequirement
+	ImageSelectorRequirement = currentapi.ImageSelectorRequirement
+	NameSelectorRequirement  = currentapi.NameSelectorRequirement
 )
 
 var (
