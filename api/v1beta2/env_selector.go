@@ -60,13 +60,12 @@ func (s *EnvSelector) IsEmpty() bool {
 }
 
 func (s *EnvSelector) AsSelector() (selector.Selector, error) {
-	var err error
 	sel, err := selector.New(&selector.SimpleSelector{})
 	if !s.IsEmpty() {
 		lsr := make([]selector.SelectorRequirement, len(s.MatchExpressions))
 		for i, entry := range s.MatchExpressions {
 			lsr[i] = selector.SelectorRequirement{
-				Key:      string(entry.Key),
+				Key:      entry.Key,
 				Operator: selector.SelectionOperator(entry.Operator),
 				Values:   entry.Values,
 			}

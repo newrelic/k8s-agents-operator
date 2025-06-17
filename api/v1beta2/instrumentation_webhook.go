@@ -35,7 +35,7 @@ import (
 func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&Instrumentation{}).
-		WithValidator(&InstrumentationValidator{OperatorNamespace: operatorNamespace}).
+		WithValidator(NewInstrumentationValidator(operatorNamespace)).
 		WithDefaulter(&InstrumentationDefaulter{}).
 		Complete()
 }
@@ -72,32 +72,66 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Obje
 var validEnvPrefixes = []string{"NEW_RELIC_", "NEWRELIC_"}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
-var _ webhook.CustomValidator = &InstrumentationValidator{}
+var _ webhook.CustomValidator = (*InstrumentationValidator)(nil)
+
+type InstrumentationSpecValidator func(instrumentation *Instrumentation) error
 
 // InstrumentationValidator is used to validate instrumentations
 type InstrumentationValidator struct {
-	OperatorNamespace string
+	OperatorNamespace         string
+	InstrumentationValidators []InstrumentationSpecValidator
+}
+
+func NewInstrumentationValidator(operatorNamespace string) *InstrumentationValidator {
+	v := &InstrumentationValidator{
+		OperatorNamespace:         operatorNamespace,
+		InstrumentationValidators: defaultInstrumentationSpecValidators,
+	}
+	return v
 }
 
 // ValidateCreate to validate the creation operation
 func (r *InstrumentationValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating creation of v1beta1.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating creation of v1beta2.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // ValidateUpdate to validate the update operation
 func (r *InstrumentationValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
 	inst := newObj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating update of v1beta1.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating update of v1beta2.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // ValidateDelete to validate the deletion operation
 func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating deletion of v1beta1.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating deletion of v1beta2.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
+}
+
+// validate to validate all the fields
+func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Warnings, error) {
+	if r.OperatorNamespace != inst.Namespace {
+		return nil, fmt.Errorf("instrumentation must be in operator namespace")
+	}
+	for _, v := range r.InstrumentationValidators {
+		if err := v(inst); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil
+}
+
+var defaultInstrumentationSpecValidators = []InstrumentationSpecValidator{
+	validateLicenseKeySecret,
+	validateAgentConfigMap,
+	validateContainerSelector,
+	validatePodSelector,
+	validateNamespaceSelector,
+	validateHealthAgent,
+	validateAgent,
 }
 
 var validImagePullPolicies = map[corev1.PullPolicy]struct{}{
@@ -107,7 +141,6 @@ var validImagePullPolicies = map[corev1.PullPolicy]struct{}{
 	corev1.PullPolicy(""):   {},
 }
 
-// TODO: Maybe improve this
 var acceptableLangs = []string{
 	"dotnet",
 	"go",
@@ -118,79 +151,107 @@ var acceptableLangs = []string{
 	"ruby",
 }
 
-// validate to validate all the fields
-func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Warnings, error) {
-	if r.OperatorNamespace != inst.Namespace {
-		return nil, fmt.Errorf("instrumentation must be in operator namespace")
+func validateAgent(inst *Instrumentation) error {
+	if inst.Spec.Agent.IsEmpty() {
+		return fmt.Errorf("instrumentation %q agent is empty", inst.Name)
 	}
+	if agentLang := inst.Spec.Agent.Language; !slices.Contains(acceptableLangs, agentLang) {
+		return fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
+	}
+	if _, ok := validImagePullPolicies[inst.Spec.Agent.ImagePullPolicy]; !ok {
+		return fmt.Errorf("instrumentation agent.imagePullPolicy is invalid")
+	}
+	if err := validateEnvs(inst.Spec.Agent.Env); err != nil {
+		return fmt.Errorf("instrumentation agent.env is invalid > %w", err)
+	}
+	return nil
+}
 
-	agentLang := inst.Spec.Agent.Language
-	if !slices.Contains(acceptableLangs, agentLang) {
-		return nil, fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
+func validateHealthAgent(inst *Instrumentation) error {
+	if inst.Spec.HealthAgent.Image == "" {
+		err := fmt.Errorf("instrumentation %q healthAgent.image is required if anthing else in the healthAgent is configured", inst.Name)
+		if len(inst.Spec.HealthAgent.Env) > 0 {
+			return err
+		}
+		if len(inst.Spec.HealthAgent.ImagePullPolicy) > 0 {
+			return err
+		}
+		if len(inst.Spec.HealthAgent.Resources.Requests) > 0 || len(inst.Spec.HealthAgent.Resources.Limits) > 0 || len(inst.Spec.HealthAgent.Resources.Claims) > 0 {
+			return err
+		}
+		if inst.Spec.HealthAgent.SecurityContext != nil {
+			return err
+		}
 	}
+	if _, ok := validImagePullPolicies[inst.Spec.HealthAgent.ImagePullPolicy]; !ok {
+		return fmt.Errorf("instrumentation healthAgent.imagePullPolicy is invalid")
+	}
+	if err := validateEnvs(inst.Spec.HealthAgent.Env); err != nil {
+		return fmt.Errorf("instrumentation healthAgent.env is invalid > %w", err)
+	}
+	return nil
+}
+
+func validateNamespaceSelector(inst *Instrumentation) error {
+	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.NamespaceLabelSelector); err != nil {
+		return fmt.Errorf("instrumentation namespaceLabelSelector is invalid: %w", err)
+	}
+	return nil
+}
+
+func validatePodSelector(inst *Instrumentation) error {
+	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector); err != nil {
+		return fmt.Errorf("instrumentation podLabelSelector is invalid: %w", err)
+	}
+	return nil
+}
+
+func validateLicenseKeySecret(inst *Instrumentation) error {
+	for _, entry := range inst.Spec.Agent.Env {
+		if entry.Name == "NEW_RELIC_LICENSE_KEY" {
+			return fmt.Errorf("%q is already set by the licenseKeySecret", entry.Name)
+		}
+	}
+	return nil
+}
+
+func validateAgentConfigMap(inst *Instrumentation) error {
+	agentLang := inst.Spec.Agent.Language
 
 	acceptLangsForAgentConfigMap := []string{"java"}
 	if inst.Spec.AgentConfigMap != "" {
 		if !slices.Contains(acceptLangsForAgentConfigMap, inst.Spec.Agent.Language) {
-			return nil, fmt.Errorf("instrumentation agent language %q does not support an agentConfigMap, agentConfigMap can only be configured with one of these languages (%q)", agentLang, strings.Join(acceptLangsForAgentConfigMap, ", "))
-		}
-	}
-
-	if err := r.validateEnv(inst.Spec.Agent.Env); err != nil {
-		return nil, err
-	}
-
-	if inst.Spec.Agent.IsEmpty() {
-		return nil, fmt.Errorf("instrumentation %q agent is empty", inst.Name)
-	}
-	if len(inst.Spec.HealthAgent.Env) > 0 && inst.Spec.HealthAgent.Image == "" {
-		return nil, fmt.Errorf("instrumentation %q healthAgent.image is empty, meanwhile the environment is not", inst.Name)
-	}
-
-	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector); err != nil {
-		return nil, fmt.Errorf("instrumentation %q podLabelSelector is invalid: %v", inst.Name, err)
-	}
-	if _, err := metav1.LabelSelectorAsSelector(&inst.Spec.NamespaceLabelSelector); err != nil {
-		return nil, fmt.Errorf("instrumentation %q namespaceLabelSelector is invalid: %v", inst.Name, err)
-	}
-	if _, err := inst.Spec.ContainerSelector.NameSelector.AsSelector(); err != nil {
-		return nil, fmt.Errorf("instrumentation %q containerSelector.nameSelector is invalid: %v", inst.Name, err)
-	}
-	if _, err := inst.Spec.ContainerSelector.ImageSelector.AsSelector(); err != nil {
-		return nil, fmt.Errorf("instrumentation %q containerSelector.imageSelector is invalid: %v", inst.Name, err)
-	}
-	if _, err := inst.Spec.ContainerSelector.EnvSelector.AsSelector(); err != nil {
-		return nil, fmt.Errorf("instrumentation %q containerSelector.envSelector is invalid: %v", inst.Name, err)
-	}
-
-	if _, ok := validImagePullPolicies[inst.Spec.Agent.ImagePullPolicy]; !ok {
-		return nil, fmt.Errorf("instrumentation agent.imagePullPolicy is invalid")
-	}
-	if _, ok := validImagePullPolicies[inst.Spec.HealthAgent.ImagePullPolicy]; !ok {
-		return nil, fmt.Errorf("instrumentation healthAgent.imagePullPolicy is invalid")
-	}
-
-	for _, entry := range inst.Spec.Agent.Env {
-		if entry.Name == "NEW_RELIC_LICENSE_KEY" {
-			return nil, fmt.Errorf("%q is already set by the licenseKeySecret", entry.Name)
+			return fmt.Errorf("instrumentation agent language %q does not support an agentConfigMap, agentConfigMap can only be configured with one of these languages (%q)", agentLang, strings.Join(acceptLangsForAgentConfigMap, ", "))
 		}
 	}
 
 	if inst.Spec.Agent.Language == "java" && inst.Spec.AgentConfigMap != "" {
 		for _, entry := range inst.Spec.Agent.Env {
 			if entry.Name == "NEWRELIC_FILE" {
-				return nil, fmt.Errorf("%q is already set by the agentConfigMap", entry.Name)
+				return fmt.Errorf("%q is already set by the agentConfigMap", entry.Name)
 			}
 		}
 	}
+	return nil
+}
 
-	return nil, nil
+func validateContainerSelector(inst *Instrumentation) error {
+	if _, err := inst.Spec.ContainerSelector.NameSelector.AsSelector(); err != nil {
+		return fmt.Errorf("instrumentation containerSelector.nameSelector is invalid: %w", err)
+	}
+	if _, err := inst.Spec.ContainerSelector.ImageSelector.AsSelector(); err != nil {
+		return fmt.Errorf("instrumentation containerSelector.imageSelector is invalid: %w", err)
+	}
+	if _, err := inst.Spec.ContainerSelector.EnvSelector.AsSelector(); err != nil {
+		return fmt.Errorf("instrumentation containerSelector.envSelector is invalid: %w", err)
+	}
+	return nil
 }
 
 // validateEnv to validate the environment variables used all start with the required prefixes
-func (r *InstrumentationValidator) validateEnv(envs []corev1.EnvVar) error {
+func validateEnvs(env []corev1.EnvVar) error {
 	var invalidNames []string
-	for _, env := range envs {
+	for _, env := range env {
 		var valid bool
 		for _, validEnvPrefix := range validEnvPrefixes {
 			if strings.HasPrefix(env.Name, validEnvPrefix) {

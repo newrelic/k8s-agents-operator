@@ -65,7 +65,6 @@ func (s *NameSelector) IsEmpty() bool {
 }
 
 func (s *NameSelector) AsSelector() (selector.Selector, error) {
-	var err error
 	sel, err := selector.New(&selector.SimpleSelector{})
 	if !s.IsEmpty() {
 		lsr := make([]selector.SelectorRequirement, len(s.MatchExpressions))

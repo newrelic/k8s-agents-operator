@@ -222,8 +222,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				_ = defaulter.Default(ctx, langInst)
 			}
 			injector := NewNewrelicSdkInjector(k8sClient, injectorRegistry)
-			var pod corev1.Pod
-			pod = injector.InjectContainers(ctx, map[string][]*current.Instrumentation{test.containerName: test.langInsts}, test.ns, test.pod)
+			pod := injector.InjectContainers(ctx, map[string][]*current.Instrumentation{test.containerName: test.langInsts}, test.ns, test.pod)
 			if diff := cmp.Diff(test.expectedPod, pod); diff != "" {
 				t.Errorf("Unexpected diff (-want +got): %s", diff)
 			}

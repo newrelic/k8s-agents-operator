@@ -174,13 +174,37 @@ func newRequirement(key string, op SelectionOperator, vals []string, opts ...req
 		if len(vals) != 1 {
 			allErrs = append(allErrs, field.Invalid(valuePath, vals, "exact-match compatibility requires one single value"))
 		}
-	case selectionStartsWith, selectionNotStartsWith, selectionEndsWith, selectionNotEndsWith, selectionContains, selectionNotContains:
+	case selectionStartsWith:
 		if len(vals) != 1 {
-			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'endswith', 'notendswith', 'startswith', 'notstartswith', 'contains', 'notcontains' operators, exactly one value is required"))
+			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'startswith' operator, exactly one value is required"))
 		}
-	case selectionIn, selectionNotIn:
+	case selectionNotStartsWith:
+		if len(vals) != 1 {
+			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'notstartswith' operator, exactly one value is required"))
+		}
+	case selectionEndsWith:
+		if len(vals) != 1 {
+			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'endswith' operator, exactly one value is required"))
+		}
+	case selectionNotEndsWith:
+		if len(vals) != 1 {
+			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'notendswith' operator, exactly one value is required"))
+		}
+	case selectionContains:
+		if len(vals) != 1 {
+			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'contains' operator, exactly one value is required"))
+		}
+	case selectionNotContains:
+		if len(vals) != 1 {
+			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'notcontains' operator, exactly one value is required"))
+		}
+	case selectionIn:
 		if len(vals) == 0 {
-			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'in', 'notin' operators, values set can't be empty"))
+			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'in' operator, values set can't be empty"))
+		}
+	case selectionNotIn:
+		if len(vals) == 0 {
+			allErrs = append(allErrs, field.Invalid(valuePath, vals, "for 'notin' operator, values set can't be empty"))
 		}
 	case selectionGreater, selectionGreaterOrEqual, selectionLess, selectionLessOrEqual:
 		if len(vals) != 1 {
@@ -222,17 +246,42 @@ func (r *Requirement) Matches(ls map[string]string) bool {
 	case selectionNotExists:
 		_, ok := ls[r.Key]
 		return !ok
-	case selectionStartsWith, selectionNotStartsWith, selectionEndsWith, selectionNotEndsWith, selectionContains, selectionNotContains:
+	case selectionStartsWith:
 		val, ok := ls[r.Key]
 		if !ok {
 			return false
 		}
-		return (r.Operator == selectionContains && strings.Contains(val, r.Values[0])) ||
-			(r.Operator == selectionNotContains && !strings.Contains(val, r.Values[0])) ||
-			(r.Operator == selectionStartsWith && strings.HasPrefix(val, r.Values[0])) ||
-			(r.Operator == selectionNotStartsWith && !strings.HasPrefix(val, r.Values[0])) ||
-			(r.Operator == selectionEndsWith && strings.HasSuffix(val, r.Values[0])) ||
-			(r.Operator == selectionNotEndsWith && !strings.HasSuffix(val, r.Values[0]))
+		return strings.HasPrefix(val, r.Values[0])
+	case selectionNotStartsWith:
+		val, ok := ls[r.Key]
+		if !ok {
+			return false
+		}
+		return !strings.HasPrefix(val, r.Values[0])
+	case selectionEndsWith:
+		val, ok := ls[r.Key]
+		if !ok {
+			return false
+		}
+		return strings.HasSuffix(val, r.Values[0])
+	case selectionNotEndsWith:
+		val, ok := ls[r.Key]
+		if !ok {
+			return false
+		}
+		return !strings.HasSuffix(val, r.Values[0])
+	case selectionContains:
+		val, ok := ls[r.Key]
+		if !ok {
+			return false
+		}
+		return strings.Contains(val, r.Values[0])
+	case selectionNotContains:
+		val, ok := ls[r.Key]
+		if !ok {
+			return false
+		}
+		return !strings.Contains(val, r.Values[0])
 	case selectionGreater, selectionGreaterOrEqual, selectionLess, selectionLessOrEqual:
 		val, ok := ls[r.Key]
 		if !ok {
@@ -240,7 +289,7 @@ func (r *Requirement) Matches(ls map[string]string) bool {
 		}
 		lsValue, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
-			klog.V(10).Infof("ParseInt failed for value %+v in label %+v, %+v", val, ls, err)
+			klog.V(10).Infof("ParseInt failed for value %+v in field %+v, %+v", val, ls, err)
 			return false
 		}
 
@@ -251,15 +300,15 @@ func (r *Requirement) Matches(ls map[string]string) bool {
 		}
 
 		var rValue int64
-		for i := range r.Values {
-			rValue, err = strconv.ParseInt(r.Values[i], 10, 64)
-			if err != nil {
-				klog.V(10).Infof("ParseInt failed for value %+v in requirement %#v, for '>=', '>', '<', '<=' operators, the value must be an integer", r.Values[i], r)
-				return false
-			}
+		rValue, err = strconv.ParseInt(r.Values[0], 10, 64)
+		if err != nil {
+			klog.V(10).Infof("ParseInt failed for value %+v in requirement %#v, for '>=', '>', '<', '<=' operators, the value must be an integer", r.Values[i], r)
+			return false
 		}
-		return (r.Operator == selectionGreater && lsValue > rValue) || (r.Operator == selectionGreaterOrEqual && lsValue >= rValue) ||
-			(r.Operator == selectionLess && lsValue < rValue) || (r.Operator == selectionLessOrEqual && lsValue <= rValue)
+		return (r.Operator == selectionGreater && lsValue > rValue) ||
+			(r.Operator == selectionGreaterOrEqual && lsValue >= rValue) ||
+			(r.Operator == selectionLess && lsValue < rValue) ||
+			(r.Operator == selectionLessOrEqual && lsValue <= rValue)
 	default:
 		return false
 	}

@@ -260,7 +260,7 @@ func TestMutatePod(t *testing.T) {
 			name:           "conflicting secret names",
 			ns:             corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "gns5-pod"}},
 			pod:            corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
-			expectedErrStr: "failed to get licence key secret name for container \"app\" with instrumentations names: [\"example-inst-php\" \"example-inst-java\"]: multiple license key secrets possible",
+			expectedErrStr: "failed to get license key secret name for container \"app\" with instrumentations names: [\"example-inst-php\" \"example-inst-java\"]: multiple license key secrets possible",
 			injector:       fakeInjector,
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns5-op"}},

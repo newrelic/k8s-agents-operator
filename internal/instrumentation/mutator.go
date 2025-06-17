@@ -134,11 +134,8 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 		logger.Info("no instrumentation instances for this pod")
 		return corev1.Pod{}, errNoInstancesAvailable
 	}
-	candidateNames := make([]string, len(instCandidates))
-	for i, candidate := range instCandidates {
-		candidateNames[i] = candidate.Name
-	}
-	logger.Info("instrumentation instances found matching pod", "count", len(instCandidates), "candidates", candidateNames)
+
+	logger.Info("instrumentation instances found matching pod", "count", len(instCandidates), "candidates", getInstrumentationNamesFromList(instCandidates))
 
 	// filter by container name; map[container.Name]=[instrumentation, instrtumentations...]
 	instrumentations := filterInstrumentations(ctx, instCandidates, &pod)
@@ -157,27 +154,15 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 		return corev1.Pod{}, err
 	}
 
-	c := 0
-	for _, insts := range instrumentations {
-		c += len(insts)
-	}
+	c := countInstrumentationsInMap(instrumentations)
 	if c == 0 {
 		logger.Info("no instrumentation instances for this pod matched any containers")
 		// nothing matched
 		return pod, nil
 	}
 
-	matches := map[string][]string{}
-	for name, insts := range instrumentations {
-		names := make([]string, len(insts))
-		for i, inst := range insts {
-			names[i] = inst.Name
-		}
-		matches[name] = names
-	}
-
 	logger.Info("matched instrumentation instances for this pods containers",
-		"count", c, "matches", matches)
+		"count", c, "matches", getInstrumentationNamesInMapAsMap(instrumentations))
 
 	// ensure we have only one license key per container
 	if err := validateInstrumentationLicenseKeySecrets(instrumentations); err != nil {
@@ -186,29 +171,65 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 	}
 
 	// ensure we have only one agent configmap per container
-	if err := validateInstrumentationAgentConfigMaps(instrumentations); err != nil {
+	if err = validateInstrumentationAgentConfigMaps(instrumentations); err != nil {
 		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
 
 	// ensure we have only one agent configmap per container
-	if err := validateContainerInstrumentationsForConflictingChanges(instrumentations); err != nil {
+	if err = validateContainerInstrumentationsForConflictingChanges(instrumentations); err != nil {
 		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
 
 	// ensure we only have 1 health agent
-	if err := validateHealthAgents(instrumentations); err != nil {
+	if err = validateHealthAgents(instrumentations); err != nil {
 		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
 
 	// ensure that the health sidecar is not being used with an init container
-	if err := validateContainerWithHealthAgent(instrumentations, &pod); err != nil {
+	if err = validateContainerWithHealthAgent(instrumentations, &pod); err != nil {
 		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
 
+	pm.replicateSecrets(ctx, ns, pod, instrumentations)
+	pm.replicateConfigMaps(ctx, ns, pod, instrumentations)
+
+	return pm.sdkInjector.InjectContainers(ctx, instrumentations, ns, pod), nil
+}
+
+func getInstrumentationNamesFromList(instrumentations []*current.Instrumentation) []string {
+	names := make([]string, len(instrumentations))
+	for i, candidate := range instrumentations {
+		names[i] = candidate.Name
+	}
+	return names
+}
+
+func getInstrumentationNamesInMapAsMap(instrumentations map[string][]*current.Instrumentation) map[string][]string {
+	matches := map[string][]string{}
+	for name, insts := range instrumentations {
+		names := make([]string, len(insts))
+		for i, inst := range insts {
+			names[i] = inst.Name
+		}
+		matches[name] = names
+	}
+	return matches
+}
+
+func countInstrumentationsInMap(instrumentations map[string][]*current.Instrumentation) int {
+	c := 0
+	for _, insts := range instrumentations {
+		c += len(insts)
+	}
+	return c
+}
+
+func (pm *InstrumentationPodMutator) replicateSecrets(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, instrumentations map[string][]*current.Instrumentation) {
+	logger, _ := logr.FromContext(ctx)
 	if pm.secretReplicationIsEnabled {
 		secrets := GetLicenseKeySecretsFromInstrumentations(instrumentations)
 		if pm.envSecretReplicationIsEnabled {
@@ -216,11 +237,14 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 			secrets = append(secrets, envSecrets...)
 		}
 		secrets = GetUniqStrings(secrets)
-		if err = pm.secretReplicator.ReplicateSecrets(ctx, ns, pod, pm.operatorNamespace, secrets); err != nil {
+		if err := pm.secretReplicator.ReplicateSecrets(ctx, ns, pod, pm.operatorNamespace, secrets); err != nil {
 			logger.Error(err, "failed to replicate secrets")
 		}
 	}
+}
 
+func (pm *InstrumentationPodMutator) replicateConfigMaps(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, instrumentations map[string][]*current.Instrumentation) {
+	logger, _ := logr.FromContext(ctx)
 	if pm.configMapReplicationIsEnabled {
 		var configMaps []string
 		if pm.agentConfigMapReplicationIsEnabled {
@@ -231,12 +255,10 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 			configMaps = append(configMaps, envConfigMaps...)
 		}
 		configMaps = GetUniqStrings(configMaps)
-		if err = pm.configMapReplicator.ReplicateConfigMaps(ctx, ns, pod, pm.operatorNamespace, configMaps); err != nil {
+		if err := pm.configMapReplicator.ReplicateConfigMaps(ctx, ns, pod, pm.operatorNamespace, configMaps); err != nil {
 			logger.Error(err, "failed to replicate config maps")
 		}
 	}
-
-	return pm.sdkInjector.InjectContainers(ctx, instrumentations, ns, pod), nil
 }
 
 // reduceIdenticalInstrumentations is used to collect all instrumentations and so that only a single instrumentation
@@ -543,7 +565,7 @@ func validateInstrumentationLicenseKeySecrets(candidates map[string][]*current.I
 			for i, ci := range cInsts {
 				instNames[i] = ci.Name
 			}
-			return fmt.Errorf("failed to get licence key secret name for container %q with instrumentations names: %q: %w", containerName, instNames, err)
+			return fmt.Errorf("failed to get license key secret name for container %q with instrumentations names: %q: %w", containerName, instNames, err)
 		}
 	}
 	return nil

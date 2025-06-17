@@ -3,11 +3,11 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"k8s.io/apimachinery/pkg/types"
 	"net/http"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,8 +50,7 @@ type PodMutator interface {
 // Handle manages Pod mutations
 func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := corev1.Pod{}
-	err := m.Decoder.Decode(req, &pod)
-	if err != nil {
+	if err := m.Decoder.Decode(req, &pod); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
@@ -65,8 +64,8 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 
 	// we use the req.Namespace here because the pod might have not been created yet
 	ns := corev1.Namespace{}
-	err = m.Client.Get(ctx, types.NamespacedName{Name: req.Namespace, Namespace: ""}, &ns)
-	if err != nil {
+
+	if err := m.Client.Get(ctx, types.NamespacedName{Name: req.Namespace, Namespace: ""}, &ns); err != nil {
 		res := admission.Errored(http.StatusInternalServerError, err)
 		// By default, admission.Errored sets Allowed to false which blocks pod creation even though the failurePolicy=ignore.
 		// Allowed set to true makes sure failure does not block pod creation in case of an error.
