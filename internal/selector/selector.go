@@ -279,4 +279,5 @@ func (r *Requirement) Matches(ls map[string]string) bool {
 	default:
 		return false
 	}
+	return false
 }
