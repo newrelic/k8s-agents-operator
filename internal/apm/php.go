@@ -69,6 +69,7 @@ type PhpInjector struct {
 	baseInjector
 }
 
+//nolint:nestif
 func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
 	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
 	if container == nil {

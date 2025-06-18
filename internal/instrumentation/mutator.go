@@ -121,6 +121,8 @@ func NewMutator(
 }
 
 // Mutate is used to mutate a pod based on some instrumentation(s)
+//
+//nolint:gocyclo
 func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
 	logger, _ := logr.FromContext(ctx)
 

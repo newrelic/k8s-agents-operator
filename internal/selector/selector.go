@@ -145,6 +145,7 @@ func WithOperatorValidator(v OperatorValidator) requirementOption {
 	}
 }
 
+//nolint:gocyclo
 func newRequirement(key string, op SelectionOperator, vals []string, opts ...requirementOption) (*Requirement, error) {
 	var allErrs field.ErrorList
 	o := RequirementOptions{
