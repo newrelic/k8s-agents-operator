@@ -302,7 +302,7 @@ func (r *Requirement) Matches(ls map[string]string) bool {
 		var rValue int64
 		rValue, err = strconv.ParseInt(r.Values[0], 10, 64)
 		if err != nil {
-			klog.V(10).Infof("ParseInt failed for value %+v in requirement %#v, for '>=', '>', '<', '<=' operators, the value must be an integer", r.Values[i], r)
+			klog.V(10).Infof("ParseInt failed for value %+v in requirement %#v, for '>=', '>', '<', '<=' operators, the value must be an integer", r.Values[0], r)
 			return false
 		}
 		return (r.Operator == selectionGreater && lsValue > rValue) ||
