@@ -165,7 +165,7 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 		"count", c, "matches", getInstrumentationNamesInMapAsMap(instrumentations))
 
 	// ensure we have only one license key per container
-	if err := validateInstrumentationLicenseKeySecrets(instrumentations); err != nil {
+	if err = validateInstrumentationLicenseKeySecrets(instrumentations); err != nil {
 		logger.Error(err, "failed to select a instrumentation instance for this pod")
 		return corev1.Pod{}, err
 	}
@@ -539,10 +539,7 @@ func getContainerSetByNamesFromPodAnnotations(annotationKey string, pod *corev1.
 func sortInstrumentations(candidates map[string][]*current.Instrumentation) map[string][]*current.Instrumentation {
 	for _, cInsts := range candidates {
 		sort.Slice(cInsts, func(i, j int) bool {
-			if strings.Compare(cInsts[i].Spec.Agent.Language, cInsts[j].Spec.Agent.Language) > 0 {
-				return true
-			}
-			return false
+			return strings.Compare(cInsts[i].Spec.Agent.Language, cInsts[j].Spec.Agent.Language) > 0
 		})
 	}
 	return candidates

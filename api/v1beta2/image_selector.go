@@ -76,6 +76,9 @@ func (s *ImageSelector) IsEmpty() bool {
 
 func (s *ImageSelector) AsSelector() (selector.Selector, error) {
 	sel, err := selector.New(&selector.SimpleSelector{})
+	if err != nil {
+		return nil, err
+	}
 	if !s.IsEmpty() {
 		lsr := make([]selector.SelectorRequirement, len(s.MatchExpressions))
 		for i, entry := range s.MatchExpressions {
