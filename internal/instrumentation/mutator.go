@@ -579,6 +579,7 @@ func validateContainerInstrumentationsForConflictingChanges(candidates map[strin
 	return nil
 }
 
+//nolint:gocyclo
 func validateContainerInstrumentations(instCandidates []*current.Instrumentation) error {
 	var res *current.Instrumentation
 	var errs []error
