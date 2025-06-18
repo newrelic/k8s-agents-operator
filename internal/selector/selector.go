@@ -224,60 +224,81 @@ func newRequirement(key string, op SelectionOperator, vals []string, opts ...req
 	return &Requirement{Key: key, Operator: op, Values: vals}, allErrs.ToAggregate()
 }
 
+//nolint:gocyclo
 func (r *Requirement) Matches(ls map[string]string) bool {
 	val, ok := ls[r.Key]
-
 	switch r.Operator {
+	case selectionIn, selectionEquals:
+		if !ok {
+			return false
+		}
+		return slices.Contains(r.Values, val)
 	case selectionNotIn, selectionNotEquals:
 		if !ok {
 			return true
 		}
+		return !slices.Contains(r.Values, val)
 	case selectionExists:
 		return ok
 	case selectionNotExists:
 		return !ok
-	}
-
-	if !ok {
-		return false
-	}
-
-	switch r.Operator {
-	case selectionIn, selectionEquals:
-		return slices.Contains(r.Values, val)
-	case selectionNotIn, selectionNotEquals:
-		return !slices.Contains(r.Values, val)
 	case selectionStartsWith:
+		if !ok {
+			return false
+		}
 		return strings.HasPrefix(val, r.Values[0])
 	case selectionNotStartsWith:
+		if !ok {
+			return false
+		}
 		return !strings.HasPrefix(val, r.Values[0])
 	case selectionEndsWith:
+		if !ok {
+			return false
+		}
 		return strings.HasSuffix(val, r.Values[0])
 	case selectionNotEndsWith:
+		if !ok {
+			return false
+		}
 		return !strings.HasSuffix(val, r.Values[0])
 	case selectionContains:
+		if !ok {
+			return false
+		}
 		return strings.Contains(val, r.Values[0])
 	case selectionNotContains:
+		if !ok {
+			return false
+		}
 		return !strings.Contains(val, r.Values[0])
 	case selectionGreater, selectionGreaterOrEqual, selectionLess, selectionLessOrEqual:
+		if !ok {
+			return false
+		}
 		lsValue, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			klog.V(10).Infof("ParseInt failed for value %+v in field %+v, %+v", val, ls, err)
 			return false
 		}
-		rValue, _ := strconv.ParseInt(r.Values[0], 10, 64)
-		switch r.Operator {
-		case selectionGreater:
-			return lsValue > rValue
-		case selectionGreaterOrEqual:
-			return lsValue >= rValue
-		case selectionLess:
-			return lsValue < rValue
-		case selectionLessOrEqual:
-			return lsValue <= rValue
+
+		// There should be only one strValue in r.strValues, and can be converted to an integer.
+		if len(r.Values) != 1 {
+			klog.V(10).Infof("Invalid values count %+v of requirement %#v, for '>=', '>', '<', '<=' operators, exactly one value is required", len(r.Values), r)
+			return false
 		}
+
+		var rValue int64
+		rValue, err = strconv.ParseInt(r.Values[0], 10, 64)
+		if err != nil {
+			klog.V(10).Infof("ParseInt failed for value %+v in requirement %#v, for '>=', '>', '<', '<=' operators, the value must be an integer", r.Values[0], r)
+			return false
+		}
+		return (r.Operator == selectionGreater && lsValue > rValue) ||
+			(r.Operator == selectionGreaterOrEqual && lsValue >= rValue) ||
+			(r.Operator == selectionLess && lsValue < rValue) ||
+			(r.Operator == selectionLessOrEqual && lsValue <= rValue)
 	default:
 		return false
 	}
-	return false
 }

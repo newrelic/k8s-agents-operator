@@ -108,6 +108,7 @@ func (sr ConfigMapReplicatorFn) ReplicateConfigMaps(ctx context.Context, ns core
 var _ ConfigMapReplicator = (ConfigMapReplicatorFn)(nil)
 var _ ConfigMapsReplicator = (ConfigMapReplicatorFn)(nil)
 
+//nolint:gocyclo
 func TestMutatePod(t *testing.T) {
 	var fakeInjector FakeInjector = func(
 		ctx context.Context,
