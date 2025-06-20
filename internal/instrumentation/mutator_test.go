@@ -1186,3 +1186,158 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 		})
 	}
 }
+
+func TestSetToList(t *testing.T) {
+	expectedList := []string{}
+	actualList := setToList(map[string]struct{}{})
+	if diff := cmp.Diff(expectedList, actualList, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
+
+	expectedList = []string{"a", "b", "c"}
+	actualList = setToList(map[string]struct{}{"c": {}, "b": {}, "a": {}})
+	if diff := cmp.Diff(expectedList, actualList, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
+}
+
+func TestIntersectSet(t *testing.T) {
+	tests := []struct {
+		name        string
+		expectedSet map[string]struct{}
+		setA        map[string]struct{}
+		setB        map[string]struct{}
+	}{
+		{
+			name: "both nil",
+		},
+		{
+			name:        "first nil, second empty",
+			expectedSet: nil,
+			setB:        map[string]struct{}{},
+		},
+		{
+			name:        "first empty, second nil",
+			expectedSet: nil,
+			setA:        map[string]struct{}{},
+		},
+		{
+			name:        "both empty",
+			expectedSet: nil,
+			setA:        map[string]struct{}{},
+			setB:        map[string]struct{}{},
+		},
+		{
+			name:        "first with 1 value, second nil",
+			expectedSet: nil,
+			setA:        map[string]struct{}{"a": {}},
+		},
+		{
+			name:        "first nil, second with 1 value",
+			expectedSet: nil,
+			setB:        map[string]struct{}{"a": {}},
+		},
+		{
+			name:        "first with 1 value, second empty",
+			expectedSet: nil,
+			setA:        map[string]struct{}{"a": {}},
+			setB:        map[string]struct{}{},
+		},
+		{
+			name:        "first empty, second with 1 value",
+			expectedSet: nil,
+			setA:        map[string]struct{}{},
+			setB:        map[string]struct{}{"a": {}},
+		},
+		{
+			name:        "no intersections",
+			expectedSet: nil,
+			setA:        map[string]struct{}{"a": {}},
+			setB:        map[string]struct{}{"b": {}},
+		},
+		{
+			name:        "intersects only with c",
+			expectedSet: map[string]struct{}{"c": {}},
+			setA:        map[string]struct{}{"a": {}, "c": {}},
+			setB:        map[string]struct{}{"b": {}, "c": {}},
+		},
+		{
+			name:        "intersects only with c and b",
+			expectedSet: map[string]struct{}{"c": {}, "b": {}},
+			setA:        map[string]struct{}{"a": {}, "b": {}, "c": {}},
+			setB:        map[string]struct{}{"b": {}, "c": {}, "d": {}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualSet := intersectSet(tt.setA, tt.setB)
+			if diff := cmp.Diff(tt.expectedSet, actualSet, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("Unexpected diff (-want +got): %s", diff)
+			}
+		})
+	}
+}
+
+func TestGetContainerNamesSetFromPod(t *testing.T) {
+
+}
+
+func TestGetContainerSetByEnvSelector(t *testing.T) {
+
+}
+
+func TestGetContainerSetByNameSelector(t *testing.T) {
+
+}
+
+func TestGetContainerSetByImageSelector(t *testing.T) {
+
+}
+
+func TestGetContainerSetByNamesFromPodAnnotations(t *testing.T) {
+
+}
+
+func TestFilterInstrumentations(t *testing.T) {
+
+}
+
+func TestReplicateConfigMaps(t *testing.T) {
+
+}
+
+func TestValidateContainerInstrumentations(t *testing.T) {
+
+}
+
+func TestValidateInstrumentationAgentConfigMaps(t *testing.T) {
+
+}
+
+func TestValidateHealthAgents(t *testing.T) {
+
+}
+
+func TestValidateContainerWithHealthAgent(t *testing.T) {
+
+}
+
+func TestValidateAgentConfigMap(t *testing.T) {
+
+}
+
+func TestGetAgentConfigMapsFromInstrumentations(t *testing.T) {
+
+}
+
+func TestReplicateConfigMap(t *testing.T) {
+
+}
+
+func TestGetConfigMapsFromInstrumentationsAgentEnv(t *testing.T) {
+
+}
+
+func TestGetSecretsFromInstrumentationsAgentEnv(t *testing.T) {
+
+}

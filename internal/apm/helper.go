@@ -290,11 +290,3 @@ func insertContainerBeforeIndex(containers []corev1.Container, index int, newCon
 	copy(initContainers[index+1:], containers[index:])
 	return initContainers
 }
-
-func removeContainerByIndex(containers []corev1.Container, index int) ([]corev1.Container, corev1.Container) {
-	oldContainer := containers[index]
-	newContainers := make([]corev1.Container, len(containers)-1)
-	copy(newContainers, containers[0:index])
-	copy(newContainers[index:], containers[index+1:])
-	return newContainers, oldContainer
-}

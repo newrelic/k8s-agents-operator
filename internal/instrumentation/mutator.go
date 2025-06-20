@@ -289,6 +289,14 @@ var phpLangs = map[string]struct{}{
 	"php-8.4": {},
 }
 
+func agentIsEqual(a, b current.Agent) bool {
+	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) &&
+		reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) &&
+		reflect.DeepEqual(a.Resources, b.Resources) &&
+		reflect.DeepEqual(a.ImagePullPolicy, b.ImagePullPolicy) &&
+		reflect.DeepEqual(a.SecurityContext, b.SecurityContext)
+}
+
 // validateInstrumentations is used to validate that only a single instrumentation exists for each language
 func validateInstrumentations(instCandidates []*current.Instrumentation) error {
 	languages := map[string]*current.Instrumentation{}
@@ -300,7 +308,7 @@ func validateInstrumentations(instCandidates []*current.Instrumentation) error {
 			candidateLang = "php"
 		}
 		if currentInst, ok := languages[candidateLang]; ok {
-			if !currentInst.Spec.Agent.IsEqual(candidate.Spec.Agent) {
+			if !agentIsEqual(currentInst.Spec.Agent, candidate.Spec.Agent) {
 				dups[candidateLang] = append(dups[candidateLang], candidate)
 			}
 		} else {
@@ -443,6 +451,12 @@ func filterInstrumentations(ctx context.Context, insts []*current.Instrumentatio
 }
 
 func intersectSet(a, b map[string]struct{}) map[string]struct{} {
+	if a == nil || b == nil {
+		return nil
+	}
+	if len(a) == 0 || len(b) == 0 {
+		return nil
+	}
 	set := map[string]struct{}{}
 	if len(a) > len(b) {
 		a, b = b, a
@@ -451,6 +465,9 @@ func intersectSet(a, b map[string]struct{}) map[string]struct{} {
 		if _, ok := b[k]; ok {
 			set[k] = struct{}{}
 		}
+	}
+	if len(set) == 0 {
+		return nil
 	}
 	return set
 }

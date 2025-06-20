@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"reflect"
-
 	"github.com/newrelic/k8s-agents-operator/api/common"
 
 	corev1 "k8s.io/api/core/v1"
@@ -83,11 +81,6 @@ type Resource struct {
 	AddK8sUIDAttributes bool `json:"addK8sUIDAttributes,omitempty"`
 }
 
-// IsEmpty is used to check if the resource is empty
-func (r Resource) IsEmpty() bool {
-	return !r.AddK8sUIDAttributes && len(r.Attributes) == 0
-}
-
 // Exporter defines OTLP exporter configuration.
 type Exporter struct {
 	// Endpoint is address of the collector with OTLP endpoint.
@@ -145,14 +138,6 @@ func (a *Agent) IsEmpty() bool {
 		len(a.Resources.Claims) == 0
 }
 
-// IsEqual is used to compare if an agent is equal to another, excluding `.Language`
-func (a *Agent) IsEqual(b Agent) bool {
-	return a.Image == b.Image &&
-		reflect.DeepEqual(a.Env, b.Env) &&
-		reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) &&
-		reflect.DeepEqual(a.Resources, b.Resources)
-}
-
 // HealthAgent is the configuration for the healthAgent
 type HealthAgent struct {
 	// Image is a container image with Go SDK and auto-instrumentation.
@@ -163,17 +148,6 @@ type HealthAgent struct {
 	// If the former var had been defined, then the other vars would be ignored.
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
-}
-
-// IsEmpty is used to check if the health agent is empty
-func (a *HealthAgent) IsEmpty() bool {
-	return a.Image == "" &&
-		len(a.Env) == 0
-}
-
-// IsEqual is used to compare if a health agent is equal to another
-func (a *HealthAgent) IsEqual(b HealthAgent) bool {
-	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env)
 }
 
 type UnhealthyPodError struct {

@@ -39,10 +39,6 @@ type NodejsInjector struct {
 	baseInjector
 }
 
-func (i *NodejsInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	return i.InjectContainer(ctx, inst, ns, pod, pod.Spec.Containers[0].Name)
-}
-
 func (i *NodejsInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
 	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
 	if container == nil {
@@ -78,17 +74,6 @@ func (i *NodejsInjector) InjectContainer(ctx context.Context, inst current.Instr
 			SecurityContext: inst.Spec.Agent.SecurityContext.DeepCopy(),
 		}
 		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
-	} else {
-		if isTargetInitContainer {
-			agentIndex := getInitContainerIndex(pod, initContainerName)
-			targetIndex := getInitContainerIndex(pod, containerName)
-			if targetIndex < agentIndex {
-				// move our agent before the target, so that it runs before the target!
-				var agentContainer corev1.Container
-				pod.Spec.InitContainers, agentContainer = removeContainerByIndex(pod.Spec.InitContainers, agentIndex)
-				pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, targetIndex, agentContainer)
-			}
-		}
 	}
 
 	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {

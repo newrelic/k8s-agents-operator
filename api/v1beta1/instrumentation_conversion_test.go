@@ -1,4 +1,4 @@
-package v1alpha2
+package v1beta1
 
 import (
 	"fmt"
@@ -41,7 +41,6 @@ func TestConvertTo(t *testing.T) {
 							},
 						},
 					},
-					LicenseKeySecret: "n",
 					Agent: Agent{
 						Image:    "f",
 						Language: "g",
@@ -73,7 +72,6 @@ func TestConvertTo(t *testing.T) {
 							},
 						},
 					},
-					LicenseKeySecret: "n",
 					Agent: current.Agent{
 						Image:    "f",
 						Language: "g",
@@ -81,9 +79,7 @@ func TestConvertTo(t *testing.T) {
 							{Name: "h", Value: "i"},
 						},
 					},
-					HealthAgent: current.HealthAgent{
-						Image: "",
-					},
+					HealthAgent: current.HealthAgent{},
 				},
 			},
 		},
@@ -146,6 +142,8 @@ func TestConvertFrom(t *testing.T) {
 							{Name: "h", Value: "i"},
 						},
 					},
+					AgentConfigMap:   "m",
+					LicenseKeySecret: "n",
 					HealthAgent: current.HealthAgent{
 						Image: "j",
 						Env: []corev1.EnvVar{
@@ -183,6 +181,14 @@ func TestConvertFrom(t *testing.T) {
 						Language: "g",
 						Env: []corev1.EnvVar{
 							{Name: "h", Value: "i"},
+						},
+					},
+					AgentConfigMap:   "m",
+					LicenseKeySecret: "n",
+					HealthAgent: HealthAgent{
+						Image: "j",
+						Env: []corev1.EnvVar{
+							{Name: "k", Value: "l"},
 						},
 					},
 				},

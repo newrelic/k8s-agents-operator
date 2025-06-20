@@ -91,17 +91,6 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 			SecurityContext: inst.Spec.Agent.SecurityContext.DeepCopy(),
 		}
 		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
-	} else {
-		if isTargetInitContainer {
-			agentIndex := getInitContainerIndex(pod, initContainerName)
-			targetIndex := getInitContainerIndex(pod, containerName)
-			if targetIndex < agentIndex {
-				// move our agent before the target, so that it runs before the target!
-				var agentContainer corev1.Container
-				pod.Spec.InitContainers, agentContainer = removeContainerByIndex(pod.Spec.InitContainers, agentIndex)
-				pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, targetIndex, agentContainer)
-			}
-		}
 	}
 
 	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {

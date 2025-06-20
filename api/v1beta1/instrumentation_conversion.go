@@ -23,6 +23,30 @@ func (src *Instrumentation) ConvertTo(dstRaw conversion.Hub) error {
 		Env:             src.Spec.Agent.Env,
 		Resources:       src.Spec.Agent.Resources,
 	}
+	dst.Spec.HealthAgent = current.HealthAgent{
+		Image: src.Spec.HealthAgent.Image,
+		Env:   src.Spec.HealthAgent.Env,
+	}
+	var unhealthyPodErrors []current.UnhealthyPodError
+	if l := len(src.Status.UnhealthyPodsErrors); l > 0 {
+		unhealthyPodErrors = make([]current.UnhealthyPodError, l)
+		for i, e := range src.Status.UnhealthyPodsErrors {
+			unhealthyPodErrors[i] = current.UnhealthyPodError{
+				Pod:       e.Pod,
+				LastError: e.LastError,
+			}
+		}
+	}
+	dst.Status = current.InstrumentationStatus{
+		PodsMatching:        src.Status.PodsMatching,
+		PodsUnhealthy:       src.Status.PodsUnhealthy,
+		PodsHealthy:         src.Status.PodsHealthy,
+		PodsInjected:        src.Status.PodsInjected,
+		PodsOutdated:        src.Status.PodsOutdated,
+		PodsNotReady:        src.Status.PodsNotReady,
+		UnhealthyPodsErrors: unhealthyPodErrors,
+		LastUpdated:         src.Status.LastUpdated,
+	}
 
 	// HealthAgent and Status are empty
 
@@ -52,6 +76,26 @@ func (dst *Instrumentation) ConvertFrom(srcRaw conversion.Hub) error {
 		Env:   src.Spec.HealthAgent.Env,
 	}
 	dst.Spec.AgentConfigMap = src.Spec.AgentConfigMap
+	var unhealthyPodErrors []UnhealthyPodError
+	if l := len(src.Status.UnhealthyPodsErrors); l > 0 {
+		unhealthyPodErrors = make([]UnhealthyPodError, l)
+		for i, e := range src.Status.UnhealthyPodsErrors {
+			unhealthyPodErrors[i] = UnhealthyPodError{
+				Pod:       e.Pod,
+				LastError: e.LastError,
+			}
+		}
+	}
+	dst.Status = InstrumentationStatus{
+		PodsMatching:        src.Status.PodsMatching,
+		PodsUnhealthy:       src.Status.PodsUnhealthy,
+		PodsHealthy:         src.Status.PodsHealthy,
+		PodsInjected:        src.Status.PodsInjected,
+		PodsOutdated:        src.Status.PodsOutdated,
+		PodsNotReady:        src.Status.PodsNotReady,
+		UnhealthyPodsErrors: unhealthyPodErrors,
+		LastUpdated:         src.Status.LastUpdated,
+	}
 
 	return nil
 }

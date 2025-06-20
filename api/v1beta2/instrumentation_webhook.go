@@ -215,17 +215,18 @@ func validateLicenseKeySecret(inst *Instrumentation) error {
 	return nil
 }
 
+var acceptLangsForAgentConfigMap = []string{"java"}
+
 func validateAgentConfigMap(inst *Instrumentation) error {
 	agentLang := inst.Spec.Agent.Language
 
-	acceptLangsForAgentConfigMap := []string{"java"}
 	if inst.Spec.AgentConfigMap != "" {
 		if !slices.Contains(acceptLangsForAgentConfigMap, inst.Spec.Agent.Language) {
 			return fmt.Errorf("instrumentation agent language %q does not support an agentConfigMap, agentConfigMap can only be configured with one of these languages (%q)", agentLang, strings.Join(acceptLangsForAgentConfigMap, ", "))
 		}
 	}
 
-	if inst.Spec.Agent.Language == "java" && inst.Spec.AgentConfigMap != "" {
+	if agentLang == "java" && inst.Spec.AgentConfigMap != "" {
 		for _, entry := range inst.Spec.Agent.Env {
 			if entry.Name == "NEWRELIC_FILE" {
 				return fmt.Errorf("%q is already set by the agentConfigMap", entry.Name)

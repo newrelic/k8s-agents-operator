@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta2
 
 import (
-	"reflect"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,20 +106,13 @@ type Agent struct {
 // IsEmpty is used to check if the agent is empty, excluding `.Language`
 func (a *Agent) IsEmpty() bool {
 	return a.Image == "" &&
+		a.ImagePullPolicy == "" &&
 		len(a.Env) == 0 &&
 		a.VolumeSizeLimit == nil &&
 		len(a.Resources.Limits) == 0 &&
 		len(a.Resources.Requests) == 0 &&
-		len(a.Resources.Claims) == 0
-}
-
-// IsEqual is used to compare if an agent is equal to another, excluding `.Language`
-func (a *Agent) IsEqual(b Agent) bool {
-	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) &&
-		reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) &&
-		reflect.DeepEqual(a.Resources, b.Resources) &&
-		reflect.DeepEqual(a.ImagePullPolicy, b.ImagePullPolicy) &&
-		reflect.DeepEqual(a.SecurityContext, b.SecurityContext)
+		len(a.Resources.Claims) == 0 &&
+		a.SecurityContext == nil
 }
 
 // HealthAgent is the configuration for the healthAgent
@@ -157,16 +148,10 @@ type HealthAgent struct {
 // IsEmpty is used to check if the health agent is empty
 func (a *HealthAgent) IsEmpty() bool {
 	return a.Image == "" &&
-		len(a.Env) == 0
-}
-
-// IsEqual is used to compare if a health agent is equal to another
-func (a *HealthAgent) IsEqual(b HealthAgent) bool {
-	return a.Image == b.Image &&
-		reflect.DeepEqual(a.Env, b.Env) &&
-		reflect.DeepEqual(a.Resources, b.Resources) &&
-		reflect.DeepEqual(a.ImagePullPolicy, b.ImagePullPolicy) &&
-		reflect.DeepEqual(a.SecurityContext, b.SecurityContext)
+		len(a.Env) == 0 &&
+		a.ImagePullPolicy == "" &&
+		len(a.Resources.Requests) == 0 && len(a.Resources.Limits) == 0 && len(a.Resources.Claims) == 0 &&
+		a.SecurityContext == nil
 }
 
 type UnhealthyPodError struct {

@@ -144,17 +144,6 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 		}
 		setContainerEnvLicenseKey(&newContainer, inst.Spec.LicenseKeySecret)
 		pod = addContainer(isTargetInitContainer, containerName, pod, newContainer)
-	} else {
-		if isTargetInitContainer {
-			agentIndex := getInitContainerIndex(pod, initContainerName)
-			targetIndex := getInitContainerIndex(pod, containerName)
-			if targetIndex < agentIndex {
-				// move our agent before the target, so that it runs before the target!
-				var agentContainer corev1.Container
-				pod.Spec.InitContainers, agentContainer = removeContainerByIndex(pod.Spec.InitContainers, agentIndex)
-				pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, targetIndex, agentContainer)
-			}
-		}
 	}
 
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
