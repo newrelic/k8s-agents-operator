@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -20,17 +19,46 @@ import (
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 )
 
-type FakeInjector func(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
+type FakeInjector func(ctx context.Context, insts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
 
 func (fn FakeInjector) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+	if len(pod.Spec.Containers) > 0 {
+		return fn(ctx, map[string][]*current.Instrumentation{pod.Spec.Containers[0].Name: insts}, ns, pod)
+	}
+	return corev1.Pod{}
+}
+
+func (fn FakeInjector) InjectContainers(ctx context.Context, insts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
 	return fn(ctx, insts, ns, pod)
 }
 
-type FakeSecretReplicator func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretName string) error
+var _ SdkContainerInjector = (FakeInjector)(nil)
+
+type FakeSecretReplicator func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error
 
 func (fn FakeSecretReplicator) ReplicateSecret(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretName string) error {
-	return fn(ctx, ns, pod, operatorNamespace, secretName)
+	return fn(ctx, ns, pod, operatorNamespace, []string{secretName})
 }
+
+func (fn FakeSecretReplicator) ReplicateSecrets(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error {
+	return fn(ctx, ns, pod, operatorNamespace, secretNames)
+}
+
+var _ SecretReplicator = (FakeSecretReplicator)(nil)
+var _ SecretsReplicator = (FakeSecretReplicator)(nil)
+
+type FakeConfigMapReplicator func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapNames []string) error
+
+func (fn FakeConfigMapReplicator) ReplicateConfigMap(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapName string) error {
+	return fn(ctx, ns, pod, operatorNamespace, []string{configMapName})
+}
+
+func (fn FakeConfigMapReplicator) ReplicateConfigMaps(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapNames []string) error {
+	return fn(ctx, ns, pod, operatorNamespace, configMapNames)
+}
+
+var _ ConfigMapReplicator = (FakeConfigMapReplicator)(nil)
+var _ ConfigMapsReplicator = (FakeConfigMapReplicator)(nil)
 
 type FakeInstrumentationLocator func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod) ([]*current.Instrumentation, error)
 
@@ -46,49 +74,86 @@ func (il InstrumentationLocatorFn) GetInstrumentations(ctx context.Context, ns c
 
 var _ InstrumentationLocator = (InstrumentationLocatorFn)(nil)
 
-type SdkInjectorFn func(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
+type SdkInjectorFn func(ctx context.Context, insts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
 
-func (si SdkInjectorFn) Inject(ctx context.Context, insts []*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
+func (si SdkInjectorFn) InjectContainers(ctx context.Context, insts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod {
 	return si(ctx, insts, ns, pod)
 }
 
-var _ SdkInjector = (SdkInjectorFn)(nil)
+var _ SdkContainerInjector = (SdkInjectorFn)(nil)
 
-type SecretReplicatorFn func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretName string) error
+type SecretReplicatorFn func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error
 
 func (sr SecretReplicatorFn) ReplicateSecret(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretName string) error {
-	return sr(ctx, ns, pod, operatorNamespace, secretName)
+	return sr(ctx, ns, pod, operatorNamespace, []string{secretName})
+}
+
+func (sr SecretReplicatorFn) ReplicateSecrets(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, secretNames []string) error {
+	return sr(ctx, ns, pod, operatorNamespace, secretNames)
 }
 
 var _ SecretReplicator = (SecretReplicatorFn)(nil)
+var _ SecretsReplicator = (SecretReplicatorFn)(nil)
 
+type ConfigMapReplicatorFn func(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapNames []string) error
+
+func (sr ConfigMapReplicatorFn) ReplicateConfigMap(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapName string) error {
+	return sr(ctx, ns, pod, operatorNamespace, []string{configMapName})
+}
+
+func (sr ConfigMapReplicatorFn) ReplicateConfigMaps(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, operatorNamespace string, configMapNames []string) error {
+	return sr(ctx, ns, pod, operatorNamespace, configMapNames)
+}
+
+var _ ConfigMapReplicator = (ConfigMapReplicatorFn)(nil)
+var _ ConfigMapsReplicator = (ConfigMapReplicatorFn)(nil)
+
+//nolint:gocyclo
 func TestMutatePod(t *testing.T) {
 	var fakeInjector FakeInjector = func(
 		ctx context.Context,
-		insts []*current.Instrumentation,
+		insts map[string][]*current.Instrumentation,
 		ns corev1.Namespace,
 		pod corev1.Pod,
 	) corev1.Pod {
 		if pod.Annotations == nil {
 			pod.Annotations = map[string]string{}
 		}
-		for _, inst := range insts {
-			if inst.Spec.Agent.Language != "" {
-				pod.Annotations["newrelic-"+inst.Spec.Agent.Language] = "true"
+		for _, containerInsts := range insts {
+			for _, inst := range containerInsts {
+				if inst.Spec.Agent.Language != "" {
+					pod.Annotations["newrelic-"+inst.Spec.Agent.Language] = "true"
+				}
 			}
 		}
 		return pod
 	}
+	var _ SdkContainerInjector = fakeInjector
+
 	var fakeSecretReplicator FakeSecretReplicator = func(
 		ctx context.Context,
 		ns corev1.Namespace,
 		pod corev1.Pod,
 		operatorNamespace string,
-		secretName string,
+		secretNames []string,
 	) error {
 		return nil
 	}
-	var _ = fakeSecretReplicator
+	var _ SecretsReplicator = fakeSecretReplicator
+	var _ SecretReplicator = fakeSecretReplicator
+
+	var fakeConfigMapReplicator FakeConfigMapReplicator = func(
+		ctx context.Context,
+		ns corev1.Namespace,
+		pod corev1.Pod,
+		operatorNamespace string,
+		configMapNames []string,
+	) error {
+		return nil
+	}
+	var _ ConfigMapsReplicator = fakeConfigMapReplicator
+	var _ ConfigMapReplicator = fakeConfigMapReplicator
+
 	var fakeInstrumentationLocator FakeInstrumentationLocator = func(
 		ctx context.Context,
 		ns corev1.Namespace,
@@ -102,13 +167,14 @@ func TestMutatePod(t *testing.T) {
 		pod corev1.Pod,
 	) ([]*current.Instrumentation, error) {
 		return []*current.Instrumentation{
-			{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "ruby1"}}},
-			{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "ruby2"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "a"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "ruby1"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "ruby2"}}},
 		}, nil
 	}
-	logger := logr.Discard()
+	var _ InstrumentationLocator = fakeInstrumentationLocator
 
 	tests := []struct {
+		enabled     bool
 		name        string
 		pod         corev1.Pod
 		ns          corev1.Namespace
@@ -121,9 +187,10 @@ func TestMutatePod(t *testing.T) {
 		expectedSecrets []client.ObjectKey
 		expectedErrStr  string
 
-		injector               SdkInjector
+		injector               SdkContainerInjector
 		instrumentationLocator InstrumentationLocator
-		secretReplicator       SecretReplicator
+		secretReplicator       SecretsReplicator
+		configMapReplicator    ConfigMapsReplicator
 	}{
 		{
 			name: "java injection, true",
@@ -162,21 +229,21 @@ func TestMutatePod(t *testing.T) {
 				return nil, fmt.Errorf("fetch instrumentation error")
 			}),
 			pod:            corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
-			expectedPod:    corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
+			expectedPod:    corev1.Pod{},
 			expectedErrStr: "fetch instrumentation error",
 		},
 		{
 			name:                   "no instrumentations",
 			instrumentationLocator: fakeInstrumentationLocator,
 			pod:                    corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
-			expectedPod:            corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
+			expectedPod:            corev1.Pod{},
 			expectedErrStr:         errNoInstancesAvailable.Error(),
 		},
 		{
-			name:                   "some error when getting language instrumentations",
+			name:                   "some error when validating language instrumentations",
 			instrumentationLocator: fakeInstrumentationLocatorWithDup,
 			pod:                    corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
-			expectedPod:            corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
+			expectedPod:            corev1.Pod{},
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns4-op"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns4-pod"}},
@@ -188,14 +255,14 @@ func TestMutatePod(t *testing.T) {
 				},
 			},
 			operatorNs:     "gns4-op",
-			expectedErrStr: errMultipleInstancesPossible.Error(),
+			expectedErrStr: "failed to get language instrumentations for container \"app\": multiple New Relic Instrumentation instances available, cannot determine which one to select > (lang: ruby, insts: [a b])",
 		},
 		{
-			name:        "conflicting secret names",
-			ns:          corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "gns5-pod"}},
-			pod:         corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
-			injector:    fakeInjector,
+			name:           "conflicting secret names",
+			ns:             corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "gns5-pod"}},
+			pod:            corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
+			expectedErrStr: "failed to get license key secret name for container \"app\" with instrumentations names: [\"example-inst-php\" \"example-inst-java\"]: multiple license key secrets possible",
+			injector:       fakeInjector,
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns5-op"}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns5-pod"}},
@@ -215,6 +282,10 @@ func TestMutatePod(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: DefaultLicenseKeySecretName, Namespace: "gns5-op"},
 					Data:       map[string][]byte{apm.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("abc123")))},
 				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "different", Namespace: "gns5-op"},
+					Data:       map[string][]byte{apm.LicenseKey: []byte(base64.RawStdEncoding.EncodeToString([]byte("def456")))},
+				},
 			},
 			operatorNs: "gns5-op",
 		},
@@ -222,7 +293,7 @@ func TestMutatePod(t *testing.T) {
 			name:        "secret doesn't exist",
 			ns:          corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "gns6-pod"}},
 			pod:         corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
-			expectedPod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
+			expectedPod: corev1.Pod{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"newrelic-java": "true", "newrelic-php": "true"}}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "app"}}}},
 			injector:    fakeInjector,
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "gns6-op"}},
@@ -274,7 +345,7 @@ func TestMutatePod(t *testing.T) {
 			injector := test.injector
 			if injector == nil {
 				injectorRegistry := apm.NewInjectorRegistry()
-				apmInjectors := []apm.Injector{
+				apmInjectors := []apm.ContainerInjector{
 					&apm.DotnetInjector{},
 					&apm.JavaInjector{},
 					&apm.NodejsInjector{},
@@ -285,26 +356,39 @@ func TestMutatePod(t *testing.T) {
 				for _, apmInjector := range apmInjectors {
 					injectorRegistry.MustRegister(apmInjector)
 				}
-				injector = NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
+				injector = NewNewrelicSdkInjector(k8sClient, injectorRegistry)
 			}
 			instrumentationLocator := test.instrumentationLocator
 			if instrumentationLocator == nil {
-				instrumentationLocator = NewNewRelicInstrumentationLocator(logger, k8sClient, test.operatorNs)
+				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
 			}
-			secretReplicator := test.secretReplicator
+			var secretReplicator SecretsReplicator = test.secretReplicator
 			if secretReplicator == nil {
-				secretReplicator = NewNewrelicSecretReplicator(logger, k8sClient)
+				secretReplicator = NewNewrelicSecretReplicator(k8sClient)
+			}
+			configMapReplicator := test.configMapReplicator
+			if configMapReplicator == nil {
+				configMapReplicator = NewNewrelicConfigMapReplicator(k8sClient)
 			}
 
 			mutator := NewMutator(
-				logger,
 				k8sClient,
 				injector,
 				secretReplicator,
+				configMapReplicator,
 				instrumentationLocator,
 				test.operatorNs,
 			)
-			resultPod, err := mutator.Mutate(ctx, test.ns, test.pod)
+			testPod := test.pod
+			resultPod := corev1.Pod{}
+			var err error
+			for i := 0; i < 1; i++ {
+				resultPod, err = mutator.Mutate(ctx, test.ns, testPod)
+				if err != nil {
+					break
+				}
+				testPod = resultPod
+			}
 			if test.expectedErrStr == "" {
 				require.NoError(t, err)
 				if diff := cmp.Diff(test.expectedPod, resultPod); diff != "" {
@@ -322,14 +406,16 @@ func TestMutatePod(t *testing.T) {
 					actualErrStr = err.Error()
 				}
 				assert.Contains(t, actualErrStr, test.expectedErrStr)
+				if diff := cmp.Diff(test.expectedPod, resultPod); diff != "" {
+					t.Errorf("Unexpected pod diff (-want +got): %s", diff)
+				}
 			}
 		})
 	}
 }
 
 func TestNewrelicSecretReplicator_ReplicateSecret(t *testing.T) {
-	logger := logr.Discard()
-	secretReplicator := NewNewrelicSecretReplicator(logger, k8sClient)
+	secretReplicator := NewNewrelicSecretReplicator(k8sClient)
 
 	tests := []struct {
 		name           string
@@ -646,55 +732,55 @@ func TestGetLanguageInstrumentations(t *testing.T) {
 		{
 			name: "java + java, env value different",
 			instrumentations: []*current.Instrumentation{
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "1"}}}}},
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "0"}}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "a"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "1"}}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "0"}}}}},
 			},
-			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
+			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select > (lang: java, insts: [a b])",
 		},
 		{
 			name: "java + java, env name different",
 			instrumentations: []*current.Instrumentation{
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "1"}}}}},
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "LOGGING", Value: "1"}}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "a"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "DEBUG", Value: "1"}}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Env: []corev1.EnvVar{{Name: "LOGGING", Value: "1"}}}}},
 			},
-			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
+			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select > (lang: java, insts: [a b])",
 		},
 		{
 			name: "java + java, image different",
 			instrumentations: []*current.Instrumentation{
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java-is-great"}}},
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java-is-terrible"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "a"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java-is-great"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java-is-terrible"}}},
 			},
-			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
+			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select > (lang: java, insts: [a b])",
 		},
 		{
 			name: "java + java, volume size different",
 			instrumentations: []*current.Instrumentation{
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", VolumeSizeLimit: resource.NewQuantity(2, resource.DecimalSI)}}},
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "a"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", VolumeSizeLimit: resource.NewQuantity(2, resource.DecimalSI)}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
 			},
-			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
+			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select > (lang: java, insts: [a b])",
 		},
 		{
 			name: "java + java, resources different",
 			instrumentations: []*current.Instrumentation{
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Resources: corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")}}}}},
-				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "a"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java", Resources: corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")}}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "java"}}},
 			},
-			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select",
+			expectedErrStr: "multiple New Relic Instrumentation instances available, cannot determine which one to select > (lang: java, insts: [a b])",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			langInsts, err := GetLanguageInstrumentations(test.instrumentations)
+			err := validateInstrumentations(test.instrumentations)
+			langInsts := reduceIdenticalInstrumentations(test.instrumentations)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
 			}
 			if test.expectedErrStr != errStr {
 				t.Errorf("unexpected error string. expected: %s, got: %s", test.expectedErrStr, errStr)
-			}
-			if diff := cmp.Diff(test.expectedLangInsts, langInsts); diff != "" {
+			} else if diff := cmp.Diff(test.expectedLangInsts, langInsts); test.expectedErrStr == "" && diff != "" {
 				t.Errorf("Unexpected diff (-want +got): %s", diff)
 			}
 		})
@@ -703,28 +789,24 @@ func TestGetLanguageInstrumentations(t *testing.T) {
 
 func TestGetSecretNameFromInstrumentations(t *testing.T) {
 	tests := []struct {
-		name               string
-		instrumentations   []*current.Instrumentation
-		expectedSecretName string
-		expectedErrStr     string
+		name             string
+		instrumentations []*current.Instrumentation
+		expectedErrStr   string
 	}{
 		{
 			name: "none",
 		},
 		{
-			name:               "one, default",
-			instrumentations:   []*current.Instrumentation{{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}}},
-			expectedSecretName: DefaultLicenseKeySecretName,
+			name:             "one, default",
+			instrumentations: []*current.Instrumentation{{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}}},
 		},
 		{
-			name:               "one, blank",
-			instrumentations:   []*current.Instrumentation{{Spec: current.InstrumentationSpec{}}},
-			expectedSecretName: DefaultLicenseKeySecretName,
+			name:             "one, blank",
+			instrumentations: []*current.Instrumentation{{Spec: current.InstrumentationSpec{}}},
 		},
 		{
-			name:               "one, other",
-			instrumentations:   []*current.Instrumentation{{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}}},
-			expectedSecretName: "something-else",
+			name:             "one, other",
+			instrumentations: []*current.Instrumentation{{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}}},
 		},
 		{
 			name: "two, one blank, the other the default",
@@ -732,7 +814,6 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 				{Spec: current.InstrumentationSpec{}},
 				{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
 			},
-			expectedSecretName: DefaultLicenseKeySecretName,
 		},
 		{
 			name: "three, one something else, one the default, one blank",
@@ -741,7 +822,7 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 				{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
 				{Spec: current.InstrumentationSpec{}},
 			},
-			expectedErrStr: "multiple key secrets",
+			expectedErrStr: "multiple license key secrets possible",
 		},
 		{
 			name: "two, one blank, the other the something else",
@@ -749,7 +830,7 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 				{Spec: current.InstrumentationSpec{}},
 				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
 			},
-			expectedErrStr: "multiple key secrets",
+			expectedErrStr: "multiple license key secrets possible",
 		},
 		{
 			name: "two, one the default, the other the something else",
@@ -757,7 +838,7 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 				{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
 				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
 			},
-			expectedErrStr: "multiple key secrets",
+			expectedErrStr: "multiple license key secrets possible",
 		},
 		{
 			name: "two, one blank, the other the default",
@@ -765,7 +846,6 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 				{Spec: current.InstrumentationSpec{}},
 				{Spec: current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName}},
 			},
-			expectedSecretName: DefaultLicenseKeySecretName,
 		},
 		{
 			name: "two, both something else",
@@ -773,12 +853,11 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
 				{Spec: current.InstrumentationSpec{LicenseKeySecret: "something-else"}},
 			},
-			expectedSecretName: "something-else",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			secretName, err := GetSecretNameFromInstrumentations(test.instrumentations)
+			err := validateLicenseKeySecret(test.instrumentations)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -786,15 +865,11 @@ func TestGetSecretNameFromInstrumentations(t *testing.T) {
 			if test.expectedErrStr != errStr {
 				t.Errorf("unexpected error string. expected: %s, got: %s", test.expectedErrStr, errStr)
 			}
-			if test.expectedSecretName != secretName {
-				t.Errorf("unexpected secret name. expected: %s, got: %s", test.expectedSecretName, errStr)
-			}
 		})
 	}
 }
 
 func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
-	logger := logr.Discard()
 	tests := []struct {
 		name           string
 		expectedErrStr string
@@ -1096,7 +1171,7 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 				}
 			}()
 
-			locator := NewNewRelicInstrumentationLocator(logger, k8sClient, test.operatorNs)
+			locator := NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
 			insts, err := locator.GetInstrumentations(ctx, test.ns, test.pod)
 			errStr := ""
 			if err != nil {
@@ -1110,4 +1185,159 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetToList(t *testing.T) {
+	expectedList := []string{}
+	actualList := setToList(map[string]struct{}{})
+	if diff := cmp.Diff(expectedList, actualList, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
+
+	expectedList = []string{"a", "b", "c"}
+	actualList = setToList(map[string]struct{}{"c": {}, "b": {}, "a": {}})
+	if diff := cmp.Diff(expectedList, actualList, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
+}
+
+func TestIntersectSet(t *testing.T) {
+	tests := []struct {
+		name        string
+		expectedSet map[string]struct{}
+		setA        map[string]struct{}
+		setB        map[string]struct{}
+	}{
+		{
+			name: "both nil",
+		},
+		{
+			name:        "first nil, second empty",
+			expectedSet: nil,
+			setB:        map[string]struct{}{},
+		},
+		{
+			name:        "first empty, second nil",
+			expectedSet: nil,
+			setA:        map[string]struct{}{},
+		},
+		{
+			name:        "both empty",
+			expectedSet: nil,
+			setA:        map[string]struct{}{},
+			setB:        map[string]struct{}{},
+		},
+		{
+			name:        "first with 1 value, second nil",
+			expectedSet: nil,
+			setA:        map[string]struct{}{"a": {}},
+		},
+		{
+			name:        "first nil, second with 1 value",
+			expectedSet: nil,
+			setB:        map[string]struct{}{"a": {}},
+		},
+		{
+			name:        "first with 1 value, second empty",
+			expectedSet: nil,
+			setA:        map[string]struct{}{"a": {}},
+			setB:        map[string]struct{}{},
+		},
+		{
+			name:        "first empty, second with 1 value",
+			expectedSet: nil,
+			setA:        map[string]struct{}{},
+			setB:        map[string]struct{}{"a": {}},
+		},
+		{
+			name:        "no intersections",
+			expectedSet: nil,
+			setA:        map[string]struct{}{"a": {}},
+			setB:        map[string]struct{}{"b": {}},
+		},
+		{
+			name:        "intersects only with c",
+			expectedSet: map[string]struct{}{"c": {}},
+			setA:        map[string]struct{}{"a": {}, "c": {}},
+			setB:        map[string]struct{}{"b": {}, "c": {}},
+		},
+		{
+			name:        "intersects only with c and b",
+			expectedSet: map[string]struct{}{"c": {}, "b": {}},
+			setA:        map[string]struct{}{"a": {}, "b": {}, "c": {}},
+			setB:        map[string]struct{}{"b": {}, "c": {}, "d": {}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualSet := intersectSet(tt.setA, tt.setB)
+			if diff := cmp.Diff(tt.expectedSet, actualSet, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("Unexpected diff (-want +got): %s", diff)
+			}
+		})
+	}
+}
+
+func TestGetContainerNamesSetFromPod(t *testing.T) {
+
+}
+
+func TestGetContainerSetByEnvSelector(t *testing.T) {
+
+}
+
+func TestGetContainerSetByNameSelector(t *testing.T) {
+
+}
+
+func TestGetContainerSetByImageSelector(t *testing.T) {
+
+}
+
+func TestGetContainerSetByNamesFromPodAnnotations(t *testing.T) {
+
+}
+
+func TestFilterInstrumentations(t *testing.T) {
+
+}
+
+func TestReplicateConfigMaps(t *testing.T) {
+
+}
+
+func TestValidateContainerInstrumentations(t *testing.T) {
+
+}
+
+func TestValidateInstrumentationAgentConfigMaps(t *testing.T) {
+
+}
+
+func TestValidateHealthAgents(t *testing.T) {
+
+}
+
+func TestValidateContainerWithHealthAgent(t *testing.T) {
+
+}
+
+func TestValidateAgentConfigMap(t *testing.T) {
+
+}
+
+func TestGetAgentConfigMapsFromInstrumentations(t *testing.T) {
+
+}
+
+func TestReplicateConfigMap(t *testing.T) {
+
+}
+
+func TestGetConfigMapsFromInstrumentationsAgentEnv(t *testing.T) {
+
+}
+
+func TestGetSecretsFromInstrumentationsAgentEnv(t *testing.T) {
+
 }

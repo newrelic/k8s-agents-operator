@@ -3,7 +3,7 @@ package v1alpha2
 import (
 	"fmt"
 	"github.com/google/go-cmp/cmp"
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/current"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
@@ -14,7 +14,7 @@ func TestConvertTo(t *testing.T) {
 		name           string
 		expectedErrStr string
 		input          Instrumentation
-		expectedOutput v1beta1.Instrumentation
+		expectedOutput current.Instrumentation
 	}{
 		{
 			name:           "first",
@@ -41,6 +41,7 @@ func TestConvertTo(t *testing.T) {
 							},
 						},
 					},
+					LicenseKeySecret: "n",
 					Agent: Agent{
 						Image:    "f",
 						Language: "g",
@@ -50,8 +51,8 @@ func TestConvertTo(t *testing.T) {
 					},
 				},
 			},
-			expectedOutput: v1beta1.Instrumentation{
-				Spec: v1beta1.InstrumentationSpec{
+			expectedOutput: current.Instrumentation{
+				Spec: current.InstrumentationSpec{
 					PodLabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{"a": "b"},
 						MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -72,14 +73,15 @@ func TestConvertTo(t *testing.T) {
 							},
 						},
 					},
-					Agent: v1beta1.Agent{
+					LicenseKeySecret: "n",
+					Agent: current.Agent{
 						Image:    "f",
 						Language: "g",
 						Env: []corev1.EnvVar{
 							{Name: "h", Value: "i"},
 						},
 					},
-					HealthAgent: v1beta1.HealthAgent{
+					HealthAgent: current.HealthAgent{
 						Image: "",
 					},
 				},
@@ -89,7 +91,7 @@ func TestConvertTo(t *testing.T) {
 	for ti, test := range tests {
 		t.Run(fmt.Sprintf("%d_%s", ti, test.name), func(t *testing.T) {
 			errStr := ""
-			out := v1beta1.Instrumentation{}
+			out := current.Instrumentation{}
 			err := test.input.ConvertTo(&out)
 			if err != nil {
 				errStr = err.Error()
@@ -109,14 +111,14 @@ func TestConvertFrom(t *testing.T) {
 	tests := []struct {
 		name           string
 		expectedErrStr string
-		input          v1beta1.Instrumentation
+		input          current.Instrumentation
 		expectedOutput Instrumentation
 	}{
 		{
 			name:           "everything matches",
 			expectedErrStr: "",
-			input: v1beta1.Instrumentation{
-				Spec: v1beta1.InstrumentationSpec{
+			input: current.Instrumentation{
+				Spec: current.InstrumentationSpec{
 					PodLabelSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{"a": "b"},
 						MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -137,14 +139,14 @@ func TestConvertFrom(t *testing.T) {
 							},
 						},
 					},
-					Agent: v1beta1.Agent{
+					Agent: current.Agent{
 						Image:    "f",
 						Language: "g",
 						Env: []corev1.EnvVar{
 							{Name: "h", Value: "i"},
 						},
 					},
-					HealthAgent: v1beta1.HealthAgent{
+					HealthAgent: current.HealthAgent{
 						Image: "j",
 						Env: []corev1.EnvVar{
 							{

@@ -49,6 +49,7 @@ spec:
         {{- if .Values.controllerManager.manager.leaderElection.enabled }}
         - --leader-elect
         {{- end }}
+        - --zap-log-level={{ .Values.controllerManager.manager.logLevel }}
         - --health-probe-bind-address=:{{ .Values.healthProbe.port }}
         - --webhook-service-bind-address=:{{ (index .Values.webhookService.ports 0).targetPort }}
         command:

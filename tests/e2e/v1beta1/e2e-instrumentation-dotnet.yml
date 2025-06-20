@@ -1,0 +1,28 @@
+apiVersion: newrelic.com/v1beta1
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation-dotnet
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["newrelic-dotnet-agent"]
+  agent:
+    language: dotnet
+    image: newrelic/newrelic-dotnet-init:latest
+    resourceRequirements:
+      limits:
+        cpu: "2"
+        memory: "1024Mi"
+      requests:
+        cpu: "1"
+        memory: "512Mi"
+  healthAgent:
+    image: newrelic/k8s-apm-agent-health-sidecar
+    env:
+      - name: NEWRELIC_DEBUG
+        value: '1'

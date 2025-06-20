@@ -1,0 +1,17 @@
+apiVersion: newrelic.com/v1beta1
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation-java
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["newrelic-java-agent"]
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:latest
+  agentConfigMap: java-cm
