@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/newrelic/k8s-agents-operator/internal/selector"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -1267,6 +1269,12 @@ func TestIntersectSet(t *testing.T) {
 			setA:        map[string]struct{}{"a": {}, "b": {}, "c": {}},
 			setB:        map[string]struct{}{"b": {}, "c": {}, "d": {}},
 		},
+		{
+			name:        "intersects only with c, but first set is larger",
+			expectedSet: map[string]struct{}{"c": {}},
+			setA:        map[string]struct{}{"a": {}, "b": {}, "c": {}},
+			setB:        map[string]struct{}{"c": {}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1279,65 +1287,836 @@ func TestIntersectSet(t *testing.T) {
 }
 
 func TestGetContainerNamesSetFromPod(t *testing.T) {
-
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "a"},
+				{Name: "b"},
+			},
+			InitContainers: []corev1.Container{
+				{Name: "c"},
+				{Name: "d"},
+			},
+		},
+	}
+	expectedSet := map[string]struct{}{
+		"a": {},
+		"b": {},
+		"c": {},
+		"d": {},
+	}
+	actualSet := getContainerNamesSetFromPod(pod)
+	if diff := cmp.Diff(expectedSet, actualSet); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
 }
 
 func TestGetContainerSetByEnvSelector(t *testing.T) {
+	selectorNew := func(simpleSelector *selector.SimpleSelector) selector.Selector {
+		s, _ := selector.New(simpleSelector)
+		return s
+	}
 
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "a",
+					Env: []corev1.EnvVar{
+						{Name: "Q", Value: "q"},
+						{Name: "R", Value: "a"},
+						{Name: "Z", Value: "z"},
+					},
+				},
+			},
+			InitContainers: []corev1.Container{
+				{
+					Name: "b",
+					Env: []corev1.EnvVar{
+						{Name: "Q", Value: "q"},
+						{Name: "R", Value: "b"},
+						{Name: "X", Value: "x"},
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		selector    selector.Selector
+		expectedSet map[string]struct{}
+	}{
+		{
+			name: "exactly 1",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExact:       map[string]string{"X": "x"},
+				MatchExpressions: []selector.SelectorRequirement{},
+			}),
+			expectedSet: map[string]struct{}{"b": {}},
+		},
+		{
+			name: "exactly 1",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExact:       map[string]string{"Z": "z"},
+				MatchExpressions: []selector.SelectorRequirement{},
+			}),
+			expectedSet: map[string]struct{}{"a": {}},
+		},
+		{
+			name: "both, exists",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "R",
+						Operator: "Exists",
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "both, not exists",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "A",
+						Operator: "NotExists",
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "both, in",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "R",
+						Operator: "In",
+						Values:   []string{"a", "b"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "both, not equal",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "R",
+						Operator: "!=",
+						Values:   []string{"z"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "b, equal",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "R",
+						Operator: "==",
+						Values:   []string{"b"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"b": {}},
+		},
+		{
+			name: "a, not in",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "R",
+						Operator: "NotIn",
+						Values:   []string{"b"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualSet := getContainerSetByEnvSelector(tt.selector, pod)
+			if diff := cmp.Diff(tt.expectedSet, actualSet); diff != "" {
+				t.Errorf("Unexpected diff (-want +got): %s", diff)
+			}
+		})
+	}
 }
 
 func TestGetContainerSetByNameSelector(t *testing.T) {
+	selectorNew := func(simpleSelector *selector.SimpleSelector) selector.Selector {
+		s, _ := selector.New(simpleSelector)
+		return s
+	}
 
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "a",
+				},
+			},
+			InitContainers: []corev1.Container{
+				{
+					Name: "b",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		selector    selector.Selector
+		expectedSet map[string]struct{}
+	}{
+		{
+			name: "exactly 1",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExact:       map[string]string{"container": "a"},
+				MatchExpressions: []selector.SelectorRequirement{},
+			}),
+			expectedSet: map[string]struct{}{"a": {}},
+		},
+		{
+			name: "exactly 1",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExact:       map[string]string{"initContainer": "b"},
+				MatchExpressions: []selector.SelectorRequirement{},
+			}),
+			expectedSet: map[string]struct{}{"b": {}},
+		},
+		{
+			name: "both, exists",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "anyContainer",
+						Operator: "In",
+						Values:   []string{"a", "b"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "both, not exists",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "anyContainer",
+						Operator: "NotIn",
+						Values:   []string{"c"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "both, in",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "anyContainer",
+						Operator: "In",
+						Values:   []string{"a", "b"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "both, not equal",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "anyContainer",
+						Operator: "!=",
+						Values:   []string{"z"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "b, equal",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "anyContainer",
+						Operator: "==",
+						Values:   []string{"b"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"b": {}},
+		},
+		{
+			name: "a, not in",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "anyContainer",
+						Operator: "NotIn",
+						Values:   []string{"b"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualSet := getContainerSetByNameSelector(tt.selector, pod)
+			if diff := cmp.Diff(tt.expectedSet, actualSet); diff != "" {
+				t.Errorf("Unexpected diff (-want +got): %s", diff)
+			}
+		})
+	}
 }
 
 func TestGetContainerSetByImageSelector(t *testing.T) {
+	selectorNew := func(simpleSelector *selector.SimpleSelector) selector.Selector {
+		s, _ := selector.New(simpleSelector)
+		return s
+	}
 
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "a",
+					Image: "docker.io/library/python:latest",
+				},
+				{
+					Name:  "c",
+					Image: "test.local/app:v8.0.1-alpine",
+				},
+			},
+			InitContainers: []corev1.Container{
+				{
+					Name:  "b",
+					Image: "docker.io/library/ruby:v2.4.0",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		selector    selector.Selector
+		expectedSet map[string]struct{}
+	}{
+		{
+			name: "exactly 1",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExact:       map[string]string{"url": "docker.io/library/python:latest"},
+				MatchExpressions: []selector.SelectorRequirement{},
+			}),
+			expectedSet: map[string]struct{}{"a": {}},
+		},
+		{
+			name: "exactly 1",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExact:       map[string]string{"url": "docker.io/library/ruby:v2.4.0"},
+				MatchExpressions: []selector.SelectorRequirement{},
+			}),
+			expectedSet: map[string]struct{}{"b": {}},
+		},
+		{
+			name: "both, starts with",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "url",
+						Operator: "StartsWith",
+						Values:   []string{"docker.io/"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "both, not starts with",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "url",
+						Operator: "NotStartsWith",
+						Values:   []string{"test.local/"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+		},
+		{
+			name: "all 3, in",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "url",
+						Operator: "In",
+						Values:   []string{"test.local/app:v8.0.1-alpine", "docker.io/library/python:latest", "docker.io/library/ruby:v2.4.0"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}, "c": {}},
+		},
+		{
+			name: "all 3, not equal",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "url",
+						Operator: "!=",
+						Values:   []string{"z"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}, "b": {}, "c": {}},
+		},
+		{
+			name: "b, equal",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "url",
+						Operator: "==",
+						Values:   []string{"docker.io/library/ruby:v2.4.0"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"b": {}},
+		},
+		{
+			name: "a, not in",
+			selector: selectorNew(&selector.SimpleSelector{
+				MatchExpressions: []selector.SelectorRequirement{
+					{
+						Key:      "url",
+						Operator: "NotIn",
+						Values:   []string{"docker.io/library/ruby:v2.4.0", "test.local/app:v8.0.1-alpine"},
+					},
+				},
+			}),
+			expectedSet: map[string]struct{}{"a": {}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualSet := getContainerSetByImageSelector(tt.selector, pod)
+			if diff := cmp.Diff(tt.expectedSet, actualSet); diff != "" {
+				t.Errorf("Unexpected diff (-want +got): %s", diff)
+			}
+		})
+	}
 }
 
 func TestGetContainerSetByNamesFromPodAnnotations(t *testing.T) {
-
-}
-
-func TestFilterInstrumentations(t *testing.T) {
-
-}
-
-func TestReplicateConfigMaps(t *testing.T) {
-
-}
-
-func TestValidateContainerInstrumentations(t *testing.T) {
-
-}
-
-func TestValidateInstrumentationAgentConfigMaps(t *testing.T) {
-
-}
-
-func TestValidateHealthAgents(t *testing.T) {
-
-}
-
-func TestValidateContainerWithHealthAgent(t *testing.T) {
-
-}
-
-func TestValidateAgentConfigMap(t *testing.T) {
-
+	tests := []struct {
+		name        string
+		pod         *corev1.Pod
+		expectedSet map[string]struct{}
+	}{
+		{
+			name:        "missing annotation, matches everything",
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name: "b",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "blank annotation, matches nothing",
+			expectedSet: map[string]struct{}{},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"use-these": "",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name: "b",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "a only",
+			expectedSet: map[string]struct{}{"a": {}},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"use-these": "a",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name: "b",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "b only",
+			expectedSet: map[string]struct{}{"b": {}},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"use-these": "b",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name: "b",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "both",
+			expectedSet: map[string]struct{}{"a": {}, "b": {}},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"use-these": "a,b",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name: "b",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "none match",
+			expectedSet: map[string]struct{}{},
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"use-these": "c",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+						},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name: "b",
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualSet := getContainerSetByNamesFromPodAnnotations("use-these", tt.pod)
+			if diff := cmp.Diff(tt.expectedSet, actualSet); diff != "" {
+				t.Errorf("Unexpected diff (-want +got): %s", diff)
+			}
+		})
+	}
 }
 
 func TestGetAgentConfigMapsFromInstrumentations(t *testing.T) {
-
-}
-
-func TestReplicateConfigMap(t *testing.T) {
-
+	m := map[string][]*current.Instrumentation{
+		"a": {
+			{Spec: current.InstrumentationSpec{AgentConfigMap: "z"}},
+			{Spec: current.InstrumentationSpec{AgentConfigMap: "x"}},
+		},
+		"b": {
+			{Spec: current.InstrumentationSpec{AgentConfigMap: "y"}},
+			{Spec: current.InstrumentationSpec{AgentConfigMap: "z"}},
+		},
+	}
+	s := GetAgentConfigMapsFromInstrumentations(m)
+	expectedConfigMapNames := []string{"x", "y", "z"}
+	if diff := cmp.Diff(expectedConfigMapNames, s, cmpopts.SortSlices(func(a, b string) bool { return strings.Compare(a, b) > 0 })); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
 }
 
 func TestGetConfigMapsFromInstrumentationsAgentEnv(t *testing.T) {
-
+	m := map[string][]*current.Instrumentation{
+		"a": {
+			{
+				Spec: current.InstrumentationSpec{
+					Agent: current.Agent{Env: []corev1.EnvVar{
+						{Name: "a", Value: "a"},
+						{Name: "b", ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "a"}}}},
+						{Name: "c", ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "b"}}}},
+					}},
+					HealthAgent: current.HealthAgent{Env: []corev1.EnvVar{
+						{Name: "d", Value: "d"},
+						{Name: "e", ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "c"}}}},
+						{Name: "f", ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "d"}}}},
+					}},
+				},
+			},
+		},
+		"b": {
+			{
+				Spec: current.InstrumentationSpec{
+					Agent: current.Agent{Env: []corev1.EnvVar{
+						{Name: "g", Value: "g"},
+						{Name: "h", ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "b"}}}},
+						{Name: "i", ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "c"}}}},
+					}},
+					HealthAgent: current.HealthAgent{Env: []corev1.EnvVar{
+						{Name: "j", Value: "j"},
+						{Name: "k", ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "d"}}}},
+						{Name: "l", ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "e"}}}},
+					}},
+				},
+			},
+		},
+	}
+	s := GetConfigMapsFromInstrumentationsAgentEnv(m)
+	expectedConfigMapNames := []string{"a", "b", "c", "d", "e"}
+	if diff := cmp.Diff(expectedConfigMapNames, s, cmpopts.SortSlices(func(a, b string) bool { return strings.Compare(a, b) < 0 })); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
 }
 
 func TestGetSecretsFromInstrumentationsAgentEnv(t *testing.T) {
 
+	m := map[string][]*current.Instrumentation{
+		"a": {
+			{
+				Spec: current.InstrumentationSpec{
+					Agent: current.Agent{Env: []corev1.EnvVar{
+						{Name: "a", Value: "a"},
+						{Name: "b", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "a"}}}},
+						{Name: "c", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "b"}}}},
+					}},
+					HealthAgent: current.HealthAgent{Env: []corev1.EnvVar{
+						{Name: "d", Value: "d"},
+						{Name: "e", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "c"}}}},
+						{Name: "f", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "d"}}}},
+					}},
+				},
+			},
+		},
+		"b": {
+			{
+				Spec: current.InstrumentationSpec{
+					Agent: current.Agent{Env: []corev1.EnvVar{
+						{Name: "g", Value: "g"},
+						{Name: "h", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "b"}}}},
+						{Name: "i", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "c"}}}},
+					}},
+					HealthAgent: current.HealthAgent{Env: []corev1.EnvVar{
+						{Name: "j", Value: "j"},
+						{Name: "k", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "d"}}}},
+						{Name: "l", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "e"}}}},
+					}},
+				},
+			},
+		},
+	}
+	s := GetSecretsFromInstrumentationsAgentEnv(m)
+	expectedConfigMapNames := []string{"a", "b", "c", "d", "e"}
+	if diff := cmp.Diff(expectedConfigMapNames, s, cmpopts.SortSlices(func(a, b string) bool { return strings.Compare(a, b) < 0 })); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
+}
+
+func TestFilterInstrumentations(t *testing.T) {
+	ctx := context.Background()
+	insts := []*current.Instrumentation{
+		{ObjectMeta: metav1.ObjectMeta{Name: "a"}, Spec: current.InstrumentationSpec{}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{NameSelector: current.NameSelector{MatchExpressions: []current.NameSelectorRequirement{
+			{Key: "anyContainer", Operator: "In", Values: []string{"c4", "cb"}},
+		}}}}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "c"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{ImageSelector: current.ImageSelector{MatchExpressions: []current.ImageSelectorRequirement{
+			{Key: "url", Operator: "StartsWith", Values: []string{"docker.io/library/"}},
+		}}}}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "d"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{EnvSelector: current.EnvSelector{MatchExpressions: []current.EnvSelectorRequirement{
+			{Key: "PICK_ME", Operator: "Exists"},
+		}}}}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "e"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{NamesFromPodAnnotation: "use-these"}}},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"use-these": "name-annotation-a,name-annotation-b",
+			},
+		},
+		Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{
+				{
+					Name:  "not-being-picked",
+					Image: "a",
+					Env:   []corev1.EnvVar{},
+				},
+				{
+					Name:  "name-annotation-a",
+					Image: "b",
+					Env:   []corev1.EnvVar{},
+				},
+				{
+					Name:  "c3",
+					Image: "c",
+					Env: []corev1.EnvVar{
+						{Name: "PICK_ME", Value: "1"},
+					},
+				},
+				{
+					Name:  "c4",
+					Image: "d",
+					Env:   []corev1.EnvVar{},
+				},
+				{
+					Name:  "c5",
+					Image: "e",
+					Env:   []corev1.EnvVar{},
+				},
+				{
+					Name:  "c6",
+					Image: "docker.io/library/go:latest",
+					Env:   []corev1.EnvVar{},
+				},
+			},
+			Containers: []corev1.Container{
+				{
+					Name:  "pick-as-default",
+					Image: "g",
+					Env:   []corev1.EnvVar{},
+				},
+				{
+					Name:  "c8",
+					Image: "docker.io/library/ruby:latest",
+					Env:   []corev1.EnvVar{},
+				},
+				{
+					Name:  "c9",
+					Image: "i",
+					Env: []corev1.EnvVar{
+						{Name: "PICK_ME", Value: "1"},
+					},
+				},
+				{
+					Name:  "name-annotation-b",
+					Image: "j",
+					Env:   []corev1.EnvVar{},
+				},
+				{
+					Name:  "cb",
+					Image: "k",
+					Env:   []corev1.EnvVar{},
+				},
+				{
+					Name:  "cc",
+					Image: "l",
+					Env:   []corev1.EnvVar{},
+				},
+			},
+		},
+	}
+	expectedMap := map[string][]*current.Instrumentation{
+		"pick-as-default":   {{ObjectMeta: metav1.ObjectMeta{Name: "a"}}},
+		"name-annotation-b": {{ObjectMeta: metav1.ObjectMeta{Name: "e"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{NamesFromPodAnnotation: "use-these"}}}},
+		"name-annotation-a": {{ObjectMeta: metav1.ObjectMeta{Name: "e"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{NamesFromPodAnnotation: "use-these"}}}},
+		"c9": {{ObjectMeta: metav1.ObjectMeta{Name: "d"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{EnvSelector: current.EnvSelector{MatchExpressions: []current.EnvSelectorRequirement{
+			{Key: "PICK_ME", Operator: "Exists"},
+		}}}}}},
+		"c3": {{ObjectMeta: metav1.ObjectMeta{Name: "d"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{EnvSelector: current.EnvSelector{MatchExpressions: []current.EnvSelectorRequirement{
+			{Key: "PICK_ME", Operator: "Exists"},
+		}}}}}},
+		"c6": {{ObjectMeta: metav1.ObjectMeta{Name: "c"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{ImageSelector: current.ImageSelector{MatchExpressions: []current.ImageSelectorRequirement{
+			{Key: "url", Operator: "StartsWith", Values: []string{"docker.io/library/"}},
+		}}}}}},
+		"c8": {{ObjectMeta: metav1.ObjectMeta{Name: "c"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{ImageSelector: current.ImageSelector{MatchExpressions: []current.ImageSelectorRequirement{
+			{Key: "url", Operator: "StartsWith", Values: []string{"docker.io/library/"}},
+		}}}}}},
+		"c4": {{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{NameSelector: current.NameSelector{MatchExpressions: []current.NameSelectorRequirement{
+			{Key: "anyContainer", Operator: "In", Values: []string{"c4", "cb"}},
+		}}}}}},
+		"cb": {{ObjectMeta: metav1.ObjectMeta{Name: "b"}, Spec: current.InstrumentationSpec{ContainerSelector: current.ContainerSelector{NameSelector: current.NameSelector{MatchExpressions: []current.NameSelectorRequirement{
+			{Key: "anyContainer", Operator: "In", Values: []string{"c4", "cb"}},
+		}}}}}},
+	}
+	m := filterInstrumentations(ctx, insts, pod)
+	if diff := cmp.Diff(expectedMap, m); diff != "" {
+		t.Errorf("Unexpected diff (-want +got): %s", diff)
+	}
+}
+
+func TestValidateContainerInstrumentations(t *testing.T) {
+	//validateContainerInstrumentations()
+}
+
+func TestValidateInstrumentationAgentConfigMaps(t *testing.T) {
+	//validateInstrumentationAgentConfigMaps()
+}
+
+func TestValidateHealthAgents(t *testing.T) {
+	//validateHealthAgents()
+}
+
+func TestValidateContainerWithHealthAgent(t *testing.T) {
+	//validateContainerWithHealthAgent()
+}
+
+func TestValidateAgentConfigMap(t *testing.T) {
+	//validateAgentConfigMap()
+}
+
+func TestReplicateConfigMap(t *testing.T) {
+	//ReplicateConfigMap()
+}
+
+func TestReplicateConfigMaps(t *testing.T) {
+	//ReplicateConfigMaps()
 }

@@ -930,17 +930,19 @@ func GetConfigMapsFromInstrumentationsAgentEnv(instrumentations map[string][]*cu
 	uniqueNames := map[string]struct{}{}
 	for _, insts := range instrumentations {
 		for _, inst := range insts {
-			for _, entry := range inst.Spec.Agent.Env {
-				if entry.ValueFrom == nil {
-					continue
+			for _, entries := range [][]corev1.EnvVar{inst.Spec.Agent.Env, inst.Spec.HealthAgent.Env} {
+				for _, entry := range entries {
+					if entry.ValueFrom == nil {
+						continue
+					}
+					if entry.ValueFrom.ConfigMapKeyRef == nil {
+						continue
+					}
+					if entry.ValueFrom.ConfigMapKeyRef.Name == "" {
+						continue
+					}
+					uniqueNames[entry.ValueFrom.ConfigMapKeyRef.Name] = struct{}{}
 				}
-				if entry.ValueFrom.ConfigMapKeyRef == nil {
-					continue
-				}
-				if entry.ValueFrom.ConfigMapKeyRef.Name == "" {
-					continue
-				}
-				uniqueNames[entry.ValueFrom.ConfigMapKeyRef.Name] = struct{}{}
 			}
 		}
 	}
@@ -956,17 +958,19 @@ func GetSecretsFromInstrumentationsAgentEnv(instrumentations map[string][]*curre
 	uniqueNames := map[string]struct{}{}
 	for _, insts := range instrumentations {
 		for _, inst := range insts {
-			for _, entry := range inst.Spec.Agent.Env {
-				if entry.ValueFrom == nil {
-					continue
+			for _, entries := range [][]corev1.EnvVar{inst.Spec.Agent.Env, inst.Spec.HealthAgent.Env} {
+				for _, entry := range entries {
+					if entry.ValueFrom == nil {
+						continue
+					}
+					if entry.ValueFrom.SecretKeyRef == nil {
+						continue
+					}
+					if entry.ValueFrom.SecretKeyRef.Name == "" {
+						continue
+					}
+					uniqueNames[entry.ValueFrom.SecretKeyRef.Name] = struct{}{}
 				}
-				if entry.ValueFrom.SecretKeyRef == nil {
-					continue
-				}
-				if entry.ValueFrom.SecretKeyRef.Name == "" {
-					continue
-				}
-				uniqueNames[entry.ValueFrom.SecretKeyRef.Name] = struct{}{}
 			}
 		}
 	}

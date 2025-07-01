@@ -30,8 +30,9 @@ import (
 )
 
 const (
-	DefaultLicenseKeySecretName          = "newrelic-key-secret"
-	DescK8sAgentOperatorVersionLabelName = "newrelic-k8s-agents-operator-version"
+	DefaultLicenseKeySecretName            = "newrelic-key-secret"
+	DescK8sAgentOperatorVersionLabelName   = "newrelic-k8s-agents-operator-version"
+	DescK8sAgentOperatorTXIDAnnotationName = "newrelic-k8s-agents-operator-txid"
 )
 
 // compile time type assertion
@@ -110,6 +111,9 @@ func (i *NewrelicSdkInjector) InjectContainers(ctx context.Context, containerIns
 	}
 	if successfulInjection {
 		util.SetPodLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
+		if txid, ok := ctx.Value("txid").(string); ok {
+			util.SetPodAnnotation(&pod, DescK8sAgentOperatorTXIDAnnotationName, txid)
+		}
 	}
 	return pod
 }

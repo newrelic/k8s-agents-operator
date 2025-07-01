@@ -58,9 +58,11 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 	if podName == "" {
 		podName = pod.GenerateName + "<?>"
 	}
-	logger := m.Logger.WithValues("txid", uuid.NewUUID(), "pod_name", podName, "pod_namespace", pod.Namespace)
+	txid := uuid.NewUUID()
+	logger := m.Logger.WithValues("txid", txid, "pod_name", podName, "pod_namespace", pod.Namespace)
 	logger.Info("mutating pod")
 	ctx = logr.NewContext(ctx, logger)
+	ctx = context.WithValue(ctx, "txid", txid)
 
 	// we use the req.Namespace here because the pod might have not been created yet
 	ns := corev1.Namespace{}

@@ -124,11 +124,6 @@ function create_cluster() {
     echo "🔄 Creating E2E namespace"
     kubectl create namespace e2e-namespace
 
-    #echo "🔄 Installing secret"
-    #kubectl create secret generic newrelic-key-secret \
-    #  --namespace k8s-agents-operator \
-    #  --from-literal=new_relic_license_key=${LICENSE_KEY}
-
     echo "🔄 Installing instrumentation"
     for i in $(find ${SCRIPT_PATH} -maxdepth 1 -type f -name 'e2e-instrumentation-*.yml'); do
       kubectl apply --namespace k8s-agents-operator --filename $i
@@ -182,7 +177,7 @@ function test_ruby() {
 
 function teardown() {
     echo "🔄 Teardown"
-   # minikube delete --all > /dev/null
+    minikube delete --all > /dev/null
 }
 
 main "$@"
