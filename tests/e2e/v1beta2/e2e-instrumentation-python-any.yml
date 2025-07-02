@@ -1,0 +1,25 @@
+apiVersion: newrelic.com/v1beta2
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation-python-any
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["newrelic-python-agent"]
+  containerSelector:
+    nameSelector:
+      matchExpressions:
+        - key: anyContainer # init container or regular container
+          operator: In
+          values: [ "any-python1","any-python2" ]
+  agent:
+    language: python
+    image: newrelic/newrelic-python-init:latest
+    env:
+      - name: NEW_RELIC_TARGET_ANY
+        value: A

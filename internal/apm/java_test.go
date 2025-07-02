@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
 func TestJavaInjector_Inject(t *testing.T) {
@@ -23,6 +22,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 		inst           current.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
+		containerNames []string
 	}{
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
@@ -47,9 +47,6 @@ func TestJavaInjector_Inject(t *testing.T) {
 			}}},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
-					},
 					Annotations: map[string]string{
 						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
 					},
@@ -58,20 +55,20 @@ func TestJavaInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
+							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/nri-java--test/newrelic-agent.jar"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "newrelic-instrumentation-java",
-						Command:      []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Name:         "nri-java--test",
+						Command:      []string{"cp", "/newrelic-agent.jar", "/nri-java--test/newrelic-agent.jar"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-java--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				}},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
@@ -87,9 +84,6 @@ func TestJavaInjector_Inject(t *testing.T) {
 			}}},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
-					},
 					Annotations: map[string]string{
 						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
 					},
@@ -98,20 +92,20 @@ func TestJavaInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						Env: []corev1.EnvVar{
-							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:someagent.jar -javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
+							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:someagent.jar -javaagent:/nri-java--test/newrelic-agent.jar"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "newrelic-instrumentation-java",
-						Command:      []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Name:         "nri-java--test",
+						Command:      []string{"cp", "/newrelic-agent.jar", "/nri-java--test/newrelic-agent.jar"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-java--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				}},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
@@ -127,9 +121,6 @@ func TestJavaInjector_Inject(t *testing.T) {
 
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
-					},
 					Annotations: map[string]string{
 						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
 					},
@@ -139,19 +130,19 @@ func TestJavaInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "NEW_RELIC_LABELS", Value: "app:java-injected;operator:auto-injection"},
-							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
+							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/nri-java--test/newrelic-agent.jar"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
 						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "newrelic-instrumentation-java",
-						Command:      []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
+						Name:         "nri-java--test",
+						Command:      []string{"cp", "/newrelic-agent.jar", "/nri-java--test/newrelic-agent.jar"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					Volumes: []corev1.Volume{{Name: "nri-java--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
 				}},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java"}, LicenseKeySecret: "newrelic-key-secret"}},
 		},
@@ -162,38 +153,50 @@ func TestJavaInjector_Inject(t *testing.T) {
 			}}},
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
-					},
 					Annotations: map[string]string{
 						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
 					},
 				},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name: "test",
-						Env: []corev1.EnvVar{
-							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"},
-							{Name: "NEWRELIC_FILE", Value: "/newrelic-apm-config/newrelic.yaml"},
-							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
-							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
-							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
-							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
-						},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-apm-config", MountPath: "/newrelic-apm-config"}, {Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
-					}},
-					InitContainers: []corev1.Container{{
-						Name:         "newrelic-instrumentation-java",
-						Command:      []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
-						VolumeMounts: []corev1.VolumeMount{{Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation"}},
-					}},
-					Volumes: []corev1.Volume{{Name: "newrelic-apm-config", VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "my-java-apm-config",
+					Containers: []corev1.Container{
+						{
+							Name: "test",
+							Env: []corev1.EnvVar{
+								{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/nri-java--test/newrelic-agent.jar"},
+								{Name: "NEWRELIC_FILE", Value: "/nri-cfg--test/newrelic.yaml"},
+								{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+								{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "nri-cfg--test", MountPath: "/nri-cfg--test"},
+								{Name: "nri-java--test", MountPath: "/nri-java--test"},
 							},
 						},
-					}}, {Name: "newrelic-instrumentation", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+					},
+					InitContainers: []corev1.Container{
+						{
+							Name:         "nri-java--test",
+							Command:      []string{"cp", "/newrelic-agent.jar", "/nri-java--test/newrelic-agent.jar"},
+							VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "nri-cfg--test",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "my-java-apm-config",
+									},
+								},
+							},
+						}, {
+							Name:         "nri-java--test",
+							VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+						},
+					},
 				}},
 			inst: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java"}, LicenseKeySecret: "newrelic-key-secret", AgentConfigMap: "my-java-apm-config"}},
 		},
@@ -201,13 +204,30 @@ func TestJavaInjector_Inject(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			i := &JavaInjector{}
+			i := &JavaInjector{baseInjector{lang: "java"}}
 			// inject multiple times to assert that it's idempotent
 			var err error
 			var actualPod corev1.Pod
 			testPod := test.pod
+		loop:
 			for ic := 0; ic < 3; ic++ {
-				actualPod, err = i.Inject(ctx, test.inst, test.ns, testPod)
+				if !i.Accepts(test.inst, test.ns, testPod) {
+					actualPod = testPod
+					continue
+				}
+				var containerNames []string
+				if len(test.containerNames) == 0 && len(test.pod.Spec.Containers) > 0 {
+					containerNames = append(containerNames, test.pod.Spec.Containers[0].Name)
+				} else {
+					containerNames = append(containerNames, test.containerNames...)
+				}
+				for _, containerName := range containerNames {
+					actualPod, err = i.InjectContainer(ctx, test.inst, test.ns, testPod, containerName)
+					if err != nil {
+						break loop
+					}
+					testPod = actualPod
+				}
 				if err != nil {
 					break
 				}

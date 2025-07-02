@@ -3,11 +3,13 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"github.com/newrelic/k8s-agents-operator/internal/util/svcctx"
+	"k8s.io/apimachinery/pkg/types"
 	"net/http"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -29,6 +31,7 @@ var (
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;create;delete;deletecollection;patch;update;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;create;delete;deletecollection;patch;update;watch
 
 // PodMutationHandler is a webhook handler for mutating Pods
 type PodMutationHandler struct {
@@ -48,17 +51,24 @@ type PodMutator interface {
 // Handle manages Pod mutations
 func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := corev1.Pod{}
-	err := m.Decoder.Decode(req, &pod)
-	if err != nil {
+	if err := m.Decoder.Decode(req, &pod); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	m.Logger.Info("Mutating Pod", "name", pod.Name)
+	podName := pod.Name
+	if podName == "" {
+		podName = pod.GenerateName + "<?>"
+	}
+	txid := uuid.NewUUID()
+	logger := m.Logger.WithValues("txid", txid, "pod_name", podName, "pod_namespace", pod.Namespace)
+	logger.Info("mutating pod")
+	ctx = logr.NewContext(ctx, logger)
+	ctx = svcctx.ContextWithTXID(ctx, string(txid))
 
 	// we use the req.Namespace here because the pod might have not been created yet
 	ns := corev1.Namespace{}
-	err = m.Client.Get(ctx, types.NamespacedName{Name: req.Namespace, Namespace: ""}, &ns)
-	if err != nil {
+
+	if err := m.Client.Get(ctx, types.NamespacedName{Name: req.Namespace, Namespace: ""}, &ns); err != nil {
 		res := admission.Errored(http.StatusInternalServerError, err)
 		// By default, admission.Errored sets Allowed to false which blocks pod creation even though the failurePolicy=ignore.
 		// Allowed set to true makes sure failure does not block pod creation in case of an error.
@@ -70,18 +80,19 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 	}
 
 	for _, mutator := range m.Mutators {
-		pod, err = mutator.Mutate(ctx, ns, pod)
+		mutatedPod, err := mutator.Mutate(ctx, ns, *pod.DeepCopy())
 		if err != nil {
 			//@todo: actually print the error message
 			res := admission.Errored(http.StatusInternalServerError, err)
 			res.Allowed = true
 			return res
 		}
+		pod = mutatedPod
 	}
 
 	marshaledPod, err := json.Marshal(pod)
 	if err != nil {
-		m.Logger.Error(err, "failed to marshal pod")
+		logger.Error(err, "failed to marshal pod")
 		res := admission.Errored(http.StatusInternalServerError, err)
 		res.Allowed = true
 		return res
@@ -95,9 +106,10 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 	// Setup InstrumentationMutator
 	mgrClient := mgr.GetClient()
 	injectorRegistry := apm.DefaultInjectorRegistry
-	injector := instrumentation.NewNewrelicSdkInjector(logger, mgrClient, injectorRegistry)
-	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, mgrClient)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, mgrClient, operatorNamespace)
+	injector := instrumentation.NewNewrelicSdkInjector(mgrClient, injectorRegistry)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(mgrClient)
+	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(mgrClient)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(mgrClient, operatorNamespace)
 
 	hookServer := mgr.GetWebhookServer()
 	hookServer.Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodMutationHandler{
@@ -105,10 +117,10 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 		Decoder: admission.NewDecoder(mgr.GetScheme()),
 		Mutators: []PodMutator{
 			instrumentation.NewMutator(
-				logger,
 				mgrClient,
 				injector,
 				secretReplicator,
+				configMapReplicator,
 				instrumentationLocator,
 				operatorNamespace,
 			),

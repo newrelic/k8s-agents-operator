@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: javaapp
+spec:
+  selector:
+    matchLabels:
+      app: javaapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: javaapp
+        app.newrelic.instrumentation: newrelic-java-agent
+    spec:
+      containers:
+        - name: javaapp
+          image: ghcr.io/open-telemetry/opentelemetry-operator/e2e-test-app-java:main
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: javaapp-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: javaapp
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: java-cm
+data:
+  newrelic.yaml: |
+    production:
+      x: y

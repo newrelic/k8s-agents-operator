@@ -69,11 +69,7 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Obje
 // +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1beta1-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1beta1,name=vinstrumentationcreateupdate-v1beta1.kb.io,sideEffects=none,admissionReviewVersions=v1
 // +kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1beta1-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1beta1,name=vinstrumentationdelete-v1beta1.kb.io,sideEffects=none,admissionReviewVersions=v1
 
-const (
-	envNewRelicPrefix = "NEW_RELIC_"
-)
-
-var validEnvPrefixes = []string{envNewRelicPrefix}
+var validEnvPrefixes = []string{"NEW_RELIC_", "NEWRELIC_"}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
 var _ webhook.CustomValidator = &InstrumentationValidator{}
@@ -104,25 +100,33 @@ func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, obj runti
 	return r.validate(inst)
 }
 
+var acceptableLangs = []string{
+	"dotnet",
+	"go",
+	"java",
+	"nodejs",
+	"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "php-8.4",
+	"python",
+	"ruby",
+}
+
+var acceptLangsForAgentConfigMap = []string{"java"}
+
 // validate to validate all the fields
 func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Warnings, error) {
 	if r.OperatorNamespace != inst.Namespace {
 		return nil, fmt.Errorf("instrumentation must be in operator namespace")
 	}
 
-	// TODO: Maybe improve this
-	acceptableLangs := []string{
-		"dotnet",
-		"go",
-		"java",
-		"nodejs",
-		"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "php-8.4",
-		"python",
-		"ruby",
-	}
 	agentLang := inst.Spec.Agent.Language
 	if !slices.Contains(acceptableLangs, agentLang) {
 		return nil, fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
+	}
+
+	if inst.Spec.AgentConfigMap != "" {
+		if !slices.Contains(acceptLangsForAgentConfigMap, agentLang) {
+			return nil, fmt.Errorf("instrumentation agent language %q does not support an agentConfigMap, agentConfigMap can only be configured with one of these languages (%q)", agentLang, strings.Join(acceptLangsForAgentConfigMap, ", "))
+		}
 	}
 
 	if err := r.validateEnv(inst.Spec.Agent.Env); err != nil {

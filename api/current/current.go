@@ -1,21 +1,34 @@
 package current
 
-import "github.com/newrelic/k8s-agents-operator/api/v1beta1"
+import currentapi "github.com/newrelic/k8s-agents-operator/api/v1beta2"
 
 type (
-	Agent                    = v1beta1.Agent
-	HealthAgent              = v1beta1.HealthAgent
-	Instrumentation          = v1beta1.Instrumentation
-	InstrumentationDefaulter = v1beta1.InstrumentationDefaulter
-	InstrumentationList      = v1beta1.InstrumentationList
-	InstrumentationSpec      = v1beta1.InstrumentationSpec
-	InstrumentationStatus    = v1beta1.InstrumentationStatus
-	InstrumentationValidator = v1beta1.InstrumentationValidator
-	UnhealthyPodError        = v1beta1.UnhealthyPodError
+	Agent                    = currentapi.Agent
+	HealthAgent              = currentapi.HealthAgent
+	Instrumentation          = currentapi.Instrumentation
+	InstrumentationDefaulter = currentapi.InstrumentationDefaulter
+	InstrumentationList      = currentapi.InstrumentationList
+	InstrumentationSpec      = currentapi.InstrumentationSpec
+	InstrumentationStatus    = currentapi.InstrumentationStatus
+	InstrumentationValidator = currentapi.InstrumentationValidator
+	UnhealthyPodError        = currentapi.UnhealthyPodError
+
+	ContainerSelector = currentapi.ContainerSelector
+	EnvSelector       = currentapi.EnvSelector
+	ImageSelector     = currentapi.ImageSelector
+	NameSelector      = currentapi.NameSelector
+
+	EnvSelectorOperator   = currentapi.EnvSelectorOperator
+	ImageSelectorOperator = currentapi.ImageSelectorOperator
+	NameSelectorOperator  = currentapi.NameSelectorOperator
+
+	EnvSelectorRequirement   = currentapi.EnvSelectorRequirement
+	ImageSelectorRequirement = currentapi.ImageSelectorRequirement
+	NameSelectorRequirement  = currentapi.NameSelectorRequirement
 )
 
 var (
-	AddToScheme   = v1beta1.AddToScheme
-	GroupVersion  = v1beta1.GroupVersion
-	SchemeBuilder = v1beta1.SchemeBuilder
+	AddToScheme   = currentapi.AddToScheme
+	GroupVersion  = currentapi.GroupVersion
+	SchemeBuilder = currentapi.SchemeBuilder
 )
