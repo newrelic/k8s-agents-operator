@@ -3,6 +3,7 @@ package instrumentation
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/newrelic/k8s-agents-operator/internal/selector"
 	"strings"
@@ -2093,26 +2094,6 @@ func TestFilterInstrumentations(t *testing.T) {
 	}
 }
 
-func TestValidateContainerInstrumentations(t *testing.T) {
-	//validateContainerInstrumentations()
-}
-
-func TestValidateInstrumentationAgentConfigMaps(t *testing.T) {
-	//validateInstrumentationAgentConfigMaps()
-}
-
-func TestValidateHealthAgents(t *testing.T) {
-	//validateHealthAgents()
-}
-
-func TestValidateContainerWithHealthAgent(t *testing.T) {
-	//validateContainerWithHealthAgent()
-}
-
-func TestValidateAgentConfigMap(t *testing.T) {
-	//validateAgentConfigMap()
-}
-
 func TestNewrelicConfigMapReplicator_ReplicateConfigMaps(t *testing.T) {
 	configMapReplicator := NewNewrelicConfigMapReplicator(k8sClient)
 
@@ -2339,4 +2320,193 @@ func TestNewrelicConfigMapReplicator_ReplicateConfigMaps(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateInstrumentations(t *testing.T) {
+	tests := []struct {
+		name          string
+		insts         []*current.Instrumentation
+		expectedErrIs error
+		enabled       bool
+	}{
+		{
+			name: "php hash dup",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.1", Image: "b"}}},
+			},
+			expectedErrIs: errMultipleInstancesPossible,
+		},
+		{
+			name: "no dup",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo3"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo4"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo5"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-7.4", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo6"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs", Image: "a"}}},
+			},
+			expectedErrIs: nil,
+		},
+		{
+			name: "java has dup",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo3"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo4"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo5"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-7.4", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo6"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo7"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "b"}}},
+			},
+			expectedErrIs: errMultipleInstancesPossible,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateInstrumentations(tt.insts)
+			if tt.expectedErrIs != nil && !errors.Is(err, tt.expectedErrIs) {
+				t.Errorf("unexpected error string. expected: %s, got: %s", tt.expectedErrIs, err)
+			}
+		})
+	}
+}
+
+func TestValidateContainerInstrumentations(t *testing.T) {
+	boolAsPtr := func(b bool) *bool { return &b }
+
+	tests := []struct {
+		name           string
+		insts          []*current.Instrumentation
+		expectedErrStr string
+		enabled        bool
+	}{
+		{
+			name: "agentConfigMap and env.name == NEWRELIC_FILE using in same instrumentation; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{AgentConfigMap: "yes", Agent: current.Agent{Language: "java", Image: "a", Env: []corev1.EnvVar{{Name: "NEWRELIC_FILE"}}}}},
+			},
+			expectedErrStr: "agentConfigMap and env.name == NEWRELIC_FILE can't be used together; conflicting instrumentations: [foo]",
+		},
+		{
+			name: "agentConfigMap and env.name == NEWRELIC_FILE using in different instrumentations; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{AgentConfigMap: "yes", Agent: current.Agent{Language: "java", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", Env: []corev1.EnvVar{{Name: "NEWRELIC_FILE"}}}}},
+			},
+			expectedErrStr: "agentConfigMap and env.name == NEWRELIC_FILE can't be used together; conflicting instrumentations: [foo2]\ninstrumentation.spec.agentConfigMap conflicts with multiple instrumentations matching the same container; instrumentations: foo, foo2",
+		},
+		{
+			name: "multiple agentConfigMaps in the instrumentations; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{AgentConfigMap: "yes", Agent: current.Agent{Language: "java", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{AgentConfigMap: "yes2", Agent: current.Agent{Language: "java", Image: "a"}}},
+			},
+			expectedErrStr: "instrumentation.spec.agentConfigMap conflicts with multiple instrumentations matching the same container; instrumentations: foo, foo2",
+		},
+		{
+			name: "multiple instrumentations with env.NEWRELIC_FILE configured; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", Env: []corev1.EnvVar{{Name: "NEWRELIC_FILE", Value: "a"}}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", Env: []corev1.EnvVar{{Name: "NEWRELIC_FILE", Value: "b"}}}}},
+			},
+			expectedErrStr: "instrumentation.spec.agent.env with entry keys [NEWRELIC_FILE], conflicts with multiple instrumentations matching the same container; instrumentations: foo, foo2",
+		},
+
+		{
+			name: "multiple resources defined(one empty) in the instrumentation; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("23Mi"),
+					},
+				}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a"}}},
+			},
+			expectedErrStr: "instrumentation.spec.agent.resourceRequirements conflicts with multiple instrumentations matching the same container; instrumentations: foo, foo2",
+		},
+		{
+			name: "multiple resources defined(both configured diff) in the instrumentation; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("23Mi"),
+					},
+				}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a", Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU: resource.MustParse("1.25"),
+					},
+				}}}},
+			},
+			expectedErrStr: "instrumentation.spec.agent.resourceRequirements conflicts with multiple instrumentations matching the same container; instrumentations: foo, foo2",
+		},
+		{
+			name: "multiple security contexts defined(one empty) in the instrumentations; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", SecurityContext: &corev1.SecurityContext{
+					Privileged: boolAsPtr(false),
+				}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a"}}},
+			},
+			expectedErrStr: "instrumentation.spec.agent.securityContext conflicts with multiple instrumentations matching the same container; instrumentations: foo, foo2",
+		},
+		{
+			name: "multiple security contexts defined(both configured diff) in the instrumentations; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", SecurityContext: &corev1.SecurityContext{
+					ReadOnlyRootFilesystem: boolAsPtr(true),
+				}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a", SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot: boolAsPtr(true),
+				}}}},
+			},
+			expectedErrStr: "instrumentation.spec.agent.securityContext conflicts with multiple instrumentations matching the same container; instrumentations: foo, foo2",
+		},
+		{
+			name: "env vars with same name, diff values; not allowed",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", Env: []corev1.EnvVar{{Name: "A"}}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a", Env: []corev1.EnvVar{{Name: "A", Value: "B"}}}}},
+			},
+			expectedErrStr: "instrumentation.spec.agent.env with entry keys [A], conflicts with multiple instrumentations matching the same container; instrumentations: foo, foo2",
+		},
+		{
+			name: "env vars with diff names; allowed; it should merge",
+			insts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a", Env: []corev1.EnvVar{{Name: "A"}}}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a", Env: []corev1.EnvVar{{Name: "B"}}}}},
+			},
+			expectedErrStr: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateContainerInstrumentations(tt.insts)
+			var errStr string
+			if err != nil {
+				errStr = err.Error()
+			}
+			if tt.expectedErrStr != errStr {
+				t.Errorf("unexpected error string. expected: %s, got: %s", tt.expectedErrStr, errStr)
+			}
+		})
+	}
+}
+
+func TestValidateInstrumentationAgentConfigMaps(t *testing.T) {
+	//validateInstrumentationAgentConfigMaps()
+}
+
+func TestValidateHealthAgents(t *testing.T) {
+	//validateHealthAgents()
+}
+
+func TestValidateContainerWithHealthAgent(t *testing.T) {
+	//validateContainerWithHealthAgent()
+}
+
+func TestValidateAgentConfigMap(t *testing.T) {
+	//validateAgentConfigMap()
 }

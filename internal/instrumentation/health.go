@@ -308,17 +308,17 @@ func (m *HealthMonitor) resourceQueueEvent(ctx context.Context, ev event) {
 			return
 		}
 
-		logger.Info("trigger health check")
 		podMetrics := m.getPodMetrics(ctx)
 		if len(podMetrics) == 0 {
-			logger.Info("nothing to check the health of.  No pods")
+			logger.Info("triggered a health check, but there's nothing to check the health of.  No pods")
 			return
 		}
 		instrumentationMetrics := m.getInstrumentationMetrics(ctx, podMetrics)
 		if len(instrumentationMetrics) == 0 {
-			logger.Info("nothing to report the health to.  No instrumentations with a configured health agent")
+			logger.Info("triggered a health check, but there's nothing to report the health to.  No instrumentations with a configured health agent")
 			return
 		}
+		logger.V(1).Info("trigger health check")
 		// use the required data at this point in time to do health checks
 		_ = m.healthCheckQueue.Add(ctx, healthCheckData{podMetrics: podMetrics, instrumentationMetrics: instrumentationMetrics})
 	}
