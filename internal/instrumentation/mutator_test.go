@@ -416,7 +416,7 @@ func TestMutatePod(t *testing.T) {
 	}
 }
 
-func TestNewrelicSecretReplicator_ReplicateSecret(t *testing.T) {
+func TestNewrelicSecretReplicator_ReplicateSecrets(t *testing.T) {
 	secretReplicator := NewNewrelicSecretReplicator(k8sClient)
 
 	tests := []struct {
@@ -625,7 +625,7 @@ func TestNewrelicSecretReplicator_ReplicateSecret(t *testing.T) {
 				}
 			}()
 
-			err := secretReplicator.ReplicateSecret(ctx, tc.ns, tc.pod, tc.operatorNs, tc.secretName)
+			err := secretReplicator.ReplicateSecrets(ctx, tc.ns, tc.pod, tc.operatorNs, []string{tc.secretName})
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -2113,10 +2113,230 @@ func TestValidateAgentConfigMap(t *testing.T) {
 	//validateAgentConfigMap()
 }
 
-func TestReplicateConfigMap(t *testing.T) {
-	//ReplicateConfigMap()
-}
+func TestNewrelicConfigMapReplicator_ReplicateConfigMaps(t *testing.T) {
+	configMapReplicator := NewNewrelicConfigMapReplicator(k8sClient)
 
-func TestReplicateConfigMaps(t *testing.T) {
-	//ReplicateConfigMaps()
+	tests := []struct {
+		name           string
+		expectedErrStr string
+		pod            corev1.Pod
+		ns             corev1.Namespace
+		operatorNs     string
+		configMapName  string
+		initConfigMaps []*corev1.ConfigMap
+		initNs         []*corev1.Namespace
+	}{
+		{
+			name:           "no configmap",
+			ns:             corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+			pod:            corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:     "default",
+			configMapName:  "newrelic-configmap",
+			expectedErrStr: "configmaps \"newrelic-configmap\" not found",
+		},
+		{
+			name: "same ns as operator",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns11"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns11"}},
+			},
+			ns:            corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns11"}},
+			pod:           corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:    "ns11",
+			configMapName: "newrelic-configmap",
+		},
+		{
+			name: "same ns as pod, no configmap in operator ns",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns12-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns12-pod"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns12-pod"}},
+			},
+			ns:            corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns12-pod"}},
+			pod:           corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:    "ns12-op",
+			configMapName: "newrelic-configmap",
+		},
+		{
+			name: "configmap in other ns, no configmaps in pod or operator ns",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns13-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns13-other"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns13-pod"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns13-other"}},
+			},
+			ns:             corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns13-pod"}},
+			pod:            corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:     "ns13-op",
+			configMapName:  "newrelic-configmap",
+			expectedErrStr: "configmaps \"newrelic-configmap\" not found",
+		},
+		{
+			name: "configmap in operator ns, no other configmaps",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns14-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns14-pod"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns14-op"}},
+			},
+			ns:            corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns14-pod"}},
+			pod:           corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:    "ns14-op",
+			configMapName: "newrelic-configmap",
+		},
+		{
+			name: "operator ns, none in pod ns, configmap in other ns",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns15-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns15-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns15-other"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns15-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns15-other"}},
+			},
+			ns:            corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns15-pod"}},
+			pod:           corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:    "ns15-op",
+			configMapName: "newrelic-configmap",
+		},
+		{
+			name: "configmap in operator ns, ns-specific configmap in pod ns",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns16-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns16-pod"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns16-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "pod-configmap", Namespace: "ns16-pod"}},
+			},
+			ns:            corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns16-pod"}},
+			pod:           corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:    "ns16-op",
+			configMapName: "newrelic-configmap",
+		},
+		{
+			name: "configmap in operator ns, ns-specific configmap in pod ns",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns17-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns17-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns17-other"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns17-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns17-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns17-other"}},
+			},
+			ns:             corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns17-pod"}},
+			pod:            corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:     "ns17-op",
+			configMapName:  "not-a-normal-configmap",
+			expectedErrStr: "configmaps \"not-a-normal-configmap\" not found",
+		},
+		{
+			name: "configmap in operator ns, ns-specific configmap in pod ns",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns18-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns18-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns18-other"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns18-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns18-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns18-other"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "not-a-normal-configmap", Namespace: "ns18-other"}},
+			},
+			ns:             corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns18-pod"}},
+			pod:            corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:     "ns18-op",
+			configMapName:  "not-a-normal-configmap",
+			expectedErrStr: "configmaps \"not-a-normal-configmap\" not found",
+		},
+		{
+			name: "configmap in operator ns, ns-specific configmap in pod ns",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns19-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns19-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns19-other"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns19-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns19-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns19-other"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "not-a-normal-configmap", Namespace: "ns19-pod"}},
+			},
+			ns:            corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns19-pod"}},
+			pod:           corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:    "ns19-op",
+			configMapName: "not-a-normal-configmap",
+		},
+		{
+			name: "configmap in operator ns, ns-specific configmap in pod ns",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns20-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns20-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns20-other"}},
+			},
+			initConfigMaps: []*corev1.ConfigMap{
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns20-op"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns20-pod"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "newrelic-configmap", Namespace: "ns20-other"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "not-a-normal-configmap", Namespace: "ns20-op"}},
+			},
+			ns:            corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "ns20-pod"}},
+			pod:           corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod"}},
+			operatorNs:    "ns20-op",
+			configMapName: "not-a-normal-configmap",
+		},
+	}
+
+	for i, tc := range tests {
+		t.Run(fmt.Sprintf("%d_%s", i, tc.name), func(t *testing.T) {
+			ctx := context.Background()
+
+			for _, initNs := range tc.initNs {
+				if initNs.Name == "default" || initNs.Name == "" {
+					continue
+				}
+				err := k8sClient.Create(ctx, initNs)
+				require.NoError(t, err)
+			}
+			defer func() {
+				for _, initNs := range tc.initNs {
+					if initNs.Name == "default" || initNs.Name == "" {
+						continue
+					}
+					err := k8sClient.Delete(ctx, initNs)
+					require.NoError(t, err)
+				}
+			}()
+
+			for _, initConfigMap := range tc.initConfigMaps {
+				err := k8sClient.Create(ctx, initConfigMap)
+				require.NoError(t, err)
+			}
+			defer func() {
+				for _, initConfigMap := range tc.initConfigMaps {
+					err := k8sClient.Delete(ctx, initConfigMap)
+					require.NoError(t, err)
+				}
+			}()
+
+			err := configMapReplicator.ReplicateConfigMaps(ctx, tc.ns, tc.pod, tc.operatorNs, []string{tc.configMapName})
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			}
+			if tc.expectedErrStr != errStr {
+				t.Errorf("unexpected error string. expected: %s, got: %s", tc.expectedErrStr, errStr)
+			}
+		})
+	}
 }

@@ -18,8 +18,8 @@ package instrumentation
 
 import (
 	"context"
-
 	"github.com/go-logr/logr"
+	"github.com/newrelic/k8s-agents-operator/internal/util/svcctx"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -111,7 +111,7 @@ func (i *NewrelicSdkInjector) InjectContainers(ctx context.Context, containerIns
 	}
 	if successfulInjection {
 		util.SetPodLabel(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
-		if txid, ok := ctx.Value("txid").(string); ok {
+		if txid, ok := svcctx.TXIDFromContext(ctx); ok {
 			util.SetPodAnnotation(&pod, DescK8sAgentOperatorTXIDAnnotationName, txid)
 		}
 	}

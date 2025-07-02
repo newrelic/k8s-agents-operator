@@ -30,7 +30,6 @@ import (
 	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
-	//"go.uber.org/zap/zapcore"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

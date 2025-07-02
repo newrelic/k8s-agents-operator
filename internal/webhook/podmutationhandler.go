@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"github.com/newrelic/k8s-agents-operator/internal/util/svcctx"
 	"k8s.io/apimachinery/pkg/types"
 	"net/http"
 
@@ -62,7 +63,7 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 	logger := m.Logger.WithValues("txid", txid, "pod_name", podName, "pod_namespace", pod.Namespace)
 	logger.Info("mutating pod")
 	ctx = logr.NewContext(ctx, logger)
-	ctx = context.WithValue(ctx, "txid", txid)
+	ctx = svcctx.ContextWithTXID(ctx, string(txid))
 
 	// we use the req.Namespace here because the pod might have not been created yet
 	ns := corev1.Namespace{}
