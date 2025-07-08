@@ -22,6 +22,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
+      {{- if .Values.hostNetwork }}
+      hostNetwork: {{ .Values.hostNetwork }}
+      {{- end }}
       serviceAccountName: {{ include "newrelic.common.serviceAccount.name" . }}
       {{- with include "newrelic.common.securityContext.pod" . }}
       securityContext:
@@ -42,11 +45,13 @@ spec:
           {{- . | nindent 10 }}
         {{- end }}
         args:
-        - --metrics-bind-address=:8443
+        - --metrics-bind-address=:{{ (index .Values.metricsService.ports 0).targetPort }}
         {{- if .Values.controllerManager.manager.leaderElection.enabled }}
         - --leader-elect
         {{- end }}
-        - --health-probe-bind-address=:8081
+        - --zap-log-level={{ .Values.controllerManager.manager.logLevel }}
+        - --health-probe-bind-address=:{{ .Values.healthProbe.port }}
+        - --webhook-service-bind-address=:{{ (index .Values.webhookService.ports 0).targetPort }}
         command:
         - /bin/operator
         env:
@@ -63,17 +68,17 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8081
+            port: {{ .Values.healthProbe.port }}
           initialDelaySeconds: 15
           periodSeconds: 20
         ports:
-        - containerPort: 9443
+        - containerPort: {{ (index .Values.webhookService.ports 0).targetPort }}
           name: webhook-server
           protocol: TCP
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 8081
+            port: {{ .Values.healthProbe.port }}
           initialDelaySeconds: 5
           periodSeconds: 10
         resources:

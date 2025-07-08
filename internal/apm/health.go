@@ -52,25 +52,18 @@ var healthDefaultEnv = []corev1.EnvVar{
 	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
 }
 
-func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentContainerIndex int, agentInitContainerIndex int) (corev1.Pod, error) {
+// injectHealthWithContainer used to inject the health container (sidecar) and mounts requires, among other things
+func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, container *corev1.Container) (corev1.Pod, error) {
 	if inst.Spec.HealthAgent.IsEmpty() {
 		return pod, nil
 	}
-
-	originalPod := pod.DeepCopy()
-	firstContainer := 0
-
-	// caller checks if there is at least one container.
-	var container *corev1.Container
-	if agentContainerIndex > -1 {
-		container = &pod.Spec.Containers[agentContainerIndex]
-	} else if agentInitContainerIndex > -1 {
-		container = &pod.Spec.InitContainers[agentInitContainerIndex]
+	if container == nil {
+		return pod, nil
 	}
 
 	var err error
 	if err = validateContainerEnv(container.Env, envAgentControlHealthDeliveryLocation); err != nil {
-		return *originalPod, err
+		return corev1.Pod{}, err
 	}
 
 	var sidecarContainerEnv []corev1.EnvVar
@@ -111,7 +104,7 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrument
 	healthMountPath := defaultHealthDeliveryLocation
 	if v, ok := getValueFromEnv(sidecarContainerEnv, envAgentControlHealthDeliveryLocation); ok && v != "" {
 		if healthMountPath, err = i.validateHealthFilepath(v); err != nil {
-			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envAgentControlHealthDeliveryLocation, err)
+			return corev1.Pod{}, fmt.Errorf("invalid env value %q for %q > %w", v, envAgentControlHealthDeliveryLocation, err)
 		}
 	}
 
@@ -119,11 +112,11 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrument
 	if v, ok := getValueFromEnv(sidecarContainerEnv, envHealthListenPort); ok {
 		sidecarListenPort, err = i.validateHealthListenPort(v)
 		if err != nil {
-			return *originalPod, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthListenPort, err)
+			return corev1.Pod{}, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthListenPort, err)
 		}
 	}
 
-	if isContainerVolumeMissing(&pod.Spec.Containers[firstContainer], healthVolumeName) {
+	if isContainerVolumeMissing(container, healthVolumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      healthVolumeName,
 			MountPath: healthMountPath,
@@ -131,8 +124,8 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrument
 	}
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, HealthSidecarContainerName) {
-		if isPodVolumeMissing(pod, healthVolumeName) {
+	if isInitContainerMissing(&pod, HealthSidecarContainerName) {
+		if isPodVolumeMissing(&pod, healthVolumeName) {
 			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 				Name: healthVolumeName,
 				VolumeSource: corev1.VolumeSource{
@@ -142,9 +135,10 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrument
 
 		restartAlways := corev1.ContainerRestartPolicyAlways
 		sidecarContainer := corev1.Container{
-			Name:          HealthSidecarContainerName,
-			Image:         inst.Spec.HealthAgent.Image,
-			RestartPolicy: &restartAlways,
+			Name:            HealthSidecarContainerName,
+			Image:           inst.Spec.HealthAgent.Image,
+			ImagePullPolicy: inst.Spec.HealthAgent.ImagePullPolicy,
+			RestartPolicy:   &restartAlways,
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      healthVolumeName,
 				MountPath: healthMountPath,
@@ -152,7 +146,9 @@ func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrument
 			Ports: []corev1.ContainerPort{
 				{ContainerPort: int32(sidecarListenPort)},
 			},
-			Env: sidecarContainerEnv,
+			Env:             sidecarContainerEnv,
+			Resources:       *inst.Spec.HealthAgent.Resources.DeepCopy(),
+			SecurityContext: inst.Spec.HealthAgent.SecurityContext.DeepCopy(),
 		}
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, sidecarContainer)

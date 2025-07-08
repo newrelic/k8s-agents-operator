@@ -35,12 +35,21 @@ podSecurityContext:
 # -- Sets all security context (at container level). Can be configured also with `global.securityContext.container`
 containerSecurityContext: {}
 
+# If hostNetwork is set to true, the webhook server will bind to the host network.
+# @default -- `false`
+hostNetwork: false
+
 kubernetesClusterDomain: cluster.local
+
+crds:
+  enabled: true
 
 controllerManager:
   replicas: 1
 
   manager:
+    # -- Turns on debug logging
+    logLevel: info
     image:
       # -- Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images.
       repository: newrelic/k8s-agents-operator
@@ -75,6 +84,12 @@ serviceAccount:
   name: ""
   # Specify any annotations to add to the ServiceAccount
   annotations:
+
+# -- healthprobe settings
+# -- healthprobe is a simple HTTP server that listens on the specified port and responds with 200 OK
+# -- when the operator is healthy. It is used by Kubernetes to check the health of the operator.
+healthProbe:
+  port: 8081
 
 metricsService:
   ports:

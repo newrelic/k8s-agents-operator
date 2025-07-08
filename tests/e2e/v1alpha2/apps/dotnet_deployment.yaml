@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: dotnetapp
-          image: ghcr.io/open-telemetry/opentelemetry-operator/e2e-test-app-dotnet:main  # source code of the application: https://github.com/dotnet/dotnet-docker/tree/main/samples/aspnetapp
+          image: mcr.microsoft.com/dotnet/samples:aspnetapp  # source code of the application: https://github.com/dotnet/dotnet-docker/tree/main/samples/aspnetapp
           env:
             - name: ASPNETCORE_URLS
               value: 'http://+:8080'

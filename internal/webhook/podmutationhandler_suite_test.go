@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -43,13 +44,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
@@ -79,8 +80,6 @@ func TestMain(m *testing.M) {
 	ctx, cancel = context.WithCancel(context.TODO())
 	defer cancel()
 
-	logger := zap.New(zap.UseDevMode(true), zap.WriteTo(&fakeWriter{}))
-
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
 
@@ -105,6 +104,11 @@ func TestMain(m *testing.M) {
 	}
 
 	if err = v1alpha2.AddToScheme(testScheme); err != nil {
+		fmt.Printf("failed to register scheme: %v", err)
+		os.Exit(1)
+	}
+
+	if err = v1beta1.AddToScheme(testScheme); err != nil {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
 	}
@@ -157,7 +161,21 @@ func TestMain(m *testing.M) {
 		WithDefaulter(v1alpha2InstDefaulter).
 		Complete()
 	if err != nil {
-		fmt.Printf("failed to register instrumentation webhook: %v", mgrErr)
+		fmt.Printf("failed to register v1alpha2.instrumentation webhook: %v", err)
+		os.Exit(1)
+	}
+
+	v1beta1InstDefaulter := &v1beta1.InstrumentationDefaulter{}
+	v1beta1InstValidator := &v1beta1.InstrumentationValidator{
+		OperatorNamespace: operatorNamespace,
+	}
+	err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1beta1.Instrumentation{}).
+		WithValidator(v1beta1InstValidator).
+		WithDefaulter(v1beta1InstDefaulter).
+		Complete()
+	if err != nil {
+		fmt.Printf("failed to register v1beta1.instrumentation webhook: %v", err)
 		os.Exit(1)
 	}
 
@@ -171,24 +189,25 @@ func TestMain(m *testing.M) {
 		WithDefaulter(currentInstDefaulter).
 		Complete()
 	if err != nil {
-		fmt.Printf("failed to register instrumentation webhook: %v", mgrErr)
+		fmt.Printf("failed to register current.instrumentation webhook: %v", err)
 		os.Exit(1)
 	}
 
 	client := mgr.GetClient()
-	injector := instrumentation.NewNewrelicSdkInjector(logger, client, injectorRegistry)
-	secretReplicator := instrumentation.NewNewrelicSecretReplicator(logger, client)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(logger, client, operatorNamespace)
+	injector := instrumentation.NewNewrelicSdkInjector(client, injectorRegistry)
+	secretReplicator := instrumentation.NewNewrelicSecretReplicator(client)
+	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(client)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(client, operatorNamespace)
 	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
 		Handler: &webhook.PodMutationHandler{
 			Client:  client,
 			Decoder: admission.NewDecoder(mgr.GetScheme()),
 			Mutators: []webhook.PodMutator{
 				instrumentation.NewMutator(
-					logger,
 					client,
 					injector,
 					secretReplicator,
+					configMapReplicator,
 					instrumentationLocator,
 					operatorNamespace,
 				),
@@ -300,16 +319,17 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 						"inject":                                 "python",
 						apm.DescK8sAgentOperatorVersionLabelName: version.Get().Operator,
 					},
+					Generation: 1,
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
 						{
-							Name:    "newrelic-instrumentation-python",
+							Name:    "nri-python--alpine",
 							Image:   "not-a-real-python-image",
-							Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+							Command: []string{"cp", "-a", "/instrumentation/.", "/nri-python--alpine/"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation",
+									Name: "nri-python--alpine", MountPath: "/nri-python--alpine",
 								},
 							},
 						},
@@ -321,11 +341,11 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 							Command: []string{"sleep", "300"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation",
+									Name: "nri-python--alpine", MountPath: "/nri-python--alpine",
 								},
 							},
 							Env: []corev1.EnvVar{
-								{Name: "PYTHONPATH", Value: "/newrelic-instrumentation"},
+								{Name: "PYTHONPATH", Value: "/nri-python--alpine"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "alpine1"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -335,7 +355,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: "newrelic-instrumentation",
+							Name: "nri-python--alpine",
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
@@ -391,14 +411,22 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "alpine2", Namespace: "default", Labels: map[string]string{
 					"inject":                                 "php",
 					apm.DescK8sAgentOperatorVersionLabelName: version.Get().Operator},
+					Generation: 1,
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
 						{
-							Name:    "newrelic-instrumentation-php",
+							Name:    "nri-php--alpine",
 							Image:   "not-a-real-php-image",
 							Command: []string{"/bin/sh"},
-							Args:    []string{"-c", "cp -a /instrumentation/. /newrelic-instrumentation/ && /newrelic-instrumentation/k8s-php-install.sh 20230831 && /newrelic-instrumentation/nr_env_to_ini.sh"},
+							Args: []string{"-c", strings.Join([]string{
+								"cp -a /instrumentation/. /nri-php--alpine/",
+								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/php-agent/ini/newrelic.ini",
+								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/k8s-php-install.sh",
+								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/nr_env_to_ini.sh",
+								"/nri-php--alpine/k8s-php-install.sh 20230831",
+								"/nri-php--alpine/nr_env_to_ini.sh",
+							}, " && ")},
 							Env: []corev1.EnvVar{
 								{Name: "NEW_RELIC_APP_NAME", Value: "alpine2"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
@@ -407,7 +435,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation",
+									Name: "nri-php--alpine", MountPath: "/nri-php--alpine",
 								},
 							},
 						},
@@ -419,13 +447,13 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 							Command: []string{"sleep", "300"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "newrelic-instrumentation", MountPath: "/newrelic-instrumentation",
+									Name: "nri-php--alpine", MountPath: "/nri-php--alpine",
 								},
 							},
 							Env: []corev1.EnvVar{
 								{Name: "a", Value: "a"},
 								{Name: "b", Value: "b"},
-								{Name: "PHP_INI_SCAN_DIR", Value: "/newrelic-instrumentation/php-agent/ini"},
+								{Name: "PHP_INI_SCAN_DIR", Value: ":/nri-php--alpine/php-agent/ini"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "alpine2"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -434,7 +462,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: "newrelic-instrumentation",
+							Name: "nri-php--alpine",
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},

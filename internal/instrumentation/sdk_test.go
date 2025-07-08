@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,13 +14,13 @@ import (
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 )
 
-var _ apm.Injector = (*ErrorInjector)(nil)
+var _ apm.ContainerInjector = (*ErrorInjector)(nil)
 
 type ErrorInjector struct {
 	err error
 }
 
-func (ei *ErrorInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (ei *ErrorInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
 	return pod, ei.err
 }
 
@@ -29,40 +28,19 @@ func (ei *ErrorInjector) Language() string {
 	return "error"
 }
 
-func (ei *ErrorInjector) ConfigureLogger(logger logr.Logger) {}
+func (ei *ErrorInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
+	return inst.Spec.Agent.Language == ei.Language()
+}
 
 func (ei *ErrorInjector) ConfigureClient(client client.Client) {}
 
-var _ apm.Injector = (*PanicInjector)(nil)
-
-type PanicInjector struct {
-	injectAttempted bool
-}
-
-func (pi *PanicInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	pi.injectAttempted = true
-	var a *int
-	var b int
-	//nolint:all
-	*a = b // nil pointer panic
-	return corev1.Pod{}, nil
-}
-
-func (pi *PanicInjector) Language() string {
-	return "panic"
-}
-
-func (pi *PanicInjector) ConfigureLogger(logger logr.Logger) {}
-
-func (pi *PanicInjector) ConfigureClient(client client.Client) {}
-
-var _ apm.Injector = (*AnnotationInjector)(nil)
+var _ apm.ContainerInjector = (*AnnotationInjector)(nil)
 
 type AnnotationInjector struct {
 	lang string
 }
 
-func (ai *AnnotationInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
+func (ai *AnnotationInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}
@@ -74,14 +52,49 @@ func (ai *AnnotationInjector) Language() string {
 	return ai.lang
 }
 
-func (ai *AnnotationInjector) ConfigureLogger(logger logr.Logger) {}
+func (ai *AnnotationInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
+	return inst.Spec.Agent.Language == ai.Language()
+}
 
 func (ai *AnnotationInjector) ConfigureClient(client client.Client) {}
+
+var (
+	_ apm.ContainerInjector = (*ContainerInjector)(nil)
+)
+
+type ContainerInjector struct {
+	lang string
+}
+
+func (i *ContainerInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
+	var container *corev1.Container
+	for j, containerItem := range pod.Spec.Containers {
+		if containerItem.Name == containerName {
+			container = &pod.Spec.Containers[j]
+		}
+	}
+	if container == nil {
+		return pod, nil
+	}
+	container.Env = append(container.Env, corev1.EnvVar{
+		Name: "injected", Value: "true",
+	})
+	return pod, nil
+}
+
+func (i *ContainerInjector) Language() string {
+	return i.lang
+}
+
+func (i *ContainerInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
+	return inst.Spec.Agent.Language == i.Language()
+}
+
+func (ai *ContainerInjector) ConfigureClient(client client.Client) {}
 
 func TestNewrelicSdkInjector_Inject(t *testing.T) {
 	vtrue, vzero := true, int64(0)
 	_, _ = vtrue, vzero
-	logger := logr.Discard()
 	tests := []struct {
 		name          string
 		langInsts     []*current.Instrumentation
@@ -89,6 +102,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 		pod           corev1.Pod
 		containerName string
 		expectedPod   corev1.Pod
+		useNewMethod  bool
 	}{
 		{
 			name: "empty",
@@ -106,6 +120,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 					Name: "nothing",
 				},
 			}}},
+			containerName: "nothing",
 		},
 		{
 			name: "inject just a",
@@ -116,9 +131,13 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-a": "true"}},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"injected-a": "true"},
+					Labels:      map[string]string{"newrelic-k8s-agents-operator-version": ""},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
+			containerName: "pod-name",
 		},
 		{
 			name: "inject just b",
@@ -129,9 +148,13 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-b": "true"}},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"injected-b": "true"},
+					Labels:      map[string]string{"newrelic-k8s-agents-operator-version": ""},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
+			containerName: "pod-name",
 		},
 		{
 			name: "inject a and b",
@@ -143,9 +166,29 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
 			expectedPod: corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"injected-a": "true", "injected-b": "true"}},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"injected-a": "true", "injected-b": "true"},
+					Labels:      map[string]string{"newrelic-k8s-agents-operator-version": ""},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
+			containerName: "pod-name",
+		},
+		{
+			name: "inject 1st container",
+			langInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "c"}}},
+			},
+			pod: corev1.Pod{
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-1"}, {Name: "container-2"}}},
+			},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"newrelic-k8s-agents-operator-version": ""},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-1", Env: []corev1.EnvVar{{Name: "injected", Value: "true"}}}, {Name: "container-2"}}},
+			},
+			containerName: "container-1",
 		},
 		{
 			name: "inject has an error, pod should not be modified by that specific injector",
@@ -158,15 +201,17 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			expectedPod: corev1.Pod{
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "pod-name"}}},
 			},
+			containerName: "pod-name",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			injectorRegistry := apm.NewInjectorRegistry()
-			apmInjectors := []apm.Injector{
+			apmInjectors := []apm.ContainerInjector{
 				&AnnotationInjector{lang: "a"},
 				&AnnotationInjector{lang: "b"},
+				&ContainerInjector{lang: "c"},
 				&ErrorInjector{err: fmt.Errorf("some error")},
 			}
 			for _, apmInjector := range apmInjectors {
@@ -176,32 +221,11 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			for _, langInst := range test.langInsts {
 				_ = defaulter.Default(ctx, langInst)
 			}
-			injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
-			pod := injector.Inject(ctx, test.langInsts, test.ns, test.pod)
+			injector := NewNewrelicSdkInjector(k8sClient, injectorRegistry)
+			pod := injector.InjectContainers(ctx, map[string][]*current.Instrumentation{test.containerName: test.langInsts}, test.ns, test.pod)
 			if diff := cmp.Diff(test.expectedPod, pod); diff != "" {
 				t.Errorf("Unexpected diff (-want +got): %s", diff)
 			}
 		})
-	}
-}
-
-func TestNewrelicSdkInjector_Inject_WithPanic(t *testing.T) {
-	ctx := context.Background()
-	var logger = logr.Discard()
-	injectorRegistry := apm.NewInjectorRegistry()
-	pi := &PanicInjector{}
-	injectorRegistry.MustRegister(pi)
-	injector := NewNewrelicSdkInjector(logger, k8sClient, injectorRegistry)
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Fatalf("failed to handle panic")
-			}
-		}()
-		_ = injector.Inject(ctx, []*current.Instrumentation{{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "panic", Image: "panic"}}}}, corev1.Namespace{}, corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "panic", Image: "panic"}}}})
-	}()
-
-	if !pi.injectAttempted {
-		t.Fatalf("failed to trigger an injected panic")
 	}
 }

@@ -17,128 +17,92 @@ package apm
 
 import (
 	"context"
-	"strings"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 )
 
 const (
-	envJavaToolsOptions   = "JAVA_TOOL_OPTIONS"
-	envApmConfigFile      = "NEWRELIC_FILE"
-	javaJVMArgument       = "-javaagent:/newrelic-instrumentation/newrelic-agent.jar"
-	javaInitContainerName = initContainerName + "-java"
-	javaApmConfigPath     = apmConfigMountPath + "/newrelic.yaml"
+	envJavaToolsOptions = "JAVA_TOOL_OPTIONS"
+	envApmConfigFile    = "NEWRELIC_FILE"
 )
 
-var _ Injector = (*JavaInjector)(nil)
+var _ ContainerInjector = (*JavaInjector)(nil)
 
 func init() {
-	DefaultInjectorRegistry.MustRegister(&JavaInjector{})
+	DefaultInjectorRegistry.MustRegister(&JavaInjector{baseInjector{lang: "java"}})
 }
 
 type JavaInjector struct {
 	baseInjector
 }
 
-func (i *JavaInjector) Language() string {
-	return "java"
-}
-
-func (i *JavaInjector) acceptable(inst current.Instrumentation, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != i.Language() {
-		return false
-	}
-	if len(pod.Spec.Containers) == 0 {
-		return false
-	}
-	return true
-}
-
-func (i *JavaInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	if !i.acceptable(inst, pod) {
-		return pod, nil
-	}
-	if err := i.validate(inst); err != nil {
-		return pod, err
+func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
+	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
+	if container == nil {
+		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
 
-	firstContainer := 0
-	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[firstContainer]
+	initContainerName := "nri-java--" + containerName
+	volumeName := initContainerName
+	mountPath := "/" + volumeName
+	javaJVMArgument := "-javaagent:" + mountPath + "/newrelic-agent.jar"
 
-	err := validateContainerEnv(container.Env, envJavaToolsOptions)
-	if err != nil {
-		return pod, err
-	}
+	configVolumeName := "nri-cfg--" + containerName
+	configMountPath := "/" + configVolumeName
+	configPath := configMountPath + "/newrelic.yaml"
 
-	// inject Java instrumentation spec env vars.
-	for _, env := range inst.Spec.Agent.Env {
-		idx := getIndexOfEnv(container.Env, env.Name)
-		if idx == -1 {
-			container.Env = append(container.Env, env)
-		}
+	if err := validateContainerEnv(container.Env, envJavaToolsOptions); err != nil {
+		return corev1.Pod{}, err
 	}
-
-	if idx := getIndexOfEnv(container.Env, envJavaToolsOptions); idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  envJavaToolsOptions,
-			Value: javaJVMArgument,
-		})
-	} else {
-		if !strings.Contains(" "+container.Env[idx].Value+" ", " "+javaJVMArgument+" ") {
-			container.Env[idx].Value = container.Env[idx].Value + " " + javaJVMArgument
-		}
-	}
+	setEnvVar(container, envJavaToolsOptions, javaJVMArgument, true, " ")
+	setContainerEnvFromInst(container, inst)
 
 	if inst.Spec.AgentConfigMap != "" {
-		injectAgentConfigMap(&pod, firstContainer, inst.Spec.AgentConfigMap)
+		setAgentConfigMap(&pod, container, inst.Spec.AgentConfigMap, configVolumeName, configMountPath)
 
 		// Add ENV
 		if apmIdx := getIndexOfEnv(container.Env, envApmConfigFile); apmIdx == -1 {
 			container.Env = append(container.Env, corev1.EnvVar{
 				Name:  envApmConfigFile,
-				Value: javaApmConfigPath,
+				Value: configPath,
 			})
 		}
 	}
 
-	if isContainerVolumeMissing(container, volumeName) {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: "/newrelic-instrumentation",
-		})
-	}
+	addPodVolumeIfMissing(&pod, volumeName)
+	addContainerVolumeIfMissing(container, volumeName, mountPath)
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, javaInitContainerName) {
-		if isPodVolumeMissing(pod, volumeName) {
-			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				}})
-		}
-
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-			Name:    javaInitContainerName,
-			Image:   inst.Spec.Agent.Image,
-			Command: []string{"cp", "/newrelic-agent.jar", "/newrelic-instrumentation/newrelic-agent.jar"},
+	if isInitContainerMissing(&pod, initContainerName) {
+		newContainer := corev1.Container{
+			Name:            initContainerName,
+			Image:           inst.Spec.Agent.Image,
+			ImagePullPolicy: inst.Spec.Agent.ImagePullPolicy,
+			Command:         []string{"cp", "/newrelic-agent.jar", mountPath + "/newrelic-agent.jar"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
-				MountPath: "/newrelic-instrumentation",
+				MountPath: mountPath,
 			}},
-		})
+			Resources:       *inst.Spec.Agent.Resources.DeepCopy(),
+			SecurityContext: inst.Spec.Agent.SecurityContext.DeepCopy(),
+		}
+		addContainer(isTargetInitContainer, containerName, &pod, newContainer)
+
+		// re get container, it's address in memory likely changed, since appending can allocate a new slice
+		container, _ = util.GetContainerByNameFromPod(&pod, containerName)
 	}
 
-	pod = i.injectNewrelicConfig(ctx, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
-
-	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
-
-	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
-		return pod, err
+	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {
+		return corev1.Pod{}, err
 	}
-
-	return pod, nil
+	setContainerEnvInjectionDefaults(container)
+	setContainerEnvLicenseKey(container, inst.Spec.LicenseKeySecret)
+	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
+		return corev1.Pod{}, err
+	}
+	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
 }
