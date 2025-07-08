@@ -12,8 +12,6 @@ home: https://github.com/newrelic/k8s-agents-operator/blob/main/charts/k8s-agent
 sources:
   - https://github.com/newrelic/k8s-agents-operator
 maintainers:
-  - name: csongnr
-    url: https://github.com/csongnr
   - name: dbudziwojskiNR
     url: https://github.com/dbudziwojskiNR
   - name: danielstokes

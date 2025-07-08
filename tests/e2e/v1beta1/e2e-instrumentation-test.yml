@@ -1,0 +1,21 @@
+apiVersion: newrelic.com/v1beta1
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation-test
+spec:
+  namespaceLabelSelector:
+    matchExpressions:
+      - key: "dont-match"
+        operator: "In"
+        values: ["x"]
+  podLabelSelector:
+    matchExpressions:
+      - key: "dont-match"
+        operator: "In"
+        values: ["x"]
+  agent:
+    language: dotnet
+    image: newrelic/newrelic-dotnet-init:latest

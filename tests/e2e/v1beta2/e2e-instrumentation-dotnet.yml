@@ -1,0 +1,46 @@
+apiVersion: newrelic.com/v1beta2
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation-dotnet
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["newrelic-dotnet-agent"]
+  containerSelector:
+    envSelector:
+      matchEnvs:
+        NRI_CONTAINER: dotnet
+  agent:
+    language: dotnet
+    image: newrelic/newrelic-dotnet-init:latest
+    resourceRequirements:
+      limits:
+        cpu: "1"
+        memory: "32Mi"
+      requests:
+        cpu: "0.5"
+        memory: "16Mi"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsUser: 1234
+    imagePullPolicy: Never
+  healthAgent:
+    image: newrelic/k8s-apm-agent-health-sidecar:latest
+    resourceRequirements:
+      limits:
+        cpu: "1.5"
+        memory: "48Mi"
+      requests:
+        cpu: "0.75"
+        memory: "24Mi"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsUser: 5678
+    imagePullPolicy: Always

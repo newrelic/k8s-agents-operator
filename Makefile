@@ -3,15 +3,16 @@ BIN_DIR = ./bin
 TMP_DIR = $(shell pwd)/tmp
 
 LICENSE_KEY     ?= fake-abc123
-E2E_K8S_VERSION ?= v1.31.1
-ALL_E2E_K8S_VERSIONS ?= v1.31.1 v1.30.5 v1.29.9 v1.28.14 v1.27.16 v1.26.15
+E2E_K8S_VERSION ?= v1.33.0
+ALL_E2E_K8S_VERSIONS ?= v1.33.0 v1.32.0 v1.31.1 v1.30.5 v1.29.9 v1.28.14 v1.27.16 v1.26.15
 
 K8S_AGENTS_OPERATOR_VERSION = ""
 
 .DEFAULT_GOAL := help
 
 # Go packages to test
-TEST_PACKAGES = ./api/v1beta1 \
+TEST_PACKAGES = ./api/v1beta2 \
+	./api/v1beta1 \
 	./api/v1alpha2 \
 	./internal/apm \
 	./internal/autodetect \
@@ -38,8 +39,8 @@ HELM_UNITTEST            ?= $(LOCALBIN)/helm-unittest
 GOIMPORTS                ?= $(LOCALBIN)/goimports
 
 # Kubebuilder variables
-SETUP_ENVTEST_K8S_VERSION ?= 1.30.0
-ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.30.0 1.29.3 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
+SETUP_ENVTEST_K8S_VERSION ?= 1.33.0
+ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.33.0 1.32.0 1.31.0 1.30.3 1.29.5 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
 
 # controller-gen crd options
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"

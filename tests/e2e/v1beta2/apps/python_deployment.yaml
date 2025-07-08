@@ -1,0 +1,64 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pythonapp
+spec:
+  selector:
+    matchLabels:
+      app: pythonapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: pythonapp
+        app.newrelic.instrumentation: newrelic-python-agent
+    spec:
+      initContainers:
+        - name: alpine1
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 5"
+        - name: init-python
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 10"
+        - name: any-python1
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 15"
+      containers:
+        - name: alpine2
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 3600"
+        - name: any-python2
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 3600"
+        - name: python
+          image: andrewlozoya/flask-hello-world:latest
+          ports:
+            - containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pythonapp-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 5000
+  selector:
+    app: pythonapp 

@@ -48,6 +48,8 @@ controllerManager:
   replicas: 1
 
   manager:
+    # -- Turns on debug logging
+    logLevel: info
     image:
       # -- Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images.
       repository: newrelic/k8s-agents-operator

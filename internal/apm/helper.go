@@ -16,32 +16,18 @@ limitations under the License.
 package apm
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
 )
 
 const LicenseKey = "new_relic_license_key"
-
-const (
-	volumeName          = "newrelic-instrumentation"
-	initContainerName   = "newrelic-instrumentation"
-	apmConfigVolumeName = "newrelic-apm-config"
-	apmConfigMountPath  = "/newrelic-apm-config"
-)
 
 const (
 	EnvNewRelicAppName                   = "NEW_RELIC_APP_NAME"
@@ -53,72 +39,6 @@ const (
 
 const instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
 
-var ErrInjectorAlreadyRegistered = errors.New("injector already registered in registry")
-
-type Injector interface {
-	// Deprecated: use InjectContainer from the ContainerInjector interface
-	Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error)
-	Language() string
-	Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool
-	ConfigureClient(client client.Client)
-	ConfigureLogger(logger logr.Logger)
-}
-
-// ContainerInjector is used to inject a specific container, rather than always the first container
-type ContainerInjector interface {
-	InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error)
-}
-
-type Injectors []Injector
-
-func (i Injectors) Names() []string {
-	injectorNames := make([]string, len(i))
-	for j, injector := range i {
-		injectorNames[j] = injector.Language()
-	}
-	return injectorNames
-}
-
-type InjectorRegistery struct {
-	injectors   []Injector
-	injectorMap map[string]struct{}
-	mu          *sync.Mutex
-}
-
-func NewInjectorRegistry() *InjectorRegistery {
-	return &InjectorRegistery{
-		injectorMap: make(map[string]struct{}),
-		mu:          &sync.Mutex{},
-	}
-}
-
-func (ir *InjectorRegistery) Register(injector Injector) error {
-	ir.mu.Lock()
-	defer ir.mu.Unlock()
-	if _, ok := ir.injectorMap[injector.Language()]; ok {
-		return ErrInjectorAlreadyRegistered
-	}
-	ir.injectors = append(ir.injectors, injector)
-	return nil
-}
-
-func (ir *InjectorRegistery) MustRegister(injector Injector) {
-	err := ir.Register(injector)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (ir *InjectorRegistery) GetInjectors() Injectors {
-	ir.mu.Lock()
-	defer ir.mu.Unlock()
-	injectors := make([]Injector, len(ir.injectors))
-	copy(injectors, ir.injectors)
-	return injectors
-}
-
-var DefaultInjectorRegistry = NewInjectorRegistry()
-
 func getContainerIndex(pod corev1.Pod, containerName string) int {
 	for i, container := range pod.Spec.Containers {
 		if container.Name == containerName {
@@ -128,7 +48,7 @@ func getContainerIndex(pod corev1.Pod, containerName string) int {
 	return -1
 }
 
-func getInitContainerIndex(pod corev1.Pod, initContainerName string) int {
+func getInitContainerIndex(pod *corev1.Pod, initContainerName string) int {
 	for i, initContainer := range pod.Spec.InitContainers {
 		if initContainer.Name == initContainerName {
 			return i
@@ -137,8 +57,7 @@ func getInitContainerIndex(pod corev1.Pod, initContainerName string) int {
 	return -1
 }
 
-// Calculate if we already inject InitContainers.
-func isInitContainerMissing(pod corev1.Pod, initContainerName string) bool {
+func isInitContainerMissing(pod *corev1.Pod, initContainerName string) bool {
 	for _, initContainer := range pod.Spec.InitContainers {
 		if initContainer.Name == initContainerName {
 			return false
@@ -147,8 +66,7 @@ func isInitContainerMissing(pod corev1.Pod, initContainerName string) bool {
 	return true
 }
 
-// Calculate if we already inject a Volume.
-func isPodVolumeMissing(pod corev1.Pod, volumeName string) bool {
+func isPodVolumeMissing(pod *corev1.Pod, volumeName string) bool {
 	for _, volume := range pod.Spec.Volumes {
 		if volume.Name == volumeName {
 			return false
@@ -157,7 +75,6 @@ func isPodVolumeMissing(pod corev1.Pod, volumeName string) bool {
 	return true
 }
 
-// Calculate if we already inject a Volume.
 func isContainerVolumeMissing(container *corev1.Container, volumeName string) bool {
 	for _, volume := range container.VolumeMounts {
 		if volume.Name == volumeName {
@@ -226,90 +143,33 @@ func validateContainerEnv(envs []corev1.EnvVar, envsToBeValidated ...string) err
 	return nil
 }
 
-type baseInjector struct {
-	logger logr.Logger
-	client client.Client
-	lang   string
-}
-
-func (i *baseInjector) ConfigureLogger(logger logr.Logger) {
-	i.logger = logger
-}
-
-func (i *baseInjector) ConfigureClient(client client.Client) {
-	i.client = client
-}
-
-func (i *baseInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool {
-	if inst.Spec.Agent.Language != i.lang {
-		return false
-	}
-	if len(pod.Spec.Containers) == 0 {
-		return false
-	}
-	if inst.Spec.LicenseKeySecret == "" {
-		return false
-	}
-	return true
-}
-
-func (i *baseInjector) Language() string {
-	return i.lang
-}
-
-// Deprecated: use setContainerEnvLicenseKey
-func (i *baseInjector) injectNewrelicLicenseKeyIntoContainer(container corev1.Container, licenseKeySecretName string) corev1.Container {
-	if idx := getIndexOfEnv(container.Env, EnvNewRelicLicenseKey); idx == -1 {
-		optional := true
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name: EnvNewRelicLicenseKey,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: licenseKeySecretName},
-					Key:                  LicenseKey,
-					Optional:             &optional,
-				},
+func addPodVolumeIfMissing(pod *corev1.Pod, volumeName string) {
+	if isPodVolumeMissing(pod, volumeName) {
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		})
 	}
-	return container
 }
 
-// Deprecated: use setContainerEnvDefaults
-func (i *baseInjector) injectNewrelicConfig(ctx context.Context, ns corev1.Namespace, pod corev1.Pod, index int, licenseKeySecret string) corev1.Pod {
-	pod = i.injectNewrelicEnvConfig(ctx, pod, index)
-	pod.Spec.Containers[index] = i.injectNewrelicLicenseKeyIntoContainer(pod.Spec.Containers[index], licenseKeySecret)
-	return pod
-}
-
-// Deprecated: use setContainerEnvInjectionDefaults;
-func (i *baseInjector) injectNewrelicEnvConfig(ctx context.Context, pod corev1.Pod, index int) corev1.Pod {
-	container := &pod.Spec.Containers[index]
-	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  EnvNewRelicAppName,
-			Value: chooseServiceName(pod, index),
+func addContainerVolumeIfMissing(container *corev1.Container, volumeName string, mountPath string) {
+	if isContainerVolumeMissing(container, volumeName) {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: mountPath,
 		})
 	}
-	if idx := getIndexOfEnv(container.Env, EnvNewRelicLabels); idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  EnvNewRelicLabels,
-			Value: "operator:auto-injection",
-		})
+}
+
+func addContainer(isTargetInitContainer bool, targetContainerName string, pod *corev1.Pod, newContainer corev1.Container) {
+	if isTargetInitContainer {
+		index := getInitContainerIndex(pod, targetContainerName)
+		pod.Spec.InitContainers = insertContainerBeforeIndex(pod.Spec.InitContainers, index, newContainer)
 	} else {
-		labelAttributes := decodeAttributes(container.Env[idx].Value, ";", ":")
-		labelAttributes["operator"] = "auto-injection"
-		container.Env[idx].Value = encodeAttributes(labelAttributes, ";", ":")
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, newContainer)
 	}
-	if idx := getIndexOfEnv(container.Env, EnvNewRelicK8sOperatorEnabled); idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  EnvNewRelicK8sOperatorEnabled,
-			Value: "true",
-		})
-	}
-	// Also apply specific pod labels indicating that operator is being attached and it's version
-	applyLabelToPod(&pod, DescK8sAgentOperatorVersionLabelName, version.Get().Operator)
-	return pod
 }
 
 func decodeAttributes(str string, fieldSeparator string, valueSeparator string) map[string]string {
@@ -343,55 +203,6 @@ func encodeAttributes(m map[string]string, fieldSeparator string, valueSeparator
 	return str
 }
 
-// Deprecated: use getAppName
-func chooseServiceName(pod corev1.Pod, index int) string {
-	for _, owner := range pod.ObjectMeta.OwnerReferences {
-		switch strings.ToLower(owner.Kind) {
-		case "deployment", "statefulset", "job", "cronjob":
-			return owner.Name
-		}
-	}
-	if pod.Name != "" {
-		return pod.Name
-	}
-	return pod.Spec.Containers[index].Name
-}
-
-// Deprecated: use util.SetPodLabel
-func applyLabelToPod(pod *corev1.Pod, key, val string) *corev1.Pod {
-	labels := pod.Labels
-	if labels == nil {
-		pod.ObjectMeta.Labels = make(map[string]string)
-	}
-	pod.ObjectMeta.Labels[key] = val
-	return pod
-}
-
-// Deprecated: use setPodAnnotationFromInstrumentationVersion
-func addAnnotationToPodFromInstrumentationVersion(ctx context.Context, pod corev1.Pod, inst current.Instrumentation) corev1.Pod {
-	logger := log.FromContext(ctx)
-	instName := types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()
-	instVersions := map[string]string{}
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
-	}
-	if v, ok := pod.Annotations[instrumentationVersionAnnotation]; ok {
-		err := json.Unmarshal([]byte(v), &instVersions)
-		if err != nil {
-			// crVersions could have incomplete data, however, some of the annotations may still be valid, so we'll keep them
-			logger.Error(err, "Failed to unmarshal instrumentation version annotation, skipping adding new instrumentation version to pod annotation")
-		}
-	}
-	instVersions[instName] = fmt.Sprintf("%s/%d", inst.UID, inst.Generation)
-	instVersionBytes, err := json.Marshal(instVersions)
-	if err != nil {
-		logger.Error(err, "Failed to marshal instrumentation version annotation")
-		return pod
-	}
-	pod.Annotations[instrumentationVersionAnnotation] = string(instVersionBytes)
-	return pod
-}
-
 func setPodAnnotationFromInstrumentationVersion(pod *corev1.Pod, inst current.Instrumentation) error {
 	instName := types.NamespacedName{Name: inst.Name, Namespace: inst.Namespace}.String()
 	instVersions := map[string]string{}
@@ -412,12 +223,10 @@ func setPodAnnotationFromInstrumentationVersion(pod *corev1.Pod, inst current.In
 	return nil
 }
 
-func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
-	container := &pod.Spec.Containers[index]
-
-	if isPodVolumeMissing(*pod, apmConfigVolumeName) {
+func setAgentConfigMap(pod *corev1.Pod, container *corev1.Container, configMapName string, volumeName string, mountPath string) {
+	if isPodVolumeMissing(pod, volumeName) {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: apmConfigVolumeName,
+			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -428,10 +237,10 @@ func injectAgentConfigMap(pod *corev1.Pod, index int, configMapName string) {
 		})
 	}
 
-	if isContainerVolumeMissing(container, apmConfigVolumeName) {
+	if isContainerVolumeMissing(container, volumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      apmConfigVolumeName,
-			MountPath: apmConfigMountPath,
+			Name:      volumeName,
+			MountPath: mountPath,
 		})
 	}
 }
@@ -452,13 +261,7 @@ func setContainerEnvLicenseKey(container *corev1.Container, licenseKeySecretName
 	}
 }
 
-func setContainerEnvInjectionDefaults(pod *corev1.Pod, container *corev1.Container) {
-	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  EnvNewRelicAppName,
-			Value: getAppName(pod, container),
-		})
-	}
+func setContainerEnvInjectionDefaults(container *corev1.Container) {
 	if idx := getIndexOfEnv(container.Env, EnvNewRelicLabels); idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
 			Name:  EnvNewRelicLabels,
@@ -477,22 +280,10 @@ func setContainerEnvInjectionDefaults(pod *corev1.Pod, container *corev1.Contain
 	}
 }
 
-func getAppName(pod *corev1.Pod, container *corev1.Container) string {
-	//@todo: review this logic; if we instrument multiple containers, they would all have the same app name
-	var lateName string
-	for _, owner := range pod.ObjectMeta.OwnerReferences {
-		switch strings.ToLower(owner.Kind) {
-		case "deployment", "statefulset", "cronjob", "daemonset":
-			return owner.Name
-		case "job", "replicaset":
-			lateName = owner.Name
-		}
-	}
-	if lateName != "" {
-		return lateName
-	}
-	if pod.Name != "" {
-		return pod.Name
-	}
-	return container.Name
+func insertContainerBeforeIndex(containers []corev1.Container, index int, newContainer corev1.Container) []corev1.Container {
+	initContainers := make([]corev1.Container, len(containers)+1)
+	copy(initContainers, containers[0:index])
+	initContainers[index] = newContainer
+	copy(initContainers[index+1:], containers[index:])
+	return initContainers
 }

@@ -52,21 +52,6 @@ var healthDefaultEnv = []corev1.EnvVar{
 	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
 }
 
-// Deprecated: use injectHealthWithContainer instead
-// injectHealth used to inject health based on container or init container index
-func (i *baseInjector) injectHealth(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, agentContainerIndex int, agentInitContainerIndex int) (corev1.Pod, error) {
-	// caller checks if there is at least one container.
-	var container *corev1.Container
-	if agentContainerIndex >= 0 && agentContainerIndex < len(pod.Spec.Containers) {
-		container = &pod.Spec.Containers[agentContainerIndex]
-	} else if agentInitContainerIndex >= 0 && agentInitContainerIndex < len(pod.Spec.InitContainers) {
-		container = &pod.Spec.InitContainers[agentInitContainerIndex]
-	} else {
-		return pod, nil
-	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
-}
-
 // injectHealthWithContainer used to inject the health container (sidecar) and mounts requires, among other things
 func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, container *corev1.Container) (corev1.Pod, error) {
 	if inst.Spec.HealthAgent.IsEmpty() {
@@ -139,8 +124,8 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 	}
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, HealthSidecarContainerName) {
-		if isPodVolumeMissing(pod, healthVolumeName) {
+	if isInitContainerMissing(&pod, HealthSidecarContainerName) {
+		if isPodVolumeMissing(&pod, healthVolumeName) {
 			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 				Name: healthVolumeName,
 				VolumeSource: corev1.VolumeSource{
@@ -150,9 +135,10 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 
 		restartAlways := corev1.ContainerRestartPolicyAlways
 		sidecarContainer := corev1.Container{
-			Name:          HealthSidecarContainerName,
-			Image:         inst.Spec.HealthAgent.Image,
-			RestartPolicy: &restartAlways,
+			Name:            HealthSidecarContainerName,
+			Image:           inst.Spec.HealthAgent.Image,
+			ImagePullPolicy: inst.Spec.HealthAgent.ImagePullPolicy,
+			RestartPolicy:   &restartAlways,
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      healthVolumeName,
 				MountPath: healthMountPath,
@@ -160,7 +146,9 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 			Ports: []corev1.ContainerPort{
 				{ContainerPort: int32(sidecarListenPort)},
 			},
-			Env: sidecarContainerEnv,
+			Env:             sidecarContainerEnv,
+			Resources:       *inst.Spec.HealthAgent.Resources.DeepCopy(),
+			SecurityContext: inst.Spec.HealthAgent.SecurityContext.DeepCopy(),
 		}
 
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, sidecarContainer)
