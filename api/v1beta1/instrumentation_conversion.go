@@ -5,7 +5,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
-// ConvertTo converts this Instrumentation to the Hub version (v1beta1).
+// ConvertTo converts this Instrumentation to the Hub version.
 func (src *Instrumentation) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*current.Instrumentation)
 
@@ -47,13 +47,10 @@ func (src *Instrumentation) ConvertTo(dstRaw conversion.Hub) error {
 		UnhealthyPodsErrors: unhealthyPodErrors,
 		LastUpdated:         src.Status.LastUpdated,
 	}
-
-	// HealthAgent and Status are empty
-
 	return nil
 }
 
-// ConvertFrom converts from the Hub version (v1) to this version.
+// ConvertFrom converts from the Hub version to this version.
 func (dst *Instrumentation) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*current.Instrumentation)
 
@@ -96,6 +93,5 @@ func (dst *Instrumentation) ConvertFrom(srcRaw conversion.Hub) error {
 		UnhealthyPodsErrors: unhealthyPodErrors,
 		LastUpdated:         src.Status.LastUpdated,
 	}
-
 	return nil
 }
