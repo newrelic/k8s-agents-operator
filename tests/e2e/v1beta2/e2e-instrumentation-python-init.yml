@@ -13,10 +13,8 @@ spec:
         values: ["newrelic-python-agent"]
   containerSelector:
     nameSelector:
-      matchExpressions:
-        - key: initContainer # not a container
-          operator: In
-          values: [ "init-python" ]
+      matchNames:
+        initContainer: init-python # not a container
   agent:
     language: python
     image: newrelic/newrelic-python-init:latest

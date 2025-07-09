@@ -11,8 +11,10 @@ type NameSelectorOperator string
 type NameSelectorKey string
 
 const (
-	NameSelectorOpIn    NameSelectorOperator = "In"
-	NameSelectorOpNotIn NameSelectorOperator = "NotIn"
+	NameSelectorOpEquals    NameSelectorOperator = "=="
+	NameSelectorOpNotEquals NameSelectorOperator = "!="
+	NameSelectorOpIn        NameSelectorOperator = "In"
+	NameSelectorOpNotIn     NameSelectorOperator = "NotIn"
 )
 
 const (
@@ -22,8 +24,10 @@ const (
 )
 
 var acceptableNameSelectorOps = map[NameSelectorOperator]struct{}{
-	NameSelectorOpIn:    {},
-	NameSelectorOpNotIn: {},
+	NameSelectorOpEquals:    {},
+	NameSelectorOpNotEquals: {},
+	NameSelectorOpIn:        {},
+	NameSelectorOpNotIn:     {},
 }
 
 var acceptableNameSelectorKeys = map[NameSelectorKey]struct{}{
