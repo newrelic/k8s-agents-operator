@@ -1,0 +1,36 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotnetapp
+spec:
+  selector:
+    matchLabels:
+      app: dotnetapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: dotnetapp
+        app.newrelic.instrumentation: newrelic-dotnet-agent
+    spec:
+      containers:
+        - name: dotnetapp
+          image: mcr.microsoft.com/dotnet/samples:aspnetapp  # source code of the application: https://github.com/dotnet/dotnet-docker/tree/main/samples/aspnetapp
+          env:
+            - name: ASPNETCORE_URLS
+              value: 'http://+:8080'
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dotnetapp-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: dotnetapp

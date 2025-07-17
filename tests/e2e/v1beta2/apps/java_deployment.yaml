@@ -1,0 +1,67 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: javaapp
+spec:
+  selector:
+    matchLabels:
+      app: javaapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: javaapp
+        app.newrelic.instrumentation: newrelic-java-agent
+    spec:
+      initContainers:
+        - name: init-zero
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 5"
+        - name: init-java
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 10"
+          env:
+            - name: NRI
+              value: something-else
+      containers:
+        - name: zero
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 3600"
+        - name: javaapp
+          image: ghcr.io/open-telemetry/opentelemetry-operator/e2e-test-app-java:main
+          env:
+            - name: NRI
+              value: something
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: javaapp-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: javaapp      
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: java-cm
+data:
+  newrelic.yaml: |
+    production:
+      x: y

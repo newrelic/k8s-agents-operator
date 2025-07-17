@@ -34,6 +34,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -45,6 +46,7 @@ import (
 
 	newreliccomv1alpha2 "github.com/newrelic/k8s-agents-operator/api/v1alpha2"
 	newreliccomv1beta1 "github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	newreliccomv1beta2 "github.com/newrelic/k8s-agents-operator/api/v1beta2"
 	"github.com/newrelic/k8s-agents-operator/internal/autodetect"
 	"github.com/newrelic/k8s-agents-operator/internal/config"
 	"github.com/newrelic/k8s-agents-operator/internal/controller"
@@ -68,6 +70,7 @@ func init() {
 	utilruntime.Must(routev1.AddToScheme(scheme)) // TODO: Update this to not use a deprecated method
 	utilruntime.Must(newreliccomv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(newreliccomv1beta1.AddToScheme(scheme))
+	utilruntime.Must(newreliccomv1beta2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -80,7 +83,8 @@ func main() {
 		secureMetrics        bool
 		enableHTTP2          bool
 	)
-	var tlsOpts []func(*tls.Config)
+	var webhookTlsOpts []func(*tls.Config)
+	var metricsTlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -96,6 +100,7 @@ func main() {
 
 	logger := zap.New(zap.UseFlagOptions(&opts))
 	ctrl.SetLogger(logger)
+	klog.SetLogger(logger)
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -103,13 +108,16 @@ func main() {
 	// Rapid Reset CVEs. For more information see:
 	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
 	// - https://github.com/advisories/GHSA-4374-p667-p6c8
-	disableHTTP2 := func(c *tls.Config) {
-		setupLog.Info("disabling http/2")
-		c.NextProtos = []string{"http/1.1"}
+	disableHTTP2 := func(component string) func(c *tls.Config) {
+		return func(c *tls.Config) {
+			setupLog.Info("disabling http/2", "component", component)
+			c.NextProtos = []string{"http/1.1"}
+		}
 	}
 
 	if !enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
+		webhookTlsOpts = append(webhookTlsOpts, disableHTTP2("webhook"))
+		metricsTlsOpts = append(webhookTlsOpts, disableHTTP2("metrics"))
 	}
 
 	webhookHost, webhhookPort, err := net.SplitHostPort(webhooksvc)
@@ -123,7 +131,7 @@ func main() {
 		os.Exit(1)
 	}
 	webhookServer := webhookruntime.NewServer(webhookruntime.Options{
-		TLSOpts: tlsOpts, Port: webhooksvcport, Host: webhookHost,
+		TLSOpts: webhookTlsOpts, Port: webhooksvcport, Host: webhookHost,
 	})
 
 	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
@@ -173,7 +181,7 @@ func main() {
 		// as certificates issued by a trusted Certificate Authority (CA). The primary risk is potentially allowing
 		// unauthorized access to sensitive metrics data. Consider replacing with CertDir, CertName, and KeyName
 		// to provide certificates, ensuring the server communicates using trusted and secure certificates.
-		TLSOpts: tlsOpts,
+		TLSOpts: metricsTlsOpts,
 	}
 
 	if secureMetrics {
@@ -206,10 +214,10 @@ func main() {
 		// the manager stops, so would be fine to enable this option. However,
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
-		LeaseDuration: &leaseDuration,
-		RenewDeadline: &renewDeadline,
-		RetryPeriod:   &retryPeriod,
+		LeaderElectionReleaseOnCancel: true,
+		LeaseDuration:                 &leaseDuration,
+		RenewDeadline:                 &renewDeadline,
+		RetryPeriod:                   &retryPeriod,
 	}
 
 	watchNamespace, found := os.LookupEnv("WATCH_NAMESPACE")
@@ -251,8 +259,8 @@ func main() {
 		logger.Info("Shutting down health checker")
 		stopCtx, stopCtxCancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer stopCtxCancel()
-		if err = healthMonitor.Shutdown(stopCtx); err != nil {
-			setupLog.Error(err, "failed to shutdown health checker")
+		if err = healthMonitor.Stop(stopCtx); err != nil {
+			setupLog.Error(err, "failed to stop health checker")
 		} else {
 			logger.Info("Shut down health checker")
 		}
@@ -299,9 +307,11 @@ func setupWebhooks(mgr manager.Manager, operatorNamespace string) error {
 	if err = newreliccomv1alpha2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
 		return fmt.Errorf("unable to create v1alpha2 Instrumentation webhook: %w", err)
 	}
-
 	if err = newreliccomv1beta1.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
 		return fmt.Errorf("unable to create v1beta1 Instrumentation webhook: %w", err)
+	}
+	if err = newreliccomv1beta2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
+		return fmt.Errorf("unable to create v1beta2 Instrumentation webhook: %w", err)
 	}
 
 	// Register the Pod mutation webhook

@@ -1,0 +1,58 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejsapp
+spec:
+  selector:
+    matchLabels:
+      app: nodejsapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nodejsapp
+        app.newrelic.instrumentation: newrelic-nodejs-agent
+    spec:
+      initContainers:
+        - name: init-one
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 5"
+      containers:
+        - name: nodejsapp1
+          image:  alpine
+          command:
+            - ash
+            - -c
+            - "sleep 3600"
+          env:
+            - name: NODE_PATH
+              value: /usr/local/lib/node_modules
+        - name: skip
+          image: alpine
+          command:
+            - ash
+            - -c
+            - "sleep 3600"
+        - name: nodejsapp2
+          image:  ghcr.io/open-telemetry/opentelemetry-operator/e2e-test-app-nodejs:main
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_PATH
+              value: /usr/local/lib/node_modules
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodejsapp-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: nodejsapp 

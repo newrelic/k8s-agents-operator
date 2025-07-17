@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rubyapp-cfgmap
+data:
+  main.rb: |
+    require 'socket'
+    class HttpServer
+      def initialize(port)
+        @server = TCPServer.new('127.0.0.1', port)
+      end
+      def accept_connection
+        while session = @server.accept
+          request = session.readpartial(1024)
+          puts "peer #{session.peeraddr[3]}:#{session.peeraddr[1]} connected"
+          verb,path,proto = request.lines[0].split
+          scheme,ver = proto.split('/')
+          puts "requested #{path}"
+          session.write("HTTP/1.0 200 OK\r\n")
+          session.write("Host: rubyapp\r\n")
+          session.write("Connection: close\r\n")
+          session.write("\r\n")
+          session.write("hello world from ruby\n")
+          session.close
+        end
+      end
+    end
+    server = HttpServer.new(8080)
+    server.accept_connection
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rubyapp
+spec:
+  selector:
+    matchLabels:
+      app: rubyapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: rubyapp
+        app.newrelic.instrumentation: newrelic-ruby-agent
+    spec:
+      containers:
+        - name: rubyapp
+          image: ruby:3.3-alpine
+          workingDir: /app
+          command:
+            - ruby
+            - main.rb
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - mountPath: /app/
+              name: code
+      volumes:
+        - name: code
+          configMap:
+            name: rubyapp-cfgmap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rubyapp-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: rubyapp

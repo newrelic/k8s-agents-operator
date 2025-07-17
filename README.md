@@ -7,6 +7,7 @@ This project auto-instruments containerized workloads in Kubernetes with New Rel
 ## Table Of Contents
 
 - [Installation](#installation)
+- [Instrumentation](instrumentation.md)
 - [Support](#support)
 - [Contribute](#contribute)
 - [License](#license)
