@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.27.1](https://img.shields.io/badge/Version-0.27.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.27.1](https://img.shields.io/badge/AppVersion-0.27.1-informational?style=flat-square)
+![Version: 0.28.0](https://img.shields.io/badge/Version-0.28.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.28.0](https://img.shields.io/badge/AppVersion-0.28.0-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -297,6 +297,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` | Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images. |
 | controllerManager.manager.image.version | string | `nil` | Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e" |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
+| controllerManager.manager.logLevel | string | `"info"` | Turns on debug logging |
 | controllerManager.manager.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.manager.resources.limits.memory | string | `"192Mi"` |  |
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
@@ -331,6 +332,5 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| csongnr |  | <https://github.com/csongnr> |
 | dbudziwojskiNR |  | <https://github.com/dbudziwojskiNR> |
 | danielstokes |  | <https://github.com/danielstokes> |

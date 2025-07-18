@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"reflect"
-
 	"github.com/newrelic/k8s-agents-operator/api/common"
 
 	corev1 "k8s.io/api/core/v1"
@@ -73,11 +71,6 @@ type Resource struct {
 	// AddK8sUIDAttributes defines whether K8s UID attributes should be collected (e.g. k8s.deployment.uid).
 	// +optional
 	AddK8sUIDAttributes bool `json:"addK8sUIDAttributes,omitempty"`
-}
-
-// IsEmpty is used to check if the resource is empty
-func (r Resource) IsEmpty() bool {
-	return !r.AddK8sUIDAttributes && len(r.Attributes) == 0
 }
 
 // Exporter defines OTLP exporter configuration.
@@ -135,11 +128,6 @@ func (a *Agent) IsEmpty() bool {
 		len(a.Resources.Limits) == 0 &&
 		len(a.Resources.Requests) == 0 &&
 		len(a.Resources.Claims) == 0
-}
-
-// IsEqual is used to compare if an agent is equal to another, excluding `.Language`
-func (a *Agent) IsEqual(b Agent) bool {
-	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) && reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) && reflect.DeepEqual(a.Resources, b.Resources)
 }
 
 // InstrumentationStatus defines the observed state of Instrumentation

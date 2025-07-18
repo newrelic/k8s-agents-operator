@@ -54,8 +54,8 @@ type InstrumentationReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
-	logger.V(2).Info("start instrumentation reconciliation")
+	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name).V(2)
+	logger.Info("start instrumentation reconciliation")
 
 	if req.Namespace != r.operatorNamespace {
 		return ctrl.Result{}, nil
@@ -63,11 +63,11 @@ func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	inst := current.Instrumentation{}
 	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &inst)
-	logger.V(2).Info("instrumentation reconciliation; get", "error", err)
+	logger.Info("instrumentation reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
 		inst.Name = req.Name
 		inst.Namespace = req.Namespace
-		logger.V(2).Info("instrumentation reconciliation; instrumentation deleted event")
+		logger.Info("instrumentation reconciliation; instrumentation deleted event")
 		r.healthMonitor.InstrumentationRemove(&inst)
 		return ctrl.Result{}, nil
 	}
@@ -75,12 +75,12 @@ func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 	if inst.DeletionTimestamp != nil {
-		logger.V(2).Info("instrumentation reconciliation; instrumentation deleting event")
+		logger.Info("instrumentation reconciliation; instrumentation deleting event")
 		r.healthMonitor.InstrumentationRemove(&inst)
 		return ctrl.Result{}, nil
 	}
 
-	logger.V(2).Info("instrumentation reconciliation; instrumentation created event")
+	logger.Info("instrumentation reconciliation; instrumentation created event")
 	r.healthMonitor.InstrumentationSet(&inst)
 
 	return ctrl.Result{}, nil

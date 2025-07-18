@@ -415,7 +415,11 @@ func TestHealthInjector_Inject(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &baseInjector{}
-			actualPod, err := i.injectHealth(ctx, test.inst, test.ns, test.pod, 0, -1)
+			var container *corev1.Container
+			if len(test.pod.Spec.Containers) > 0 {
+				container = &test.pod.Spec.Containers[0]
+			}
+			actualPod, err := i.injectHealthWithContainer(ctx, test.inst, test.ns, test.pod, container)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
