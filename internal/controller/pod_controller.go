@@ -64,7 +64,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	logger.Info("start pod reconciliation")
 
 	pod := corev1.Pod{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &pod)
+	err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &pod)
 	logger.Info("pod reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
 		pod.Name = req.Name

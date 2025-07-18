@@ -98,11 +98,11 @@ func (a *autoDetect) HPAVersion() (AutoscalingVersion, error) {
 					return ToAutoScalingVersion(version.Version), nil
 				}
 			}
-			return AutoscalingVersionUnknown, errors.New("Failed to find appropriate version of apiGroup autoscaling, only v2 and v2beta2 are supported")
+			return AutoscalingVersionUnknown, errors.New("failed to find appropriate version of apiGroup autoscaling, only v2 and v2beta2 are supported")
 		}
 	}
 
-	return AutoscalingVersionUnknown, errors.New("Failed to find apiGroup autoscaling")
+	return AutoscalingVersionUnknown, errors.New("failed to find apiGroup autoscaling")
 }
 
 func (v AutoscalingVersion) String() string {
