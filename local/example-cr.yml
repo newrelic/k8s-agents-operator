@@ -1,4 +1,4 @@
-apiVersion: newrelic.com/v1betaE
+apiVersion: newrelic.com/v1beta2
 kind: Instrumentation
 metadata:
   name: matching-include
