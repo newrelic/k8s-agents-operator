@@ -529,21 +529,21 @@ Custom-built images can be used and specified.
 
 ## agent imagePullPolicy
 
-Sets the image pull policy for the sidecar container that will be added to the pod during mutation. See https://kubernetes.io/docs/concepts/containers/images/
+Sets the image pull policy for the init container that will be added to the pod during mutation. See https://kubernetes.io/docs/concepts/containers/images/
 
 ## agent env
 
-Sets the env for the sidecar container that will be added to the pod during mutation. See https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
+Sets the env for the init container that will be added to the pod during mutation. See https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
 
 > Each `name` must start with `NEWRELIC_` or `NEW_RELIC_`
 
 ## agent resourceRequirements
 
-Sets the resources for the sidecar container that will be added to the pod during mutation.  See https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+Sets the resources for the init container that will be added to the pod during mutation.  See https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 
 ## agent securityContext
 
-Sets the security context for the sidecar container that will be added to the pod during mutation.  See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+Sets the security context for the init container that will be added to the pod during mutation.  See https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
 
 ## healthAgent
 
