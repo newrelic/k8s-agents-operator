@@ -34,4 +34,3 @@ spec:
     targetPort: 3000
   selector:
     app: nodejsapp 
-

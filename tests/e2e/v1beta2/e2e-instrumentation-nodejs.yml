@@ -1,0 +1,22 @@
+apiVersion: newrelic.com/v1beta2
+kind: Instrumentation
+metadata:
+  labels:
+    app.kubernetes.io/name: instrumentation
+    app.kubernetes.io/created-by: k8s-agents-operator
+  name: newrelic-instrumentation-nodejs
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.newrelic.instrumentation"
+        operator: "In"
+        values: ["newrelic-nodejs-agent"]
+  containerSelector:
+    imageSelector:
+      matchExpressions:
+        - key: url
+          operator: StartsWith
+          values: [ "ghcr.io" ]
+  agent:
+    language: nodejs
+    image: newrelic/newrelic-node-init:latest
