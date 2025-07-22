@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"reflect"
-
 	"github.com/newrelic/k8s-agents-operator/api/common"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,24 +27,20 @@ import (
 // InstrumentationSpec defines the desired state of Instrumentation
 type InstrumentationSpec struct {
 	// Exporter defines exporter configuration.
-	// @todo: remove this
 	// +optional
 	Exporter `json:"exporter,omitempty"`
 
 	// Resource defines the configuration for the resource attributes, as defined by the OpenTelemetry specification.
-	// @todo: remove this
 	// +optional
 	Resource Resource `json:"resource,omitempty"`
 
 	// Propagators defines inter-process context propagation configuration.
 	// Values in this list will be set in the OTEL_PROPAGATORS env var.
 	// Enum=tracecontext;none
-	// @todo: remove this
 	// +optional
 	Propagators []common.Propagator `json:"propagators,omitempty"`
 
 	// Sampler defines sampling configuration.
-	// @todo: remove this
 	// +optional
 	Sampler `json:"sampler,omitempty"`
 
@@ -85,11 +79,6 @@ type Resource struct {
 	// AddK8sUIDAttributes defines whether K8s UID attributes should be collected (e.g. k8s.deployment.uid).
 	// +optional
 	AddK8sUIDAttributes bool `json:"addK8sUIDAttributes,omitempty"`
-}
-
-// IsEmpty is used to check if the resource is empty
-func (r Resource) IsEmpty() bool {
-	return !r.AddK8sUIDAttributes && len(r.Attributes) == 0
 }
 
 // Exporter defines OTLP exporter configuration.
@@ -149,11 +138,6 @@ func (a *Agent) IsEmpty() bool {
 		len(a.Resources.Claims) == 0
 }
 
-// IsEqual is used to compare if an agent is equal to another, excluding `.Language`
-func (a *Agent) IsEqual(b Agent) bool {
-	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env) && reflect.DeepEqual(a.VolumeSizeLimit, b.VolumeSizeLimit) && reflect.DeepEqual(a.Resources, b.Resources)
-}
-
 // HealthAgent is the configuration for the healthAgent
 type HealthAgent struct {
 	// Image is a container image with Go SDK and auto-instrumentation.
@@ -164,17 +148,6 @@ type HealthAgent struct {
 	// If the former var had been defined, then the other vars would be ignored.
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
-}
-
-// IsEmpty is used to check if the health agent is empty
-func (a *HealthAgent) IsEmpty() bool {
-	return a.Image == "" &&
-		len(a.Env) == 0
-}
-
-// IsEqual is used to compare if a health agent is equal to another
-func (a *HealthAgent) IsEqual(b HealthAgent) bool {
-	return a.Image == b.Image && reflect.DeepEqual(a.Env, b.Env)
 }
 
 type UnhealthyPodError struct {
@@ -194,7 +167,6 @@ type InstrumentationStatus struct {
 	LastUpdated         metav1.Time         `json:"lastUpdated,omitempty"`
 }
 
-// +kubebuilder:storageversion
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=nragent;nragents
 // +kubebuilder:subresource:status
@@ -205,7 +177,6 @@ type InstrumentationStatus struct {
 // +kubebuilder:printcolumn:name="PodsOutdated",type="integer",JSONPath=".status.podsOutdated"
 // +kubebuilder:printcolumn:name="PodsHealthy",type="integer",JSONPath=".status.podsHealthy"
 // +kubebuilder:printcolumn:name="PodsUnhealthy",type="integer",JSONPath=".status.podsUnhealthy"
-// +operator-sdk:csv:customresourcedefinitions:displayName="New Relic Instrumentation"
 // +operator-sdk:csv:customresourcedefinitions:displayName="New Relic Instrumentation"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1}}
 // +kubebuilder:object:root=true
