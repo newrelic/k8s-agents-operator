@@ -1,0 +1,40 @@
+apiVersion: newrelic.com/v1beta2
+kind: Instrumentation
+metadata:
+  name: instrumentation-example
+spec:
+# Selects the APM java agent to be installed, more info: [Link](https://docs.newrelic.com/docs/kubernetes-pixie/kubernetes-integration/installation/k8s-agent-operator/#apm-agent)
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:latest
+
+# Select pods with the name test, more info about the podLabelSelector: [Link](https://docs.newrelic.com/docs/kubernetes-pixie/kubernetes-integration/installation/k8s-agent-operator/#s)
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.kubernetes.io/name"
+        operator: "In"
+        values: ["test"]
+
+# Select namespace with the name backend, more info about the namespaceLabelSelector: [Link](https://docs.newrelic.com/docs/kubernetes-pixie/kubernetes-integration/installation/k8s-agent-operator/#license-keys)
+# namespaceLabelSelector:
+#   matchExpressions:
+#     - key: "kubernetes.io/metadata.name"
+#       operator: "In"
+#       values: ["backend"]
+
+# Select namespace with the name backend, more info about the containerSelector: [Link](https://docs.newrelic.com/docs/kubernetes-pixie/kubernetes-integration/installation/k8s-agent-operator/#license-keys))
+# containerSelector:
+#   matchExpressions:
+#     - key: "kubernetes.io/metadata.name"
+#       operator: "In"
+#       values: ["backend"]
+
+# Select namespace with the name backend
+# namespaceLabelSelector:
+#   matchExpressions:
+#     - key: "kubernetes.io/metadata.name"
+#       operator: "In"
+#       values: ["backend"]
+
+# Uncomment if you want to use another secret, more [info](https://docs.newrelic.com/docs/kubernetes-pixie/kubernetes-integration/installation/k8s-agent-operator/#license-keys)
+# licenseKeySecret: "newrelic-custom-secret"
