@@ -60,7 +60,7 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	ns := corev1.Namespace{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name}, &ns)
+	err := r.Get(ctx, client.ObjectKey{Name: req.Name}, &ns)
 	logger.Info("namespace reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
 		ns.Name = req.Name

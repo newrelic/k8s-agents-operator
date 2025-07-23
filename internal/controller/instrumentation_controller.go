@@ -62,7 +62,7 @@ func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	inst := current.Instrumentation{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &inst)
+	err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &inst)
 	logger.Info("instrumentation reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
 		inst.Name = req.Name
