@@ -16,6 +16,7 @@ limitations under the License.
 package apm
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -28,6 +29,11 @@ import (
 )
 
 const LicenseKey = "new_relic_license_key"
+
+const (
+	maxContainerNameLength = 63
+	hashLength             = 7
+)
 
 const (
 	EnvNewRelicAppName                   = "NEW_RELIC_APP_NAME"
@@ -286,4 +292,11 @@ func insertContainerBeforeIndex(containers []corev1.Container, index int, newCon
 	initContainers[index] = newContainer
 	copy(initContainers[index+1:], containers[index:])
 	return initContainers
+}
+
+func generateContainerName(namePrefix string) string {
+	if len(namePrefix) > maxContainerNameLength {
+		return strings.TrimRight(namePrefix[:maxContainerNameLength-hashLength-1], "-") + "-" + fmt.Sprintf("%x", sha256.Sum256([]byte(namePrefix)))[:hashLength]
+	}
+	return namePrefix
 }

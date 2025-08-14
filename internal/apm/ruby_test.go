@@ -82,6 +82,40 @@ func TestRubyInjector_Inject(t *testing.T) {
 			},
 		},
 		{
+			name: "a container with a long name, instrumentation",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test--container-with-a-really-long-name-that-might-just-be-over-descriptive"},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				}, Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test--container-with-a-really-long-name-that-might-just-be-over-descriptive",
+						Env: []corev1.EnvVar{
+							{Name: "RUBYOPT", Value: "-r /nri-ruby--test--container-with-a-really-long-name-that-ee75c2a/lib/boot/strap"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test--container-with-a-really-long-name-that-might-just-be-over-descriptive"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test--container-with-a-really-long-name-that-ee75c2a", MountPath: "/nri-ruby--test--container-with-a-really-long-name-that-ee75c2a"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-ruby--test--container-with-a-really-long-name-that-ee75c2a",
+						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--test--container-with-a-really-long-name-that-ee75c2a/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test--container-with-a-really-long-name-that-ee75c2a", MountPath: "/nri-ruby--test--container-with-a-really-long-name-that-ee75c2a"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-ruby--test--container-with-a-really-long-name-that-ee75c2a", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "newrelic-key-secret"}}},
+			},
+		},
+		{
 			name: "2 containers, inject the 2nd, instrumentation",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"}, {Name: "test-2"},

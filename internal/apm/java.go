@@ -46,7 +46,7 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
 
-	initContainerName := "nri-java--" + containerName
+	initContainerName := generateContainerName("nri-java--" + containerName)
 	volumeName := initContainerName
 	mountPath := "/" + volumeName
 	javaJVMArgument := "-javaagent:" + mountPath + "/newrelic-agent.jar"

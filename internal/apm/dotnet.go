@@ -53,7 +53,7 @@ func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instr
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
 
-	initContainerName := "nri-dotnet--" + containerName
+	initContainerName := generateContainerName("nri-dotnet--" + containerName)
 	volumeName := initContainerName
 	mountPath := "/" + volumeName
 	coreClrProfilerPath := mountPath + "/libNewRelicProfiler.so"

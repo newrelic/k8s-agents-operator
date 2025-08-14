@@ -45,7 +45,7 @@ func (i *PythonInjector) InjectContainer(ctx context.Context, inst current.Instr
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
 
-	initContainerName := "nri-python--" + containerName
+	initContainerName := generateContainerName("nri-python--" + containerName)
 	volumeName := initContainerName
 	mountPath := "/" + volumeName
 	pythonPathPrefix := mountPath

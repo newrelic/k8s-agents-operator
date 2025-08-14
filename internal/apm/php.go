@@ -80,7 +80,7 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 		return pod, errors.New("invalid php version")
 	}
 
-	initContainerName := "nri-php--" + containerName
+	initContainerName := generateContainerName("nri-php--" + containerName)
 	volumeName := initContainerName
 	mountPath := "/" + initContainerName
 	envIniScanDirVal := mountPath + "/php-agent/ini"
