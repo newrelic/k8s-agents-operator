@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	stdruntime "runtime"
@@ -224,7 +223,6 @@ func TestMain(m *testing.M) {
 	// wait for the webhook server to get ready
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	dialer := &net.Dialer{Timeout: time.Second}
 	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
 	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
@@ -237,8 +235,9 @@ func TestMain(m *testing.M) {
 		}, func(error) bool {
 			return true
 		}, func() error {
-			// #nosec G402
-			conn, tlsErr := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
+			tlsCtx, tlsCtxCancel := context.WithTimeout(ctx, time.Second)
+			defer tlsCtxCancel()
+			conn, tlsErr := (&tls.Dialer{Config: &tls.Config{InsecureSkipVerify: true}}).DialContext(tlsCtx, "tcp", addrPort)
 			if tlsErr != nil {
 				return tlsErr
 			}
