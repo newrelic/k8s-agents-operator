@@ -44,7 +44,7 @@ func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrum
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
 
-	initContainerName := "nri-ruby--" + containerName
+	initContainerName := generateContainerName("nri-ruby--" + containerName)
 	volumeName := initContainerName
 	mountPath := "/" + volumeName
 	rubyOptRequire := "-r " + mountPath + "/lib/boot/strap"

@@ -45,7 +45,7 @@ func (i *NodejsInjector) InjectContainer(ctx context.Context, inst current.Instr
 		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
 	}
 
-	initContainerName := "nri-nodejs--" + containerName
+	initContainerName := generateContainerName("nri-nodejs--" + containerName)
 	volumeName := initContainerName
 	mountPath := "/" + volumeName
 	nodeRequireArgument := "--require " + mountPath + "/newrelicinstrumentation.js"
