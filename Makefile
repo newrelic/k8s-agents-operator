@@ -155,7 +155,7 @@ go-format: ## Format all go files
 
 .PHONY: go-tidy
 go-tidy: ## Tidy the go packages
-	find . -type f -name "go.mod" -exec dirname {} \; | xargs -I {} echo go -C {} mod tidy
+	find . -type f -name "go.mod" -exec dirname {} \; | xargs -I {} go -C {} mod tidy
 
 .PHONY: fix-goimports
 fix-goimports: $(GOIMPORTS)
