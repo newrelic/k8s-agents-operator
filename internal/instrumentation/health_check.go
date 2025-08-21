@@ -46,10 +46,10 @@ func (h *HealthCheckApi) GetHealth(ctx context.Context, url string) (health Heal
 		res     *http.Response
 		body    []byte
 	)
-	if httpReq, err = http.NewRequest(http.MethodGet, url, nil); err != nil {
+	if httpReq, err = http.NewRequestWithContext(ctx, http.MethodGet, url, nil); err != nil {
 		return health, fmt.Errorf("failed to create request > %w", err)
 	}
-	if res, err = h.httpClient.Do(httpReq.WithContext(ctx)); err != nil {
+	if res, err = h.httpClient.Do(httpReq); err != nil {
 		return health, fmt.Errorf("failed to send request > %w", err)
 	}
 	if res.Body != nil {
