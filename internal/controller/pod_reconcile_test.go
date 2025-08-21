@@ -61,22 +61,15 @@ func TestReconcilePod(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			res, err := ir.Reconcile(ctx, controllerruntime.Request{NamespacedName: types.NamespacedName{Name: tt.resourceName, Namespace: tt.resourceNamespace}})
-			if err != nil && tt.expectedErr != nil {
-				if !reflect.DeepEqual(err, tt.expectedErr) {
-					t.Errorf("got unexpected err: %v, expected: %v", res, tt.expectedErr)
-				}
+
+			if err != nil && tt.expectedErr != nil && !reflect.DeepEqual(err, tt.expectedErr) {
+				t.Errorf("got unexpected err: %v, expected: %v", res, tt.expectedErr)
 			} else if err == nil && tt.expectedErr != nil {
-				if !reflect.DeepEqual(err, tt.expectedErr) {
-					t.Errorf("expected err: %v", tt.expectedErr)
-				}
+				t.Errorf("expected err: %v", tt.expectedErr)
 			} else if err != nil && tt.expectedErr == nil {
-				if !reflect.DeepEqual(err, tt.expectedErr) {
-					t.Errorf("got unexpected err: %v", res)
-				}
-			} else {
-				if !reflect.DeepEqual(res, tt.expectedResult) {
-					t.Errorf("got unexpected result: %v, expected: %v", res, tt.expectedResult)
-				}
+				t.Errorf("got unexpected err: %v", res)
+			} else if !reflect.DeepEqual(res, tt.expectedResult) {
+				t.Errorf("got unexpected result: %v, expected: %v", res, tt.expectedResult)
 			}
 		})
 	}
