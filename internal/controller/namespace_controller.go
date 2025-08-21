@@ -36,7 +36,10 @@ import (
 type NamespaceReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
-	healthMonitor *instrumentation.HealthMonitor
+	healthMonitor interface {
+		NamespaceSet(ns *corev1.Namespace)
+		NamespaceRemove(ns *corev1.Namespace)
+	}
 }
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch

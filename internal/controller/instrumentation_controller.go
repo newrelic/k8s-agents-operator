@@ -35,8 +35,11 @@ import (
 // InstrumentationReconciler reconciles a Instrumentation object
 type InstrumentationReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	healthMonitor     *instrumentation.HealthMonitor
+	Scheme        *runtime.Scheme
+	healthMonitor interface {
+		InstrumentationSet(instrumentation *current.Instrumentation)
+		InstrumentationRemove(instrumentation *current.Instrumentation)
+	}
 	operatorNamespace string
 }
 

@@ -37,8 +37,11 @@ import (
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	healthMonitor     *instrumentation.HealthMonitor
+	Scheme        *runtime.Scheme
+	healthMonitor interface {
+		PodSet(pod *corev1.Pod)
+		PodRemove(pod *corev1.Pod)
+	}
 	operatorNamespace string
 }
 
