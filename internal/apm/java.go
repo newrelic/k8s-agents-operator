@@ -18,6 +18,7 @@ package apm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -76,17 +77,25 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 	addPodVolumeIfMissing(&pod, volumeName)
 	addContainerVolumeIfMissing(container, volumeName, mountPath)
 
+	commands := []string{
+		"cp /newrelic-agent.jar " + mountPath + "/newrelic-agent.jar",
+		"if test -d extensions; then cp -a extensions/. " + mountPath + "/extensions/; fi",
+	}
+
 	// We just inject Volumes and init containers for the first processed container.
 	if isInitContainerMissing(&pod, initContainerName) {
 		newContainer := corev1.Container{
 			Name:            initContainerName,
 			Image:           inst.Spec.Agent.Image,
 			ImagePullPolicy: inst.Spec.Agent.ImagePullPolicy,
-			Command:         []string{"cp", "/newrelic-agent.jar", mountPath + "/newrelic-agent.jar"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
 				MountPath: mountPath,
 			}},
+			Command: []string{"/bin/sh"},
+			Args: []string{
+				"-c", strings.Join(commands, " && "),
+			},
 			Resources:       *inst.Spec.Agent.Resources.DeepCopy(),
 			SecurityContext: inst.Spec.Agent.SecurityContext.DeepCopy(),
 		}
