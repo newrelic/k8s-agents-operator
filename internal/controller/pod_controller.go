@@ -37,8 +37,11 @@ import (
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	healthMonitor     *instrumentation.HealthMonitor
+	Scheme        *runtime.Scheme
+	healthMonitor interface {
+		PodSet(pod *corev1.Pod)
+		PodRemove(pod *corev1.Pod)
+	}
 	operatorNamespace string
 }
 
@@ -64,7 +67,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	logger.Info("start pod reconciliation")
 
 	pod := corev1.Pod{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &pod)
+	err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &pod)
 	logger.Info("pod reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
 		pod.Name = req.Name

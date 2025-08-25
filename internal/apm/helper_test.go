@@ -2,6 +2,7 @@ package apm
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -267,4 +268,10 @@ func TestSetContainerEnvFromInst(t *testing.T) {
 	if diff := cmp.Diff(expectedContainer, container); diff != "" {
 		assert.Fail(t, diff)
 	}
+}
+
+func TestGenerateContainerName(t *testing.T) {
+	assert.Equal(t, "test"+strings.Repeat("-", 59), generateContainerName("test"+strings.Repeat("-", 59)))
+	assert.Equal(t, "test-272f74c", generateContainerName("test"+strings.Repeat("-", 60)))
+	assert.Equal(t, "test"+strings.Repeat("x", 51)+"-58def81", generateContainerName("test"+strings.Repeat("x", 60)))
 }

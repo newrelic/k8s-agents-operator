@@ -35,8 +35,11 @@ import (
 // InstrumentationReconciler reconciles a Instrumentation object
 type InstrumentationReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	healthMonitor     *instrumentation.HealthMonitor
+	Scheme        *runtime.Scheme
+	healthMonitor interface {
+		InstrumentationSet(instrumentation *current.Instrumentation)
+		InstrumentationRemove(instrumentation *current.Instrumentation)
+	}
 	operatorNamespace string
 }
 
@@ -62,7 +65,7 @@ func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	inst := current.Instrumentation{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &inst)
+	err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &inst)
 	logger.Info("instrumentation reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
 		inst.Name = req.Name

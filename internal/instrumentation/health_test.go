@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	
+
 	"github.com/newrelic/k8s-agents-operator/api/current"
 
 	"github.com/go-logr/logr"

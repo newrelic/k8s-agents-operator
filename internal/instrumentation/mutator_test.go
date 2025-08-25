@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/newrelic/k8s-agents-operator/internal/selector"
 	"strings"
 	"testing"
 
@@ -20,6 +19,7 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/internal/selector"
 )
 
 type FakeInjector func(ctx context.Context, insts map[string][]*current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) corev1.Pod
@@ -365,6 +365,7 @@ func TestMutatePod(t *testing.T) {
 			if instrumentationLocator == nil {
 				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
 			}
+			//nolint:staticcheck
 			var secretReplicator SecretsReplicator = test.secretReplicator
 			if secretReplicator == nil {
 				secretReplicator = NewNewrelicSecretReplicator(k8sClient)

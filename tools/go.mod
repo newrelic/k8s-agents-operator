@@ -1,6 +1,6 @@
 module github.com/newrelic/k8s-agents-operator/tools
 
-go 1.24.5
+go 1.25.0
 
 require (
 	github.com/arttor/helmify v0.4.18
@@ -9,8 +9,8 @@ require (
 	github.com/helm/chart-testing/v3 v3.13.0
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.36.0
-	helm.sh/helm/v3 v3.18.5
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250813191507-c7df6d0236ed
+	helm.sh/helm/v3 v3.18.6
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20250820133309-9f93124137fa
 	sigs.k8s.io/controller-tools v0.18.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.7.1
 )
@@ -31,7 +31,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
-	github.com/GaijinEntertainment/go-exhaustruct/v3 v3.3.1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
@@ -263,9 +262,6 @@ require (
 	github.com/uudashr/iface v1.4.1 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
-	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xen0n/gosmopolitan v1.3.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
