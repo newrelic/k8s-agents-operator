@@ -62,7 +62,7 @@ func (i *baseInjector) setContainerEnvAppName(ctx context.Context, ns *corev1.Na
 }
 
 func (i *baseInjector) getRootResourceName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod) (string, error) {
-	for _, owner := range pod.ObjectMeta.OwnerReferences {
+	for _, owner := range pod.OwnerReferences {
 		switch strings.ToLower(owner.Kind) {
 		case "deployment", "statefulset", "cronjob", "daemonset":
 			return owner.Name, nil
@@ -70,7 +70,7 @@ func (i *baseInjector) getRootResourceName(ctx context.Context, ns *corev1.Names
 	}
 	checkError := func(err error) bool { return apierrors.IsNotFound(err) }
 	backOff := wait.Backoff{Duration: 10 * time.Millisecond, Factor: 1.5, Jitter: 0.1, Steps: 20, Cap: 2 * time.Second}
-	for _, owner := range pod.ObjectMeta.OwnerReferences {
+	for _, owner := range pod.OwnerReferences {
 		ownerName := types.NamespacedName{Namespace: ns.Name, Name: owner.Name}
 		switch strings.ToLower(owner.Kind) {
 		case "job":
@@ -78,7 +78,7 @@ func (i *baseInjector) getRootResourceName(ctx context.Context, ns *corev1.Names
 			if err := retry.OnError(backOff, checkError, func() error { return i.client.Get(ctx, ownerName, &obj) }); err != nil {
 				return "", fmt.Errorf("failed to get parent name > %w", err)
 			}
-			for _, parentOwner := range obj.ObjectMeta.OwnerReferences {
+			for _, parentOwner := range obj.OwnerReferences {
 				if strings.ToLower(parentOwner.Kind) == "cronjob" {
 					return parentOwner.Name, nil
 				}
@@ -89,7 +89,7 @@ func (i *baseInjector) getRootResourceName(ctx context.Context, ns *corev1.Names
 			if err := retry.OnError(backOff, checkError, func() error { return i.client.Get(ctx, ownerName, &obj) }); err != nil {
 				return "", fmt.Errorf("failed to get parent name > %w", err)
 			}
-			for _, parentOwner := range obj.ObjectMeta.OwnerReferences {
+			for _, parentOwner := range obj.OwnerReferences {
 				if strings.ToLower(parentOwner.Kind) == "deployment" {
 					return parentOwner.Name, nil
 				}

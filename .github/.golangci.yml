@@ -1,18 +1,10 @@
+version: "2"
+
 run:
   timeout: 5m
 
-linters-settings:
-  gocyclo:
-    min-complexity: 20
-  govet:
-    enable:
-      - shadow
-#      - fieldalignment
-  misspell:
-    locale: US
-
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
     - copyloopvar
@@ -22,7 +14,6 @@ linters:
     - exhaustive
     - gocyclo
     - goprintffuncname
-    - gosimple
     - govet
     - ineffassign
     - misspell
@@ -32,5 +23,32 @@ linters:
     - prealloc
     - rowserrcheck
     - staticcheck
-    - typecheck
     - unconvert
+  settings:
+    gocyclo:
+      min-complexity: 20
+    govet:
+      enable:
+        - shadow
+    #   - fieldalignment
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
