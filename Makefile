@@ -39,8 +39,8 @@ HELM_UNITTEST            ?= $(LOCALBIN)/helm-unittest
 GOIMPORTS                ?= $(LOCALBIN)/goimports
 
 # Kubebuilder variables
-SETUP_ENVTEST_K8S_VERSION ?= 1.33.0
-ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.33.0 1.32.0 1.31.0 1.30.3 1.29.5 1.28.3 1.27.1 1.26.1 #https://storage.googleapis.com/kubebuilder-tools
+SETUP_ENVTEST_K8S_VERSION ?= 1.34.0
+ALL_SETUP_ENVTEST_K8S_VERSIONS ?= 1.34.0 1.33.0 1.32.0 1.31.0 1.30.3 1.29.5 1.28.3 1.27.1 1.26.1 #https://raw.githubusercontent.com/kubernetes-sigs/controller-tools/master/envtest-releases.yaml
 
 # controller-gen crd options
 CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"

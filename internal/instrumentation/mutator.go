@@ -28,7 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
@@ -384,10 +384,10 @@ func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Contex
 			continue
 		}
 
-		if !podSelector.Matches(fields.Set(pod.Labels)) {
+		if !podSelector.Matches(labels.Set(pod.Labels)) {
 			continue
 		}
-		if !namespaceSelector.Matches(fields.Set(ns.Labels)) {
+		if !namespaceSelector.Matches(labels.Set(ns.Labels)) {
 			continue
 		}
 

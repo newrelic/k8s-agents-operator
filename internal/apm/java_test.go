@@ -71,8 +71,12 @@ func TestJavaInjector_Inject(t *testing.T) {
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "nri-java--test",
-						Command:      []string{"cp", "/newrelic-agent.jar", "/nri-java--test/newrelic-agent.jar"},
+						Name:    "nri-java--test",
+						Command: []string{"/bin/sh"},
+						Args: []string{
+							"-c",
+							"cp /newrelic-agent.jar /nri-java--test/newrelic-agent.jar && if test -d extensions; then cp -a extensions/. /nri-java--test/extensions/; fi",
+						},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-java--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -111,8 +115,12 @@ func TestJavaInjector_Inject(t *testing.T) {
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "nri-java--test",
-						Command:      []string{"cp", "/newrelic-agent.jar", "/nri-java--test/newrelic-agent.jar"},
+						Name:    "nri-java--test",
+						Command: []string{"/bin/sh"},
+						Args: []string{
+							"-c",
+							"cp /newrelic-agent.jar /nri-java--test/newrelic-agent.jar && if test -d extensions; then cp -a extensions/. /nri-java--test/extensions/; fi",
+						},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-java--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -151,8 +159,12 @@ func TestJavaInjector_Inject(t *testing.T) {
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					InitContainers: []corev1.Container{{
-						Name:         "nri-java--test",
-						Command:      []string{"cp", "/newrelic-agent.jar", "/nri-java--test/newrelic-agent.jar"},
+						Name:    "nri-java--test",
+						Command: []string{"/bin/sh"},
+						Args: []string{
+							"-c",
+							"cp /newrelic-agent.jar /nri-java--test/newrelic-agent.jar && if test -d extensions; then cp -a extensions/. /nri-java--test/extensions/; fi",
+						},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-java--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -193,8 +205,12 @@ func TestJavaInjector_Inject(t *testing.T) {
 					},
 					InitContainers: []corev1.Container{
 						{
-							Name:         "nri-java--test",
-							Command:      []string{"cp", "/newrelic-agent.jar", "/nri-java--test/newrelic-agent.jar"},
+							Name:    "nri-java--test",
+							Command: []string{"/bin/sh"},
+							Args: []string{
+								"-c",
+								"cp /newrelic-agent.jar /nri-java--test/newrelic-agent.jar && if test -d extensions; then cp -a extensions/. /nri-java--test/extensions/; fi",
+							},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-java--test", MountPath: "/nri-java--test"}},
 						},
 					},
