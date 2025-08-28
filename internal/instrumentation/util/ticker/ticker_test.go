@@ -14,7 +14,7 @@ func TestNewTicker(t *testing.T) {
 		c++
 	})
 	time.Sleep(time.Millisecond * 20)
-	tk.Shutdown(context.Background())
+	_ = tk.Shutdown(context.Background())
 	assert.Equal(t, c, 1)
-	tk.Stop(context.Background())
+	_ = tk.Stop(context.Background())
 }
