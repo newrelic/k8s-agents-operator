@@ -79,15 +79,23 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 		return res
 	}
 
-	for _, mutator := range m.Mutators {
-		mutatedPod, err := mutator.Mutate(ctx, ns, *pod.DeepCopy())
-		if err != nil {
-			//@todo: actually print the error message
-			res := admission.Errored(http.StatusInternalServerError, err)
-			res.Allowed = true
-			return res
+	if pod.DeletionTimestamp != nil {
+		// This will only ever be non nil during an update. Create's set this to nil.
+		// Don't do anything to mutate the pod if it's marked as deleted
+		logger.Info("Pod is being deleted, skipping mutations.")
+		res := admission.Allowed("")
+		return res
+	} else {
+		for _, mutator := range m.Mutators {
+			mutatedPod, err := mutator.Mutate(ctx, ns, *pod.DeepCopy())
+			if err != nil {
+				//@todo: actually print the error message
+				res := admission.Errored(http.StatusInternalServerError, err)
+				res.Allowed = true
+				return res
+			}
+			pod = mutatedPod
 		}
-		pod = mutatedPod
 	}
 
 	marshaledPod, err := json.Marshal(pod)
