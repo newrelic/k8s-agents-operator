@@ -58,6 +58,7 @@ spec:
     image: newrelic/newrelic-dotnet-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
+
 For .NET on Windows 2022
 
 ```yaml
