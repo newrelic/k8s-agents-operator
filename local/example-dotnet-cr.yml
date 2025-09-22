@@ -11,7 +11,7 @@ spec:
         values: ["test2022"]
   agent:
     language: dotnet-windows2022
-    image: jareg.azurecr.io/newrelic-dotnet-windows2022-init:latest
+    image: newrelic/newrelic-dotnet-windows2022-init:latest
 ---
 apiVersion: newrelic.com/v1beta2
 kind: Instrumentation
@@ -26,4 +26,4 @@ spec:
         values: ["test2025"]
   agent:
     language: dotnet-windows2025
-    image: jareg.azurecr.io/newrelic-dotnet-windows2025-init:latest
+    image: newrelic/newrelic-dotnet-windows2025-init:latest

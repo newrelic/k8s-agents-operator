@@ -27,22 +27,22 @@ import (
 )
 
 const (
-	envDotnetFrameworkClrEnableProfiling     = "COR_ENABLE_PROFILING"
-	envDotnetFrameworkClrProfiler            = "COR_PROFILER"
-	envDotnetFrameworkClrProfilerPath        = "COR_PROFILER_PATH"
-	envDotnetFrameworkNewrelicHome           = "NEWRELIC_HOME"
-	dotnetFrameworkClrEnableProfilingEnabled = "1"
-	dotnetFrameworkClrProfilerID             = "{71DA0A04-7777-4EC6-9643-7D28B46A8A41}"
+	envWinDotnetFrameworkClrEnableProfiling        = "COR_ENABLE_PROFILING"
+	envWinDotnetFrameworkClrProfiler               = "COR_PROFILER"
+	envWinDotnetFrameworkClrProfilerPath           = "COR_PROFILER_PATH"
+	envWinDotnetFrameworkNewrelicHome              = "NEWRELIC_HOME"
+	envWinDotnetFrameworkClrEnableProfilingEnabled = "1"
+	envWinDotnetFrameworkClrProfilerID             = "{71DA0A04-7777-4EC6-9643-7D28B46A8A41}"
 
-	windowsEnvDotnetCoreClrEnableProfiling     = "CORECLR_ENABLE_PROFILING"
-	windowsEnvDotnetCoreClrProfiler            = "CORECLR_PROFILER"
-	windowsEnvDotnetCoreClrProfilerPath        = "CORECLR_PROFILER_PATH"
-	windowsEnvDotnetCoreNewrelicHome           = "CORECLR_NEWRELIC_HOME"
-	windowsDotnetCoreClrEnableProfilingEnabled = "1"
-	windowsDotnetCoreClrProfilerID             = "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
+	envWinDotnetCoreClrEnableProfiling        = "CORECLR_ENABLE_PROFILING"
+	envWinDotnetCoreClrProfiler               = "CORECLR_PROFILER"
+	envWinDotnetCoreClrProfilerPath           = "CORECLR_PROFILER_PATH"
+	envWinDotnetCoreNewrelicHome              = "CORECLR_NEWRELIC_HOME"
+	envWinDotnetCoreClrEnableProfilingEnabled = "1"
+	envWinDotnetCoreClrProfilerID             = "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
 
-	windowsEnvDotnetAgentLogPath    = "NEWRELIC_LOG_DIRECTORY"
-	windowsEnvDotnetProfilerLogPath = "NEWRELIC_PROFILER_LOG_DIRECTORY"
+	envWinDotnetAgentLogPath    = "NEWRELIC_LOG_DIRECTORY"
+	envWinDotnetProfilerLogPath = "NEWRELIC_PROFILER_LOG_DIRECTORY"
 )
 
 var errUnableToConfigureEnvWindows = errors.New("unable to configure environment variables, they've already been set to different values")
@@ -74,50 +74,50 @@ func (i *DotnetWindowsInjector) InjectContainer(ctx context.Context, inst curren
 
 	// Logging
 	logsPath := mountPath + "\\Logs"
-	setEnvVar(container, windowsEnvDotnetAgentLogPath, logsPath, false, "")
-	setEnvVar(container, windowsEnvDotnetProfilerLogPath, logsPath, false, "")
+	setEnvVar(container, envWinDotnetAgentLogPath, logsPath, false, "")
+	setEnvVar(container, envWinDotnetProfilerLogPath, logsPath, false, "")
 
 	// Framework env vars validation
-	if err := validateContainerEnv(container.Env, envDotnetFrameworkClrEnableProfiling, envDotnetFrameworkClrProfiler, envDotnetFrameworkClrProfilerPath, envDotnetFrameworkNewrelicHome); err != nil {
+	if err := validateContainerEnv(container.Env, envWinDotnetFrameworkClrEnableProfiling, envWinDotnetFrameworkClrProfiler, envWinDotnetFrameworkClrProfilerPath, envWinDotnetFrameworkNewrelicHome); err != nil {
 		return corev1.Pod{}, err
 	}
 
-	setEnvVar(container, envDotnetFrameworkClrEnableProfiling, dotnetFrameworkClrEnableProfilingEnabled, false, "")
-	setEnvVar(container, envDotnetFrameworkClrProfiler, dotnetFrameworkClrProfilerID, false, "")
-	setEnvVar(container, envDotnetFrameworkClrProfilerPath, frameworkClrProfilerPath, false, "")
-	setEnvVar(container, envDotnetFrameworkNewrelicHome, frameworkNewrelicHomePath, false, "")
-	if v, _ := getValueFromEnv(container.Env, envDotnetFrameworkClrEnableProfiling); v != dotnetFrameworkClrEnableProfilingEnabled {
+	setEnvVar(container, envWinDotnetFrameworkClrEnableProfiling, envWinDotnetFrameworkClrEnableProfilingEnabled, false, "")
+	setEnvVar(container, envWinDotnetFrameworkClrProfiler, envWinDotnetFrameworkClrProfilerID, false, "")
+	setEnvVar(container, envWinDotnetFrameworkClrProfilerPath, frameworkClrProfilerPath, false, "")
+	setEnvVar(container, envWinDotnetFrameworkNewrelicHome, frameworkNewrelicHomePath, false, "")
+	if v, _ := getValueFromEnv(container.Env, envWinDotnetFrameworkClrEnableProfiling); v != envWinDotnetFrameworkClrEnableProfilingEnabled {
 		return corev1.Pod{}, errUnableToConfigureEnvWindows
 	}
-	if v, _ := getValueFromEnv(container.Env, envDotnetFrameworkClrProfiler); v != dotnetFrameworkClrProfilerID {
+	if v, _ := getValueFromEnv(container.Env, envWinDotnetFrameworkClrProfiler); v != envWinDotnetFrameworkClrProfilerID {
 		return corev1.Pod{}, errUnableToConfigureEnvWindows
 	}
-	if v, _ := getValueFromEnv(container.Env, envDotnetFrameworkClrProfilerPath); v != frameworkClrProfilerPath {
+	if v, _ := getValueFromEnv(container.Env, envWinDotnetFrameworkClrProfilerPath); v != frameworkClrProfilerPath {
 		return corev1.Pod{}, errUnableToConfigureEnvWindows
 	}
-	if v, _ := getValueFromEnv(container.Env, envDotnetFrameworkNewrelicHome); v != frameworkNewrelicHomePath {
+	if v, _ := getValueFromEnv(container.Env, envWinDotnetFrameworkNewrelicHome); v != frameworkNewrelicHomePath {
 		return corev1.Pod{}, errUnableToConfigureEnvWindows
 	}
 
 	// Core env vars validation
-	if err := validateContainerEnv(container.Env, windowsEnvDotnetCoreClrEnableProfiling, windowsEnvDotnetCoreClrProfiler, windowsEnvDotnetCoreClrProfilerPath, windowsEnvDotnetCoreNewrelicHome); err != nil {
+	if err := validateContainerEnv(container.Env, envWinDotnetCoreClrEnableProfiling, envWinDotnetCoreClrProfiler, envWinDotnetCoreClrProfilerPath, envWinDotnetCoreNewrelicHome); err != nil {
 		return corev1.Pod{}, err
 	}
 
-	setEnvVar(container, windowsEnvDotnetCoreClrEnableProfiling, windowsDotnetCoreClrEnableProfilingEnabled, false, "")
-	setEnvVar(container, windowsEnvDotnetCoreClrProfiler, windowsDotnetCoreClrProfilerID, false, "")
-	setEnvVar(container, windowsEnvDotnetCoreClrProfilerPath, coreClrProfilerPath, false, "")
-	setEnvVar(container, windowsEnvDotnetCoreNewrelicHome, coreNewrelicHomePath, false, "")
-	if v, _ := getValueFromEnv(container.Env, windowsEnvDotnetCoreClrEnableProfiling); v != windowsDotnetCoreClrEnableProfilingEnabled {
+	setEnvVar(container, envWinDotnetCoreClrEnableProfiling, envWinDotnetCoreClrEnableProfilingEnabled, false, "")
+	setEnvVar(container, envWinDotnetCoreClrProfiler, envWinDotnetCoreClrProfilerID, false, "")
+	setEnvVar(container, envWinDotnetCoreClrProfilerPath, coreClrProfilerPath, false, "")
+	setEnvVar(container, envWinDotnetCoreNewrelicHome, coreNewrelicHomePath, false, "")
+	if v, _ := getValueFromEnv(container.Env, envWinDotnetCoreClrEnableProfiling); v != envWinDotnetCoreClrEnableProfilingEnabled {
 		return corev1.Pod{}, errUnableToConfigureEnvWindows
 	}
-	if v, _ := getValueFromEnv(container.Env, windowsEnvDotnetCoreClrProfiler); v != windowsDotnetCoreClrProfilerID {
+	if v, _ := getValueFromEnv(container.Env, envWinDotnetCoreClrProfiler); v != envWinDotnetCoreClrProfilerID {
 		return corev1.Pod{}, errUnableToConfigureEnvWindows
 	}
-	if v, _ := getValueFromEnv(container.Env, windowsEnvDotnetCoreClrProfilerPath); v != coreClrProfilerPath {
+	if v, _ := getValueFromEnv(container.Env, envWinDotnetCoreClrProfilerPath); v != coreClrProfilerPath {
 		return corev1.Pod{}, errUnableToConfigureEnvWindows
 	}
-	if v, _ := getValueFromEnv(container.Env, windowsEnvDotnetCoreNewrelicHome); v != coreNewrelicHomePath {
+	if v, _ := getValueFromEnv(container.Env, envWinDotnetCoreNewrelicHome); v != coreNewrelicHomePath {
 		return corev1.Pod{}, errUnableToConfigureEnvWindows
 	}
 
