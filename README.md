@@ -6,10 +6,14 @@ This project auto-instruments containerized workloads in Kubernetes with New Rel
 
 ## Table Of Contents
 
-- [Installation](#installation)
-- [Support](#support)
-- [Contribute](#contribute)
-- [License](#license)
+- [K8s Agents Operator ](#k8s-agents-operator-)
+  - [Table Of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Development](#development)
+  - [Compatibility](#compatibility)
+  - [Support](#support)
+  - [Contribute](#contribute)
+  - [License](#license)
 
 ## Installation
 
@@ -32,6 +36,9 @@ ctlptl create registry ctlptl-registry --port=5005
 ctlptl create cluster minikube --registry=ctlptl-registry
 tilt up
 ```
+## Compatibility
+* This project has been tested on standard Kubernetes clusters.
+* **EKS Fargate has not been tested and not officially supported**
 
 ## Support
 
