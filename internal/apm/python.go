@@ -17,19 +17,19 @@ package apm
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 )
 
 const (
-	envPythonPath           = "PYTHONPATH"
-	pythonPathPrefix        = "/newrelic-instrumentation"
-	pythonInitContainerName = initContainerName + "-python"
+	envPythonPath = "PYTHONPATH"
 )
 
-var _ Injector = (*PythonInjector)(nil)
+var _ ContainerInjector = (*PythonInjector)(nil)
 
 func init() {
 	DefaultInjectorRegistry.MustRegister(&PythonInjector{baseInjector{lang: "python"}})
@@ -39,10 +39,16 @@ type PythonInjector struct {
 	baseInjector
 }
 
-func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) (corev1.Pod, error) {
-	firstContainer := 0
-	// caller checks if there is at least one container.
-	container := &pod.Spec.Containers[firstContainer]
+func (i *PythonInjector) InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error) {
+	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
+	if container == nil {
+		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
+	}
+
+	initContainerName := generateContainerName("nri-python--" + containerName)
+	volumeName := initContainerName
+	mountPath := "/" + volumeName
+	pythonPathPrefix := mountPath
 
 	if err := validateContainerEnv(container.Env, envPythonPath); err != nil {
 		return corev1.Pod{}, err
@@ -50,42 +56,36 @@ func (i *PythonInjector) Inject(ctx context.Context, inst current.Instrumentatio
 	setEnvVar(container, envPythonPath, pythonPathPrefix, true, ":")
 	setContainerEnvFromInst(container, inst)
 
-	if isContainerVolumeMissing(container, volumeName) {
-		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: "/newrelic-instrumentation",
-		})
-	}
+	addPodVolumeIfMissing(&pod, volumeName)
+	addContainerVolumeIfMissing(container, volumeName, mountPath)
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(pod, pythonInitContainerName) {
-		if isPodVolumeMissing(pod, volumeName) {
-			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				}})
-		}
-
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-			Name:    pythonInitContainerName,
-			Image:   inst.Spec.Agent.Image,
-			Command: []string{"cp", "-a", "/instrumentation/.", "/newrelic-instrumentation/"},
+	if isInitContainerMissing(&pod, initContainerName) {
+		newContainer := corev1.Container{
+			Name:            initContainerName,
+			Image:           inst.Spec.Agent.Image,
+			ImagePullPolicy: inst.Spec.Agent.ImagePullPolicy,
+			Command:         []string{"cp", "-a", "/instrumentation/.", mountPath + "/"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
-				MountPath: "/newrelic-instrumentation",
+				MountPath: mountPath,
 			}},
-		})
+			Resources:       *inst.Spec.Agent.Resources.DeepCopy(),
+			SecurityContext: inst.Spec.Agent.SecurityContext.DeepCopy(),
+		}
+		addContainer(isTargetInitContainer, containerName, &pod, newContainer)
+
+		// re get container, it's address in memory likely changed, since appending can allocate a new slice
+		container, _ = util.GetContainerByNameFromPod(&pod, containerName)
 	}
 
-	pod = i.injectNewrelicConfig(ctx, ns, pod, firstContainer, inst.Spec.LicenseKeySecret)
-
-	pod = addAnnotationToPodFromInstrumentationVersion(ctx, pod, inst)
-
-	var err error
-	if pod, err = i.injectHealth(ctx, inst, ns, pod, firstContainer, -1); err != nil {
+	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {
 		return corev1.Pod{}, err
 	}
-
-	return pod, nil
+	setContainerEnvInjectionDefaults(container)
+	setContainerEnvLicenseKey(container, inst.Spec.LicenseKeySecret)
+	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
+		return corev1.Pod{}, err
+	}
+	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
 }

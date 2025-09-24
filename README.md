@@ -6,14 +6,13 @@ This project auto-instruments containerized workloads in Kubernetes with New Rel
 
 ## Table Of Contents
 
-- [K8s Agents Operator ](#k8s-agents-operator-)
-  - [Table Of Contents](#table-of-contents)
-  - [Installation](#installation)
-  - [Development](#development)
-  - [Compatibility](#compatibility)
-  - [Support](#support)
-  - [Contribute](#contribute)
-  - [License](#license)
+- [Installation](#installation)
+- [Instrumentation](instrumentation.md)
+- [Development](#development)
+- [Compatibility](#compatibility)
+- [Support](#support)
+- [Contribute](#contribute)
+- [License](#license)
 
 ## Installation
 

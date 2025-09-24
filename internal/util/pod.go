@@ -3,11 +3,17 @@ package util
 import corev1 "k8s.io/api/core/v1"
 
 func SetPodLabel(pod *corev1.Pod, key, val string) {
-	labels := pod.Labels
-	if labels == nil {
-		pod.ObjectMeta.Labels = make(map[string]string)
+	if pod.Labels == nil {
+		pod.Labels = make(map[string]string)
 	}
-	pod.ObjectMeta.Labels[key] = val
+	pod.Labels[key] = val
+}
+
+func SetPodAnnotation(pod *corev1.Pod, key, val string) {
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	pod.Annotations[key] = val
 }
 
 func GetContainerByNameFromPod(pod *corev1.Pod, containerName string) (container *corev1.Container, isInitContainer bool) {

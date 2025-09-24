@@ -36,7 +36,10 @@ import (
 type NamespaceReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
-	healthMonitor *instrumentation.HealthMonitor
+	healthMonitor interface {
+		NamespaceSet(ns *corev1.Namespace)
+		NamespaceRemove(ns *corev1.Namespace)
+	}
 }
 
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
@@ -52,7 +55,7 @@ type NamespaceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("name", req.Name)
+	logger := log.FromContext(ctx).V(2)
 	logger.Info("start namespace reconciliation")
 
 	if req.Namespace == "kube-system" {
@@ -60,7 +63,7 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	ns := corev1.Namespace{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name}, &ns)
+	err := r.Get(ctx, client.ObjectKey{Name: req.Name}, &ns)
 	logger.Info("namespace reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
 		ns.Name = req.Name

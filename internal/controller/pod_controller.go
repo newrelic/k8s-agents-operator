@@ -37,8 +37,11 @@ import (
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	healthMonitor     *instrumentation.HealthMonitor
+	Scheme        *runtime.Scheme
+	healthMonitor interface {
+		PodSet(pod *corev1.Pod)
+		PodRemove(pod *corev1.Pod)
+	}
 	operatorNamespace string
 }
 
@@ -55,21 +58,21 @@ type PodReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name).V(2)
 
 	if slices.Contains([]string{"kube-system", "newrelic"}, req.Namespace) {
 		return ctrl.Result{}, nil
 	}
 
-	logger.V(2).Info("start pod reconciliation")
+	logger.Info("start pod reconciliation")
 
 	pod := corev1.Pod{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &pod)
-	logger.V(2).Info("pod reconciliation; get", "error", err)
+	err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &pod)
+	logger.Info("pod reconciliation; get", "error", err)
 	if apierrors.IsNotFound(err) {
 		pod.Name = req.Name
 		pod.Namespace = req.Namespace
-		logger.V(2).Info("pod reconciliation; pod deleted event")
+		logger.Info("pod reconciliation; pod deleted event")
 		r.healthMonitor.PodRemove(&pod)
 		return ctrl.Result{}, nil
 	}
@@ -77,12 +80,12 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 	if pod.DeletionTimestamp != nil {
-		logger.V(2).Info("pod reconciliation; pod deleting event")
+		logger.Info("pod reconciliation; pod deleting event")
 		r.healthMonitor.PodRemove(&pod)
 		return ctrl.Result{}, nil
 	}
 
-	logger.V(2).Info("pod reconciliation; pod created event", "namespace", req.Namespace, "name", req.Name)
+	logger.Info("pod reconciliation; pod created event", "namespace", req.Namespace, "name", req.Name)
 	r.healthMonitor.PodSet(&pod)
 
 	if pod.Status.Phase == corev1.PodPending {
