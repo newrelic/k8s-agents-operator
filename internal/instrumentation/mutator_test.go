@@ -350,6 +350,7 @@ func TestMutatePod(t *testing.T) {
 				injectorRegistry := apm.NewInjectorRegistry()
 				apmInjectors := []apm.ContainerInjector{
 					&apm.DotnetInjector{},
+					&apm.DotnetWindowsInjector{},
 					&apm.JavaInjector{},
 					&apm.NodejsInjector{},
 					&apm.PhpInjector{},
@@ -656,6 +657,24 @@ func TestGetLanguageInstrumentations(t *testing.T) {
 			},
 			expectedLangInsts: []*current.Instrumentation{
 				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet", Image: "dotnet"}}},
+			},
+		},
+		{
+			name: "dotnet-windows2022",
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2022", Image: "dotnet-windows2022"}}},
+			},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2022", Image: "dotnet-windows2022"}}},
+			},
+		},
+		{
+			name: "dotnet-windows2025",
+			instrumentations: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2025", Image: "dotnet-windows2025"}}},
+			},
+			expectedLangInsts: []*current.Instrumentation{
+				{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2025", Image: "dotnet-windows2025"}}},
 			},
 		},
 		{
@@ -2344,9 +2363,11 @@ func TestValidateInstrumentations(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a"}}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a"}}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "foo3"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet", Image: "a"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "foo4"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python", Image: "a"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "foo5"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-7.4", Image: "a"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "foo6"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo4"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2022", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo5"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2025", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo6"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo7"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-7.4", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo8"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs", Image: "a"}}},
 			},
 			expectedErrIs: nil,
 		},
@@ -2356,10 +2377,12 @@ func TestValidateInstrumentations(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "foo"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "a"}}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "foo2"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby", Image: "a"}}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "foo3"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet", Image: "a"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "foo4"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python", Image: "a"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "foo5"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-7.4", Image: "a"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "foo6"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs", Image: "a"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "foo7"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "b"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo4"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2022", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo5"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2025", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo6"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo7"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-7.4", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo8"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "nodejs", Image: "a"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "foo9"}, Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "java", Image: "b"}}},
 			},
 			expectedErrIs: errMultipleInstancesPossible,
 		},

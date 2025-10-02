@@ -36,14 +36,16 @@ For each namespace you want the operator to be instrumented, a secret will be re
 For each `Instrumentation` custom resource created, specifying which APM agent you want to instrument for each language. All available APM
  agent docker images and corresponding tags are listed on DockerHub:
 
-* [.NET](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
+* [.NET on Linux](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
+* [.NET on Windows 2022](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-windows2022-init/general)
+* [.NET on Windows 2025](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-windows2025-init/general)
 * [Java](https://hub.docker.com/repository/docker/newrelic/newrelic-java-init/general)
 * [Node](https://hub.docker.com/repository/docker/newrelic/newrelic-node-init/general)
 * [Python](https://hub.docker.com/repository/docker/newrelic/newrelic-python-init/general)
 * [Ruby](https://hub.docker.com/repository/docker/newrelic/newrelic-ruby-init/general)
 * [PHP](https://hub.docker.com/repository/docker/newrelic/newrelic-php-init/general)
 
-For .NET
+For .NET on Linux
 
 ```yaml
 apiVersion: newrelic.com/v1alpha2
@@ -54,6 +56,34 @@ spec:
   agent:
     language: dotnet
     image: newrelic/newrelic-dotnet-init:latest # Please ensure you're using a trusted New Relic image
+    # env: ...
+```
+
+For .NET on Windows 2022
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-dotnet
+spec:
+  agent:
+    language: dotnet-windows2022
+    image: newrelic/newrelic-dotnet-windows2022-init:latest # Please ensure you're using a trusted New Relic image
+    # env: ...
+```
+
+For .NET on Windows 2025
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-dotnet
+spec:
+  agent:
+    language: dotnet-windows2025
+    image: newrelic/newrelic-dotnet-windows2025-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 

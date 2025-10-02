@@ -143,6 +143,8 @@ var validImagePullPolicies = map[corev1.PullPolicy]struct{}{
 
 var acceptableLangs = []string{
 	"dotnet",
+	"dotnet-windows2022",
+	"dotnet-windows2025",
 	"go",
 	"java",
 	"nodejs",

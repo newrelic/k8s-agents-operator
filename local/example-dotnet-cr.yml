@@ -1,0 +1,29 @@
+apiVersion: newrelic.com/v1beta2
+kind: Instrumentation
+metadata:
+  name: dotnet-windows2022-latest
+  namespace: newrelic
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.kubernetes.io/name"
+        operator: "In"
+        values: ["test2022"]
+  agent:
+    language: dotnet-windows2022
+    image: newrelic/newrelic-dotnet-windows2022-init:latest
+---
+apiVersion: newrelic.com/v1beta2
+kind: Instrumentation
+metadata:
+  name: dotnet-windows2025-latest
+  namespace: newrelic
+spec:
+  podLabelSelector:
+    matchExpressions:
+      - key: "app.kubernetes.io/name"
+        operator: "In"
+        values: ["test2025"]
+  agent:
+    language: dotnet-windows2025
+    image: newrelic/newrelic-dotnet-windows2025-init:latest
