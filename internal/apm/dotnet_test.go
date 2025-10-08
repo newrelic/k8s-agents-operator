@@ -32,7 +32,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 		{
 			name: "a container, instrumentation with env already set to ValueFrom",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetCoreClrEnableProfiling, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
+				{Name: "test", Env: []corev1.EnvVar{{Name: envLinuxDotnetCoreClrEnableProfiling, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
 			}}},
 			expectedErrStr: "the container defines env var value via ValueFrom, envVar: CORECLR_ENABLE_PROFILING",
 			mutations: []mutation{
@@ -42,7 +42,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 		{
 			name: "a container, instrumentation with env CORECLR_ENABLE_PROFILING already set",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetCoreClrEnableProfiling, Value: "INVALID"}}},
+				{Name: "test", Env: []corev1.EnvVar{{Name: envLinuxDotnetCoreClrEnableProfiling, Value: "INVALID"}}},
 			}}},
 			expectedErrStr: errUnableToConfigureEnv.Error(),
 			mutations: []mutation{
@@ -52,7 +52,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 		{
 			name: "a container, instrumentation with env CORECLR_PROFILER already set",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetCoreClrProfiler, Value: "INVALID"}}},
+				{Name: "test", Env: []corev1.EnvVar{{Name: envLinuxDotnetCoreClrProfiler, Value: "INVALID"}}},
 			}}},
 			expectedErrStr: errUnableToConfigureEnv.Error(),
 			mutations: []mutation{
@@ -62,7 +62,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 		{
 			name: "a container, instrumentation with env CORECLR_PROFILER_PATH already set",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetCoreClrProfilerPath, Value: "INVALID"}}},
+				{Name: "test", Env: []corev1.EnvVar{{Name: envLinuxDotnetCoreClrProfilerPath, Value: "INVALID"}}},
 			}}},
 			expectedErrStr: errUnableToConfigureEnv.Error(),
 			mutations: []mutation{
@@ -72,7 +72,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 		{
 			name: "a container, instrumentation with env CORECLR_NEWRELIC_HOME already set",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test", Env: []corev1.EnvVar{{Name: envDotnetNewrelicHome, Value: "INVALID"}}},
+				{Name: "test", Env: []corev1.EnvVar{{Name: envLinuxDotnetNewrelicHome, Value: "INVALID"}}},
 			}}},
 			expectedErrStr: errUnableToConfigureEnv.Error(),
 			mutations: []mutation{

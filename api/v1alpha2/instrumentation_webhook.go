@@ -102,6 +102,8 @@ func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, obj runti
 
 var acceptableLangs = []string{
 	"dotnet",
+	"dotnet-windows2022",
+	"dotnet-windows2025",
 	"go",
 	"java",
 	"nodejs",
