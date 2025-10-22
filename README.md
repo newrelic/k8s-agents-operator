@@ -8,6 +8,8 @@ This project auto-instruments containerized workloads in Kubernetes with New Rel
 
 - [Installation](#installation)
 - [Instrumentation](instrumentation.md)
+- [Development](#development)
+- [Compatibility](#compatibility)
 - [Support](#support)
 - [Contribute](#contribute)
 - [License](#license)
@@ -33,6 +35,9 @@ ctlptl create registry ctlptl-registry --port=5005
 ctlptl create cluster minikube --registry=ctlptl-registry
 tilt up
 ```
+## Compatibility
+* This project has been tested on standard Kubernetes clusters.
+* **EKS Fargate has not been tested and not officially supported**
 
 ## Support
 
