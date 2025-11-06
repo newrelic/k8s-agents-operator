@@ -11,7 +11,8 @@ K8S_AGENTS_OPERATOR_VERSION = ""
 .DEFAULT_GOAL := help
 
 # Go packages to test
-TEST_PACKAGES = ./api/v1beta2 \
+TEST_PACKAGES = ./api/v1beta3 \
+	./api/v1beta2 \
 	./api/v1beta1 \
 	./api/v1alpha2 \
 	./internal/apm \

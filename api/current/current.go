@@ -1,6 +1,6 @@
 package current
 
-import currentapi "github.com/newrelic/k8s-agents-operator/api/v1beta2"
+import currentapi "github.com/newrelic/k8s-agents-operator/api/v1beta3"
 
 type (
 	Agent                    = currentapi.Agent
@@ -21,6 +21,9 @@ type (
 	EnvSelectorOperator   = currentapi.EnvSelectorOperator
 	ImageSelectorOperator = currentapi.ImageSelectorOperator
 	NameSelectorOperator  = currentapi.NameSelectorOperator
+
+	ImageSelectorKey = currentapi.ImageSelectorKey
+	NameSelectorKey  = currentapi.NameSelectorKey
 
 	EnvSelectorRequirement   = currentapi.EnvSelectorRequirement
 	ImageSelectorRequirement = currentapi.ImageSelectorRequirement

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -88,6 +89,7 @@ type instrumentationMetric struct {
 	podsHealthy       int64
 	podsUnhealthy     int64
 	unhealthyPods     []current.UnhealthyPodError
+	entityGUIDs       []string
 }
 
 // resolve marks the instrumentation metric done.  anything waiting via `wait` will continue
@@ -132,7 +134,24 @@ func (im *instrumentationMetric) isDiff() bool {
 		return true
 	}
 	sort.Slice(im.unhealthyPods, func(i, j int) bool { return im.unhealthyPods[i].Pod < im.unhealthyPods[j].Pod })
+	im.entityGUIDs = uniqueSlices(im.entityGUIDs)
+	sort.Slice(im.entityGUIDs, func(i, j int) bool { return strings.Compare(im.entityGUIDs[i], im.entityGUIDs[j]) < 0 })
+	if !reflect.DeepEqual(im.entityGUIDs, im.instrumentation.Status.EntityGUIDs) {
+		return true
+	}
 	return !reflect.DeepEqual(im.unhealthyPods, im.instrumentation.Status.UnhealthyPodsErrors)
+}
+
+func uniqueSlices(in []string) []string {
+	out := make([]string, 0, len(in))
+	u := map[string]struct{}{}
+	for _, item := range in {
+		if _, ok := u[item]; !ok {
+			u[item] = struct{}{}
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // syncStatus to copy the data from the instrumentation metric to the instrumentation
@@ -146,6 +165,7 @@ func (im *instrumentationMetric) syncStatus() {
 	im.instrumentation.Status.PodsUnhealthy = im.podsUnhealthy
 	im.instrumentation.Status.UnhealthyPodsErrors = im.unhealthyPods
 	im.instrumentation.Status.ObservedVersion = im.instrumentation.ResourceVersion
+	im.instrumentation.Status.EntityGUIDs = im.entityGUIDs
 }
 
 // podMetric contains the pod, it's id (used for logging), health (empty by default), and doneCh - which is closed once health has been retrieved
@@ -400,6 +420,10 @@ func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, eve
 		if !m.isPodReady(eventPodMetrics.pod) {
 			event.podsNotReady++
 			continue
+		}
+
+		if eventPodMetrics.health.EntityGUID != "" {
+			event.entityGUIDs = append(event.entityGUIDs, eventPodMetrics.health.EntityGUID)
 		}
 
 		if eventPodMetrics.health.Healthy {

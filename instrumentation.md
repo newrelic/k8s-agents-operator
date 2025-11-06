@@ -1,4 +1,4 @@
-# Instrumentation (v1beta2)
+# Instrumentation (v1beta3)
 
 The instrumentation is the specification to match specific pods and containers, instrumenting them with the newrelic
 agent by mutating the pod via admission webhooks.  Typically, it means adding an init container to the pod (before the

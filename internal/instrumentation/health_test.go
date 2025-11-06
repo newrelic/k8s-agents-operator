@@ -369,6 +369,60 @@ func TestHealthMonitor(t *testing.T) {
 				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed while retrieving health > fake health check error, url: \"http://127.0.0.1:5678/healthz\""}},
 			},
 		},
+		{
+			name: "matching, injected and ready, has the health sidecar with only 1 exposed port",
+			fnHealthCheck: fakeHealthCheck(func(ctx context.Context, url string) (health Health, err error) {
+				logger := log.FromContext(ctx)
+				logger.Info("fake health check")
+				return Health{EntityGUID: "1bad-f00d", Healthy: true}, nil
+			}),
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *current.Instrumentation) error {
+				logger := log.FromContext(ctx)
+				logger.Info("fake instrumentation status updater")
+				return nil
+			}),
+			namespaces: map[string]*corev1.Namespace{
+				"default":  {ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+				"newrelic": {ObjectMeta: metav1.ObjectMeta{Name: "newrelic"}},
+			},
+			pods: map[string]*corev1.Pod{
+				"default/pod0": {
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod0", Namespace: "default", Annotations: map[string]string{
+							"newrelic.com/apm-health":        "true",
+							instrumentationVersionAnnotation: `{"newrelic/instrumentation0":"01234567-89ab-cdef-0123-456789abcdef/55"}`,
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{
+							{
+								RestartPolicy: &containerRestartPolicyAlways,
+								Name:          healthSidecarContainerName,
+								Ports: []corev1.ContainerPort{
+									{ContainerPort: 5678},
+								},
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						PodIP: "127.0.0.1",
+					},
+				},
+			},
+			instrumentations: map[string]*current.Instrumentation{
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
+					Spec:       current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health"}},
+				},
+			},
+			expectedInstrumentationStatus: current.InstrumentationStatus{
+				PodsMatching: 1,
+				PodsInjected: 1,
+				PodsHealthy:  1,
+				EntityGUIDs:  []string{"1bad-f00d"},
+			},
+		},
 	}
 
 	for _, test := range tests {
