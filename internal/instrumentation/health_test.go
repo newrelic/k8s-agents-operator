@@ -2,6 +2,7 @@ package instrumentation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -543,10 +544,17 @@ func TestIsDiff(t *testing.T) {
 			expected: errUnhealthyPodErrorsIsDiff,
 		},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if test.expected != test.metric.isDiff() {
-				t.Errorf("expected %v, got %v", test.expected, test.metric.isDiff())
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := tc.metric.isDiff()
+			if tc.expected != nil && actual != nil && !errors.Is(tc.expected, actual) {
+				t.Errorf("expected %v, got %v", tc.expected, actual)
+			}
+			if tc.expected == nil && actual != nil {
+				t.Errorf("expected nil, got %v", actual)
+			}
+			if tc.expected != nil && actual == nil {
+				t.Errorf("expected %v, got nil", tc.expected)
 			}
 		})
 	}

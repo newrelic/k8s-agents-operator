@@ -348,9 +348,9 @@ func setupInstrumentationWebhooks(mgr manager.Manager, operatorNamespace string)
 		{name: "v1beta2", setup: newreliccomv1beta2.SetupWebhookWithManager},
 		{name: "v1beta3", setup: newreliccomv1beta3.SetupWebhookWithManager},
 	}
-	for _, webhook := range webhooks {
-		if err := webhook.setup(mgr, operatorNamespace); err != nil {
-			return fmt.Errorf("unable to register %s.instrumentation webhook: %v", webhook.name, err)
+	for _, webhookEntry := range webhooks {
+		if err := webhookEntry.setup(mgr, operatorNamespace); err != nil {
+			return fmt.Errorf("unable to register %s.instrumentation webhook: %w", webhookEntry.name, err)
 		}
 	}
 	return nil

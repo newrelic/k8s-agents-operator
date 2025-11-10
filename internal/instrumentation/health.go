@@ -169,9 +169,6 @@ func uniqueSlices(in []string) []string {
 			out = append(out, item)
 		}
 	}
-	if len(u) == 0 {
-		return nil
-	}
 	return out
 }
 

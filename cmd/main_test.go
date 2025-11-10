@@ -125,11 +125,11 @@ func TestMain(m *testing.M) {
 	}
 
 	operatorNamespace := "newrelic"
-	if err := setupInstrumentationWebhooks(mgr, operatorNamespace); err != nil {
+	if err = setupInstrumentationWebhooks(mgr, operatorNamespace); err != nil {
 		fmt.Printf("%s\n", err.Error())
 		os.Exit(1)
 	}
-	if err := setupPodMutationWebhook(mgr, operatorNamespace, logr.Logger{}); err != nil {
+	if err = setupPodMutationWebhook(mgr, operatorNamespace, logr.Logger{}); err != nil {
 		fmt.Printf("%s\n", err.Error())
 		os.Exit(1)
 	}
