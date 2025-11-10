@@ -31,7 +31,8 @@ type (
 )
 
 var (
-	AddToScheme   = currentapi.AddToScheme
-	GroupVersion  = currentapi.GroupVersion
-	SchemeBuilder = currentapi.SchemeBuilder
+	AddToScheme             = currentapi.AddToScheme
+	GroupVersion            = currentapi.GroupVersion
+	SchemeBuilder           = currentapi.SchemeBuilder
+	SetupWebhookWithManager = currentapi.SetupWebhookWithManager
 )

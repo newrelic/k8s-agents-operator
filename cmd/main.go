@@ -29,10 +29,11 @@ import (
 	"strings"
 	"time"
 
-	routev1 "github.com/openshift/api/route/v1"
+	"github.com/go-logr/logr"
+	openshift_routev1 "github.com/openshift/api/route/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,51 +60,41 @@ import (
 )
 
 var healthCheckTickInterval = time.Second * 15
+var setupLog = ctrl.Log.WithName("setup")
 
-var (
-	scheme   = k8sruntime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
-)
-
-func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
-	utilruntime.Must(routev1.AddToScheme(scheme)) // TODO: Update this to not use a deprecated method
-	utilruntime.Must(newreliccomv1alpha2.AddToScheme(scheme))
-	utilruntime.Must(newreliccomv1beta1.AddToScheme(scheme))
-	utilruntime.Must(newreliccomv1beta2.AddToScheme(scheme))
-	utilruntime.Must(newreliccomv1beta3.AddToScheme(scheme))
+func getScheme() *k8sruntime.Scheme {
+	var scheme = k8sruntime.NewScheme()
+	sb := k8sruntime.NewSchemeBuilder(
+		k8sscheme.AddToScheme,
+		openshift_routev1.AddToScheme,
+		newreliccomv1alpha2.AddToScheme,
+		newreliccomv1beta1.AddToScheme,
+		newreliccomv1beta2.AddToScheme,
+		newreliccomv1beta3.AddToScheme,
+	)
+	utilruntime.Must(sb.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
+	return scheme
 }
 
-func main() {
-	var (
-		metricsAddr          string
-		probeAddr            string
-		webhooksvc           string
-		enableLeaderElection bool
-		secureMetrics        bool
-		enableHTTP2          bool
-	)
+type managerConfig struct {
+	leaseDuration                 time.Duration
+	renewDeadline                 time.Duration
+	retryPeriod                   time.Duration
+	webhookBindAddr               string
+	webhookCertDir                string
+	metricsBindAddr               string
+	healthBindAddr                string
+	enableHTTP2                   bool
+	secureMetrics                 bool
+	enableLeaderElection          bool
+	leaderElectionID              string
+	leaderElectionReleaseOnCancel bool
+}
+
+func getManagerOptions(scheme *k8sruntime.Scheme, cfg managerConfig) ctrl.Options {
 	var webhookTlsOpts []func(*tls.Config)
 	var metricsTlsOpts []func(*tls.Config)
-	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
-		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&webhooksvc, "webhook-service-bind-address", ":9443", "The address the webhook service endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&secureMetrics, "metrics-secure", true,
-		"If set, the\tflag.BoolVar(&enableHTTP2, \"enable-http2\", false,\n\t\t\"If set, HTTP/2 will be enabled for the metrics and webhook servers\")\n metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
-	opts := zap.Options{}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
-
-	logger := zap.New(zap.UseFlagOptions(&opts))
-	ctrl.SetLogger(logger)
-	klog.SetLogger(logger)
-
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
@@ -116,67 +107,29 @@ func main() {
 			c.NextProtos = []string{"http/1.1"}
 		}
 	}
-
-	if !enableHTTP2 {
+	if !cfg.enableHTTP2 {
 		webhookTlsOpts = append(webhookTlsOpts, disableHTTP2("webhook"))
 		metricsTlsOpts = append(webhookTlsOpts, disableHTTP2("metrics"))
 	}
-
-	webhookHost, webhhookPort, err := net.SplitHostPort(webhooksvc)
+	webhookHost, webhookPort, err := net.SplitHostPort(cfg.webhookBindAddr)
 	if err != nil {
 		setupLog.Error(err, "invalid webhook bind address")
 		os.Exit(1)
 	}
-	webhooksvcport, err := strconv.Atoi(webhhookPort)
+	webhooksvcport, err := strconv.Atoi(webhookPort)
 	if err != nil {
 		setupLog.Error(err, "invalid webhook service port")
 		os.Exit(1)
 	}
 	webhookServer := webhookruntime.NewServer(webhookruntime.Options{
-		TLSOpts: webhookTlsOpts, Port: webhooksvcport, Host: webhookHost,
+		TLSOpts: webhookTlsOpts,
+		Port:    webhooksvcport,
+		Host:    webhookHost,
+		CertDir: cfg.webhookCertDir,
 	})
-
-	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
-	if operatorNamespace == "" {
-		setupLog.Info("env var OPERATOR_NAMESPACE is required")
-		os.Exit(1)
-	}
-
-	v := version.Get()
-
-	setupLog.Info("Starting the Kubernetes Agents Operator",
-		"k8s-agents-operator", v.Operator,
-		"running-namespace", operatorNamespace,
-		"build-date", v.BuildDate,
-		"go-version", v.Go,
-		"go-arch", runtime.GOARCH,
-		"go-os", runtime.GOOS,
-	)
-
-	// TODO: Start determine usage
-	restConfig := ctrl.GetConfigOrDie()
-
-	// builds the operator's configuration
-	ad, err := autodetect.New(restConfig)
-	if err != nil {
-		setupLog.Error(err, "failed to setup auto-detect routine")
-		os.Exit(1)
-	}
-
-	cfg := config.New(
-		config.WithLogger(ctrl.Log.WithName("config")),
-		config.WithVersion(v),
-		config.WithAutoDetect(ad),
-	)
-	// End determine usage
-
-	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
-	// More info:
-	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/metrics/server
-	// - https://book.kubebuilder.io/reference/metrics.html
 	metricsServerOptions := metricsserver.Options{
-		BindAddress:   metricsAddr,
-		SecureServing: secureMetrics,
+		BindAddress:   cfg.metricsBindAddr,
+		SecureServing: cfg.secureMetrics,
 		// TODO(user): TLSOpts is used to allow configuring the TLS config used for the server. If certificates are
 		// not provided, self-signed certificates will be generated by default. This option is not recommended for
 		// production environments as self-signed certificates do not offer the same level of trust and security
@@ -185,27 +138,20 @@ func main() {
 		// to provide certificates, ensuring the server communicates using trusted and secure certificates.
 		TLSOpts: metricsTlsOpts,
 	}
-
-	if secureMetrics {
+	if cfg.secureMetrics {
 		// FilterProvider is used to protect the metrics endpoint with authn/authz.
 		// These configurations ensure that only authorized users and service accounts
 		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
 		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/metrics/filters#WithAuthenticationAndAuthorization
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
-
-	// see https://github.com/openshift/library-go/blob/4362aa519714a4b62b00ab8318197ba2bba51cb7/pkg/config/leaderelection/leaderelection.go#L104
-	leaseDuration := time.Second * 137
-	renewDeadline := time.Second * 107
-	retryPeriod := time.Second * 26
-
 	mgrOptions := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "9f7554c3.newrelic.com",
+		HealthProbeBindAddress: cfg.healthBindAddr,
+		LeaderElection:         cfg.enableLeaderElection,
+		LeaderElectionID:       cfg.leaderElectionID,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -216,11 +162,92 @@ func main() {
 		// the manager stops, so would be fine to enable this option. However,
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
-		LeaderElectionReleaseOnCancel: true,
-		LeaseDuration:                 &leaseDuration,
-		RenewDeadline:                 &renewDeadline,
-		RetryPeriod:                   &retryPeriod,
+		LeaderElectionReleaseOnCancel: cfg.leaderElectionReleaseOnCancel,
+		LeaseDuration:                 &cfg.leaseDuration,
+		RenewDeadline:                 &cfg.renewDeadline,
+		RetryPeriod:                   &cfg.retryPeriod,
 	}
+	return mgrOptions
+}
+
+type mainFlags struct {
+	metricsAddr          string
+	probeAddr            string
+	webhooksvc           string
+	enableLeaderElection bool
+	secureMetrics        bool
+	enableHTTP2          bool
+}
+
+func parseArgs() (mainFlags, zap.Options) {
+	var flags mainFlags
+	flag.StringVar(&flags.metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to.  Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
+	flag.StringVar(&flags.probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&flags.webhooksvc, "webhook-service-bind-address", ":9443", "The address the webhook service endpoint binds to.")
+	flag.BoolVar(&flags.enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.  Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&flags.secureMetrics, "metrics-secure", true, "If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
+	flag.BoolVar(&flags.enableHTTP2, "enable-http2", true, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
+
+	zapOpts := zap.Options{}
+	zapOpts.BindFlags(flag.CommandLine)
+	flag.Parse()
+	return flags, zapOpts
+}
+
+func main() {
+	scheme := getScheme()
+	flags, opts := parseArgs()
+
+	logger := zap.New(zap.UseFlagOptions(&opts))
+	ctrl.SetLogger(logger)
+	klog.SetLogger(logger)
+
+	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	if operatorNamespace == "" {
+		setupLog.Info("env var OPERATOR_NAMESPACE is required")
+		os.Exit(1)
+	}
+
+	v := version.Get()
+	setupLog.Info("Starting the Kubernetes Agents Operator",
+		"k8s-agents-operator", v.Operator,
+		"running-namespace", operatorNamespace,
+		"build-date", v.BuildDate,
+		"go-version", v.Go,
+		"go-arch", runtime.GOARCH,
+		"go-os", runtime.GOOS,
+	)
+
+	restConfig := ctrl.GetConfigOrDie()
+	// builds the operator's configuration
+	ad, err := autodetect.New(restConfig)
+	if err != nil {
+		setupLog.Error(err, "failed to setup auto-detect routine")
+		os.Exit(1)
+	}
+	cfg := config.New(
+		config.WithLogger(ctrl.Log.WithName("config")),
+		config.WithVersion(v),
+		config.WithAutoDetect(ad),
+	)
+
+	// see https://github.com/openshift/library-go/blob/4362aa519714a4b62b00ab8318197ba2bba51cb7/pkg/config/leaderelection/leaderelection.go#L104
+	leaseDuration := time.Second * 137
+	renewDeadline := time.Second * 107
+	retryPeriod := time.Second * 26
+	mgrOptions := getManagerOptions(scheme, managerConfig{
+		metricsBindAddr:               flags.metricsAddr,
+		secureMetrics:                 flags.secureMetrics,
+		webhookBindAddr:               flags.webhooksvc,
+		healthBindAddr:                flags.probeAddr,
+		enableLeaderElection:          flags.enableLeaderElection,
+		leaderElectionID:              "9f7554c3.newrelic.com",
+		leaderElectionReleaseOnCancel: true,
+		leaseDuration:                 leaseDuration,
+		renewDeadline:                 renewDeadline,
+		retryPeriod:                   retryPeriod,
+		enableHTTP2:                   flags.enableHTTP2,
+	})
 
 	watchNamespace, found := os.LookupEnv("WATCH_NAMESPACE")
 	if found {
@@ -228,7 +255,6 @@ func main() {
 	} else {
 		setupLog.Info("the env var WATCH_NAMESPACE isn't set, watching all namespaces")
 	}
-
 	if watchNamespace != "" {
 		nsDefaults := map[string]cache.Config{}
 		for _, watchNamespaceEntry := range strings.Split(watchNamespace, ",") {
@@ -305,22 +331,34 @@ func registerApiHealth(mgr manager.Manager) error {
 }
 
 func setupWebhooks(mgr manager.Manager, operatorNamespace string) error {
-	var err error
-	if err = newreliccomv1alpha2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
-		return fmt.Errorf("unable to create v1alpha2 Instrumentation webhook: %w", err)
+	if err := setupInstrumentationWebhooks(mgr, operatorNamespace); err != nil {
+		return err
 	}
-	if err = newreliccomv1beta1.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
-		return fmt.Errorf("unable to create v1beta1 Instrumentation webhook: %w", err)
-	}
-	if err = newreliccomv1beta2.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
-		return fmt.Errorf("unable to create v1beta2 Instrumentation webhook: %w", err)
-	}
-	if err = newreliccomv1beta3.SetupWebhookWithManager(mgr, operatorNamespace); err != nil {
-		return fmt.Errorf("unable to create v1beta3 Instrumentation webhook: %w", err)
-	}
+	return setupPodMutationWebhook(mgr, operatorNamespace, ctrl.Log.WithName("mutation-webhook"))
+}
 
+func setupInstrumentationWebhooks(mgr manager.Manager, operatorNamespace string) error {
+	type wehhookSetup struct {
+		name  string
+		setup func(mgr ctrl.Manager, operatorNamespace string) error
+	}
+	webhooks := []wehhookSetup{
+		{name: "v1alpha2", setup: newreliccomv1alpha2.SetupWebhookWithManager},
+		{name: "v1beta1", setup: newreliccomv1beta1.SetupWebhookWithManager},
+		{name: "v1beta2", setup: newreliccomv1beta2.SetupWebhookWithManager},
+		{name: "v1beta3", setup: newreliccomv1beta3.SetupWebhookWithManager},
+	}
+	for _, webhook := range webhooks {
+		if err := webhook.setup(mgr, operatorNamespace); err != nil {
+			return fmt.Errorf("unable to register %s.instrumentation webhook: %v", webhook.name, err)
+		}
+	}
+	return nil
+}
+
+func setupPodMutationWebhook(mgr manager.Manager, operatorNamespace string, logger logr.Logger) error {
 	// Register the Pod mutation webhook
-	if err = webhook.SetupWebhookWithManager(mgr, operatorNamespace, ctrl.Log.WithName("mutation-webhook")); err != nil {
+	if err := webhook.SetupWebhookWithManager(mgr, operatorNamespace, logger); err != nil {
 		return fmt.Errorf("unable to register pod mutation webhook: %w", err)
 	}
 	return nil
