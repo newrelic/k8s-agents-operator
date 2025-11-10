@@ -64,18 +64,19 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Obje
 	return nil
 }
 
+// NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
+// Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+// +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1beta2-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1beta2,name=vinstrumentationcreateupdate-v1beta2.kb.io,sideEffects=none,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1beta2-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1beta2,name=vinstrumentationdelete-v1beta2.kb.io,sideEffects=none,admissionReviewVersions=v1
+
 var validEnvPrefixes = []string{"NEW_RELIC_", "NEWRELIC_"}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
 var _ webhook.CustomValidator = (*InstrumentationValidator)(nil)
 
 // +k8s:deepcopy-gen=false
+// InstrumentationSpecValidator is used to validate the instrumentation spec
 type InstrumentationSpecValidator func(instrumentation *Instrumentation) error
-
-// NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
-// Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1beta2-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1beta2,name=vinstrumentationcreateupdate-v1beta2.kb.io,sideEffects=none,admissionReviewVersions=v1
-// +kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1beta2-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1beta2,name=vinstrumentationdelete-v1beta2.kb.io,sideEffects=none,admissionReviewVersions=v1
 
 // +k8s:deepcopy-gen=false
 // InstrumentationValidator is used to validate instrumentations
@@ -84,6 +85,7 @@ type InstrumentationValidator struct {
 	InstrumentationValidators []InstrumentationSpecValidator
 }
 
+// NewInstrumentationValidator is used to crate a new validator
 func NewInstrumentationValidator(operatorNamespace string) *InstrumentationValidator {
 	v := &InstrumentationValidator{
 		OperatorNamespace:         operatorNamespace,

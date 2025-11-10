@@ -75,6 +75,7 @@ var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 var _ webhook.CustomValidator = (*InstrumentationValidator)(nil)
 
 // +k8s:deepcopy-gen=false
+// InstrumentationValidator is used to validate instrumentations
 type InstrumentationSpecValidator func(instrumentation *Instrumentation) error
 
 // +k8s:deepcopy-gen=false
@@ -84,6 +85,7 @@ type InstrumentationValidator struct {
 	InstrumentationValidators []InstrumentationSpecValidator
 }
 
+// NewInstrumentationValidator is used to crate a new validator
 func NewInstrumentationValidator(operatorNamespace string) *InstrumentationValidator {
 	v := &InstrumentationValidator{
 		OperatorNamespace:         operatorNamespace,
