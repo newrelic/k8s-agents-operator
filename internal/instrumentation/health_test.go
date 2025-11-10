@@ -466,3 +466,88 @@ func TestHealthMonitor(t *testing.T) {
 		})
 	}
 }
+
+func TestIsDiff(t *testing.T) {
+	tests := []struct {
+		name     string
+		metric   instrumentationMetric
+		expected error
+	}{
+		{
+			name: "no diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{}},
+			},
+		},
+		{
+			name: "pods injected is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsInjected: 6}},
+				podsInjected:    5,
+			},
+			expected: errPodsInjectedIsDiff,
+		},
+		{
+			name: "pods outdated is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsOutdated: 5}},
+				podsOutdated:    4,
+			},
+			expected: errPodsOutdatedIsDiff,
+		},
+		{
+			name: "pods matching is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsMatching: 4}},
+				podsMatching:    3,
+			},
+			expected: errPodsMatchingIsDiff,
+		},
+		{
+			name: "pods healthy is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsHealthy: 3}},
+				podsHealthy:     2,
+			},
+			expected: errPodsHealthyIsDiff,
+		},
+		{
+			name: "pods unhealthy is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsUnhealthy: 2}},
+				podsUnhealthy:   1,
+			},
+			expected: errPodsUnhealthyIsDiff,
+		},
+		{
+			name: "observed version is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "abc"}, Spec: current.InstrumentationSpec{}, Status: current.InstrumentationStatus{}},
+			},
+			expected: errObservedVersionIsDiff,
+		},
+		{
+			name: "entity ids is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{EntityGUIDs: []string{"1bad-f00d"}}},
+				entityGUIDs:     []string{"6ood-f00d"},
+			},
+			expected: errEntityGUIDIsDiff,
+		},
+		{
+			name: "unhealthy pod errors is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "b"}}}},
+				unhealthyPods:   []current.UnhealthyPodError{{Pod: "a"}},
+			},
+			expected: errUnhealthyPodErrorsIsDiff,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.expected != test.metric.isDiff() {
+				t.Errorf("expected %v, got %v", test.expected, test.metric.isDiff())
+			}
+		})
+	}
+}
