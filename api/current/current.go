@@ -35,4 +35,33 @@ var (
 	GroupVersion            = currentapi.GroupVersion
 	SchemeBuilder           = currentapi.SchemeBuilder
 	SetupWebhookWithManager = currentapi.SetupWebhookWithManager
+
+	EnvSelectorOpIn           = currentapi.EnvSelectorOpIn
+	EnvSelectorOpNotIn        = currentapi.EnvSelectorOpNotIn
+	EnvSelectorOpEquals       = currentapi.EnvSelectorOpEquals
+	EnvSelectorOpNotEquals    = currentapi.EnvSelectorOpNotEquals
+	EnvSelectorOpExists       = currentapi.EnvSelectorOpExists
+	EnvSelectorOpDoesNotExist = currentapi.EnvSelectorOpDoesNotExist
+
+	NameSelectorKeyInitContainer = currentapi.NameSelectorKeyInitContainer
+	NameSelectorKeyContainer     = currentapi.NameSelectorKeyContainer
+	NameSelectorKeyAnyContainer  = currentapi.NameSelectorKeyAnyContainer
+
+	NameSelectorOpEquals    = currentapi.NameSelectorOpEquals
+	NameSelectorOpNotEquals = currentapi.NameSelectorOpNotEquals
+	NameSelectorOpIn        = currentapi.NameSelectorOpIn
+	NameSelectorOpNotIn     = currentapi.NameSelectorOpNotIn
+
+	ImageSelectorKeyUrl = currentapi.ImageSelectorKeyUrl
+
+	ImageSelectorOpEquals        = currentapi.ImageSelectorOpEquals
+	ImageSelectorOpNotEquals     = currentapi.ImageSelectorOpNotEquals
+	ImageSelectorOpIn            = currentapi.ImageSelectorOpIn
+	ImageSelectorOpNotIn         = currentapi.ImageSelectorOpNotIn
+	ImageSelectorOpStartsWith    = currentapi.ImageSelectorOpStartsWith
+	ImageSelectorOpNotStartsWith = currentapi.ImageSelectorOpNotStartsWith
+	ImageSelectorOpEndsWith      = currentapi.ImageSelectorOpEndsWith
+	ImageSelectorOpNotEndsWith   = currentapi.ImageSelectorOpNotEndsWith
+	ImageSelectorOpContains      = currentapi.ImageSelectorOpContains
+	ImageSelectorOpNotContains   = currentapi.ImageSelectorOpNotContains
 )
