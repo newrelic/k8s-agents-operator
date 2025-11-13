@@ -140,7 +140,7 @@ function create_cluster() {
 
     echo "🔄 Waiting for apps to settle"
     for label in $(find ${SCRIPT_PATH}/apps -type f -name '*.yaml' -exec yq '. | select(.kind == "Deployment") | .metadata.name' {} \;); do
-      kubectl wait --timeout=300s --for=jsonpath='{.status.phase}'=Running --namespace e2e-namespace -l="app=$label" pod
+      kubectl wait --timeout=600s --for=jsonpath='{.status.phase}'=Running --namespace e2e-namespace -l="app=$label" pod
     done
 }
 
