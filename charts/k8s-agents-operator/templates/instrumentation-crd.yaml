@@ -253,6 +253,7 @@ webhooks:
       service:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
+        path: /mutate-newrelic-com-v1alpha2-instrumentation
     failurePolicy: Fail
     name: minstrumentation-v1alpha2.kb.io
     rules:
@@ -360,7 +361,10 @@ spec:
           namespace: {{ .Release.Namespace }}
           path: /convert
       conversionReviewVersions:
+        - v1alpha2
+        - v1beta1
         - v1beta2
+        - v1beta3
   group: newrelic.com
   names:
     kind: Instrumentation
