@@ -26,6 +26,14 @@ spec:
       hostNetwork: {{ .Values.hostNetwork }}
       {{- end }}
       serviceAccountName: {{ include "newrelic.common.serviceAccount.name" . }}
+      {{- $globalPullSecrets := .Values.global.images.pullSecrets | default list }}
+      {{- $chartPullSecrets := .Values.controllerManager.manager.image.pullSecrets | default list }}
+      {{- if or $globalPullSecrets $chartPullSecrets }}
+      {{- with include "newrelic.common.images.renderPullSecrets" ( dict "pullSecrets" (concat $globalPullSecrets $chartPullSecrets) "context" .) }}
+      imagePullSecrets:
+        {{- . | nindent 8 }}
+      {{- end }}
+      {{- end }}
       {{- with include "newrelic.common.securityContext.pod" . }}
       securityContext:
         {{- . | nindent 8 }}
