@@ -6,6 +6,18 @@ Returns if the template should render, it checks if the required values are set.
 {{- and (or $licenseKey)}}
 {{- end -}}
 
+{{- define "k8s-agents-operator.manager.imagePullPolicy" -}}
+{{- $globalPullPolicy := .Values.global.images.pullPolicy | default "" -}}
+{{- $chartPullPolicy := .Values.controllerManager.manager.image.pullPolicy | default "" -}}
+{{- if $globalPullPolicy -}}
+  {{- $globalPullPolicy -}}
+{{- else if $chartPullPolicy -}}
+  {{- $chartPullPolicy -}}
+{{- else -}}
+  IfNotPresent
+{{- end -}}
+{{- end -}}
+
 {{- define "k8s-agents-operator.manager.image" -}}
 {{- $managerRepository := .Values.controllerManager.manager.image.repository -}}
 {{- $defaultRepository := "newrelic/k8s-agents-operator" -}}
