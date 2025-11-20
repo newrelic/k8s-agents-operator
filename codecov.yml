@@ -1,2 +1,7 @@
 ignore:
   - "**/zz_generated.deepcopy.go"
+coverage:
+  status:
+    patch:
+      default:
+        enabled: no
