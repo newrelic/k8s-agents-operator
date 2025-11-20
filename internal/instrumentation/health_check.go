@@ -11,6 +11,7 @@ import (
 
 // Health in the opamp format
 type Health struct {
+	EntityGUID         string             `json:"entity_guid" yaml:"entity_guid"`
 	Healthy            bool               `json:"healthy" yaml:"healthy"`
 	Status             string             `json:"status" yaml:"status"`
 	StartTime          int64              `json:"start_time_unix_nano" yaml:"start_time_unix_nano"`
