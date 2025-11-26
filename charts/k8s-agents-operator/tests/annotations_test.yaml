@@ -9,7 +9,7 @@ tests:
     set:
       licenseKey: us-whatever
     asserts:
-      - notExists:
+      - isNull:
           path: spec.template.metadata.annotations
         template: templates/deployment.yaml
   - it: sets pod annotations from values

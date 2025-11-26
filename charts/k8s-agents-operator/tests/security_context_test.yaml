@@ -69,10 +69,10 @@ tests:
     set:
       licenseKey: us-whatever
     asserts:
-      - notExists:
+      - isNull:
           path: spec.template.spec.containers[0].securityContext
         template: templates/deployment.yaml
-      - notExists:
+      - isNull:
           path: spec.template.spec.containers[1].securityContext
         template: templates/deployment.yaml
   - it: sets container securityContext from global by common-library

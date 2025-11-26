@@ -9,7 +9,7 @@ tests:
     set:
       licenseKey: us-whatever
     asserts:
-      - notExists:
+      - isNull:
           path: spec.template.spec.nodeSelector
         template: templates/deployment.yaml
   - it: sets nodeSelector from global by common-library
