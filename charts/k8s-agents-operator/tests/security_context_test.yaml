@@ -12,12 +12,9 @@ tests:
       - equal:
           path: spec.template.spec.securityContext
           value:
-            runAsGroup: 65532
             runAsNonRoot: true
-            runAsUser: 65532
-            fsGroup: 65532
         template: templates/deployment.yaml
-  - it: ignores pod securityContext from global by common-library
+  - it: ignores global podSecurityContext when local defaults exist
     set:
       licenseKey: us-whatever
       global:
@@ -27,10 +24,7 @@ tests:
       - equal:
           path: spec.template.spec.securityContext
           value:
-            runAsGroup: 65532
             runAsNonRoot: true
-            runAsUser: 65532
-            fsGroup: 65532
         template: templates/deployment.yaml
   - it: appends pod securityContext from values by common-library
     set:
@@ -41,10 +35,7 @@ tests:
       - equal:
           path: spec.template.spec.securityContext
           value:
-            runAsGroup: 65532
             runAsNonRoot: true
-            runAsUser: 65532
-            fsGroup: 65532
             topLevelKey: topLevelValue
         template: templates/deployment.yaml
   - it: sets pod securityContext from values by common-library overriding global values
@@ -59,23 +50,22 @@ tests:
       - equal:
           path: spec.template.spec.securityContext
           value:
-            runAsGroup: 65532
             runAsNonRoot: true
-            runAsUser: 65532
-            fsGroup: 65532
             topLevelKey: topLevelValue
         template: templates/deployment.yaml
   - it: sets container securityContext set to defaults when no values provided
     set:
       licenseKey: us-whatever
     asserts:
-      - isNull:
+      - equal:
           path: spec.template.spec.containers[0].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
         template: templates/deployment.yaml
-      - isNull:
-          path: spec.template.spec.containers[1].securityContext
-        template: templates/deployment.yaml
-  - it: sets container securityContext from global by common-library
+  - it: ignores global containerSecurityContext when manager has defaults
     set:
       licenseKey: us-whatever
       global:
@@ -85,14 +75,12 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].securityContext
           value:
-            globalKey: globalValue
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
         template: templates/deployment.yaml
-      - equal:
-          path: spec.template.spec.containers[1].securityContext
-          value:
-            globalKey: globalValue
-        template: templates/deployment.yaml
-  - it: sets container securityContext from values by common-library
+  - it: ignores local containerSecurityContext when manager has defaults
     set:
       licenseKey: us-whatever
       containerSecurityContext:
@@ -101,33 +89,12 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].securityContext
           value:
-            topLevelKey: topLevelValue
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
         template: templates/deployment.yaml
-      - equal:
-          path: spec.template.spec.containers[1].securityContext
-          value:
-            topLevelKey: topLevelValue
-        template: templates/deployment.yaml
-  - it: sets container securityContext from values by common-library overriding global values
-    set:
-      licenseKey: us-whatever
-      containerSecurityContext:
-        topLevelKey: topLevelValue
-      global:
-        containerSecurityContext:
-          globalKey: globalValue
-    asserts:
-      - equal:
-          path: spec.template.spec.containers[0].securityContext
-          value:
-            topLevelKey: topLevelValue
-        template: templates/deployment.yaml
-      - equal:
-          path: spec.template.spec.containers[1].securityContext
-          value:
-            topLevelKey: topLevelValue
-        template: templates/deployment.yaml
-  - it: sets container securityContext from manager values
+  - it: merges manager containerSecurityContext with defaults
     set:
       licenseKey: us-whatever
       controllerManager:
@@ -138,9 +105,13 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].securityContext
           value:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
             managerKey: managerValue
         template: templates/deployment.yaml
-  - it: sets container securityContext from manager values overriding top level and global values
+  - it: manager values take precedence over top level and global with merged defaults
     set:
       licenseKey: us-whatever
       containerSecurityContext:
@@ -156,5 +127,9 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].securityContext
           value:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
             managerKey: managerValue
         template: templates/deployment.yaml
