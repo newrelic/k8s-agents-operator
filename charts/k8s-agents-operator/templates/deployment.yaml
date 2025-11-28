@@ -22,8 +22,20 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      {{- if .Values.hostNetwork }}
-      hostNetwork: {{ .Values.hostNetwork }}
+      {{- $hostNetwork := false }}
+      {{- if not (kindIs "invalid" .Values.hostNetwork) }}
+        {{- $hostNetwork = .Values.hostNetwork }}
+      {{- else if .Values.global }}
+        {{- if .Values.global.hostNetwork }}
+          {{- $hostNetwork = .Values.global.hostNetwork }}
+        {{- end }}
+      {{- end }}
+      {{- if $hostNetwork }}
+      hostNetwork: {{ $hostNetwork }}
+      {{- end }}
+      {{- with include "newrelic.common.images.renderPullSecrets" ( dict "pullSecrets" (list .Values.imagePullSecrets) "context" .) }}
+      imagePullSecrets:
+        {{- . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "newrelic.common.serviceAccount.name" . }}
       {{- with include "newrelic.common.securityContext.pod" . }}
@@ -49,7 +61,13 @@ spec:
         {{- if .Values.controllerManager.manager.leaderElection.enabled }}
         - --leader-elect
         {{- end }}
-        - --zap-log-level={{ .Values.controllerManager.manager.logLevel }}
+        {{- $verboseLog := include "newrelic.common.verboseLog" . -}}
+        {{- $logLevel := .Values.controllerManager.manager.logLevel | default "info" -}}
+        {{- if eq $verboseLog "true" }}
+        - --zap-log-level=debug
+        {{- else }}
+        - --zap-log-level={{ $logLevel }}
+        {{- end }}
         - --health-probe-bind-address=:{{ .Values.healthProbe.port }}
         - --webhook-service-bind-address=:{{ (index .Values.webhookService.ports 0).targetPort }}
         command:
@@ -63,6 +81,17 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         - name: ENABLE_WEBHOOKS
           value: "true"
+        {{- $globalProxy := "" }}
+        {{- if .Values.global }}
+          {{- $globalProxy = .Values.global.proxy | default "" }}
+        {{- end }}
+        {{- $proxy := .Values.proxy | default $globalProxy | default "" }}
+        {{- if $proxy }}
+        - name: HTTP_PROXY
+          value: {{ $proxy | quote }}
+        - name: HTTPS_PROXY
+          value: {{ $proxy | quote }}
+        {{- end }}
         image: {{ include "k8s-agents-operator.manager.image" . }}
         imagePullPolicy: {{ .Values.controllerManager.manager.image.pullPolicy | default "Always" }}
         livenessProbe:
