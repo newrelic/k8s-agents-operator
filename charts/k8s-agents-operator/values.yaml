@@ -18,6 +18,12 @@ priorityClassName: ""
 # -- Sets pod's dnsConfig. Can be configured also with `global.dnsConfig`
 dnsConfig: {}
 
+# -- Image pull secrets. Can be configured also with `global.images.pullSecrets`
+imagePullSecrets: []
+
+# -- HTTP/HTTPS proxy URL for Kubernetes API calls. Can be configured also with `global.proxy`
+proxy: ""
+
 # -- Sets all pods' node selector. Can be configured also with `global.nodeSelector`
 nodeSelector: {}
 # -- Sets all pods' tolerations to node taints. Can be configured also with `global.tolerations`
@@ -36,8 +42,9 @@ podSecurityContext:
 containerSecurityContext: {}
 
 # If hostNetwork is set to true, the webhook server will bind to the host network.
+# Can be configured also with `global.hostNetwork`
 # @default -- `false`
-hostNetwork: false
+hostNetwork:
 
 kubernetesClusterDomain: cluster.local
 

@@ -28,5 +28,5 @@ tests:
       - equal:
           path: kind
           value: Issuer
-      - exists:
+      - isNotNull:
           path: spec.selfSigned
