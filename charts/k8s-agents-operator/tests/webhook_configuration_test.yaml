@@ -250,3 +250,65 @@ tests:
         documentSelector:
           path: kind
           value: MutatingWebhookConfiguration
+
+  - it: rejects timeoutSeconds less than 1
+    set:
+      licenseKey: us-whatever
+      admissionWebhooks:
+        timeoutSeconds: 0
+    asserts:
+      - failedTemplate:
+          errorMessage: "admissionWebhooks.timeoutSeconds must be between 1 and 30 seconds"
+
+  - it: rejects timeoutSeconds greater than 30
+    set:
+      licenseKey: us-whatever
+      admissionWebhooks:
+        timeoutSeconds: 31
+    asserts:
+      - failedTemplate:
+          errorMessage: "admissionWebhooks.timeoutSeconds must be between 1 and 30 seconds"
+
+  - it: accepts timeoutSeconds of 1
+    set:
+      licenseKey: us-whatever
+      admissionWebhooks:
+        timeoutSeconds: 1
+    asserts:
+      - equal:
+          path: webhooks[0].timeoutSeconds
+          value: 1
+        documentSelector:
+          path: kind
+          value: MutatingWebhookConfiguration
+
+  - it: accepts timeoutSeconds of 30
+    set:
+      licenseKey: us-whatever
+      admissionWebhooks:
+        timeoutSeconds: 30
+    asserts:
+      - equal:
+          path: webhooks[0].timeoutSeconds
+          value: 30
+        documentSelector:
+          path: kind
+          value: MutatingWebhookConfiguration
+
+  - it: rejects invalid failurePolicy value
+    set:
+      licenseKey: us-whatever
+      admissionWebhooks:
+        failurePolicy: Invalid
+    asserts:
+      - failedTemplate:
+          errorMessage: "admissionWebhooks.failurePolicy must be either 'Fail' or 'Ignore'"
+
+  - it: rejects invalid podFailurePolicy value
+    set:
+      licenseKey: us-whatever
+      admissionWebhooks:
+        podFailurePolicy: Invalid
+    asserts:
+      - failedTemplate:
+          errorMessage: "admissionWebhooks.podFailurePolicy must be either 'Fail' or 'Ignore'"
