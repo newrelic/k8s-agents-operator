@@ -186,7 +186,7 @@ webhooks:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
         path: /mutate-newrelic-com-v1beta2-instrumentation
-    failurePolicy: Fail
+    failurePolicy: {{ .Values.admissionWebhooks.failurePolicy }}
     name: minstrumentation-v1beta2.kb.io
     rules:
       - apiGroups:
@@ -199,6 +199,9 @@ webhooks:
         resources:
           - instrumentations
     sideEffects: None
+    {{- if .Values.admissionWebhooks.timeoutSeconds }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    {{- end }}
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -209,7 +212,7 @@ webhooks:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
         path: /mutate-newrelic-com-v1beta1-instrumentation
-    failurePolicy: Fail
+    failurePolicy: {{ .Values.admissionWebhooks.failurePolicy }}
     name: minstrumentation-v1beta1.kb.io
     rules:
       - apiGroups:
@@ -222,6 +225,9 @@ webhooks:
         resources:
           - instrumentations
     sideEffects: None
+    {{- if .Values.admissionWebhooks.timeoutSeconds }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    {{- end }}
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -232,7 +238,7 @@ webhooks:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
         path: /mutate-newrelic-com-v1alpha2-instrumentation
-    failurePolicy: Fail
+    failurePolicy: {{ .Values.admissionWebhooks.failurePolicy }}
     name: minstrumentation-v1alpha2.kb.io
     rules:
       - apiGroups:
@@ -245,6 +251,9 @@ webhooks:
         resources:
           - instrumentations
     sideEffects: None
+    {{- if .Values.admissionWebhooks.timeoutSeconds }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    {{- end }}
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -255,7 +264,7 @@ webhooks:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
         path: /mutate-v1-pod
-    failurePolicy: Ignore
+    failurePolicy: {{ .Values.admissionWebhooks.podFailurePolicy }}
     name: mpod.kb.io
     rules:
       - apiGroups:
@@ -267,6 +276,9 @@ webhooks:
         resources:
           - pods
     sideEffects: None
+    {{- if .Values.admissionWebhooks.timeoutSeconds }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    {{- end }}
 ---
 {{- if .Values.crds.enabled }}
 apiVersion: apiextensions.k8s.io/v1

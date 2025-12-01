@@ -136,3 +136,34 @@ admissionWebhooks:
   keyFile: ""
   # -- Path to the CA cert.
   caFile: ""
+
+  ## Webhook Configuration
+  # The MutatingWebhookConfiguration contains 4 webhooks:
+  # 1. Instrumentation v1beta2 webhook (mutates instrumentations.newrelic.com/v1beta2)
+  # 2. Instrumentation v1beta1 webhook (mutates instrumentations.newrelic.com/v1beta1)
+  # 3. Instrumentation v1alpha2 webhook (mutates instrumentations.newrelic.com/v1alpha2)
+  # 4. Pod mutation webhook (mutates pods/v1)
+
+  # -- Failure policy for Instrumentation webhooks (v1alpha2, v1beta1, v1beta2).
+  # Valid values: Fail, Ignore. Default: Fail.
+  # Fail: Rejects CREATE/UPDATE operations on Instrumentation resources if the webhook is unavailable,
+  #       ensuring strict validation and enforcement of instrumentation configuration.
+  # Ignore: Allows operations to proceed even if the webhook is unavailable, providing resilience
+  #         but potentially allowing misconfigured Instrumentation resources.
+  failurePolicy: Fail
+
+  # -- Failure policy for Pod mutation webhook.
+  # Valid values: Fail, Ignore. Default: Ignore.
+  # Fail: Rejects pod creation if the webhook is unavailable, ensuring all pods are properly instrumented
+  #       but potentially blocking pod deployments if the operator is down.
+  # Ignore: Allows pod creation to proceed even if the webhook is unavailable (default behavior),
+  #         providing resilience and preventing the operator from blocking critical workloads.
+  # Note: This is intentionally separate from failurePolicy to allow different behavior for pod mutations.
+  podFailurePolicy: Ignore
+
+  # -- Timeout in seconds for all webhook calls (applies to all 4 webhooks).
+  # If not set, defaults to Kubernetes API server default (typically 10s).
+  # Valid range: 1-30 seconds.
+  # Increase this value if you experience timeout issues due to network latency or slow webhook responses.
+  # Example: Set to 15 for environments with high network latency.
+  timeoutSeconds: null
