@@ -1,4 +1,21 @@
 {{- $tls := fromYaml (include "k8s-agents-operator.webhookCert" .) }}
+{{- /* Validate timeoutSeconds is within Kubernetes allowed range (1-30 seconds) */ -}}
+{{- if hasKey .Values.admissionWebhooks "timeoutSeconds" }}
+  {{- if ne (typeOf .Values.admissionWebhooks.timeoutSeconds) "<nil>" }}
+    {{- $timeout := .Values.admissionWebhooks.timeoutSeconds | int }}
+    {{- if or (lt $timeout 1) (gt $timeout 30) }}
+      {{- fail "admissionWebhooks.timeoutSeconds must be between 1 and 30 seconds" }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- /* Validate failurePolicy is either Fail or Ignore */ -}}
+{{- if not (or (eq .Values.admissionWebhooks.failurePolicy "Fail") (eq .Values.admissionWebhooks.failurePolicy "Ignore")) }}
+  {{- fail "admissionWebhooks.failurePolicy must be either 'Fail' or 'Ignore'" }}
+{{- end }}
+{{- /* Validate podFailurePolicy is either Fail or Ignore */ -}}
+{{- if not (or (eq .Values.admissionWebhooks.podFailurePolicy "Fail") (eq .Values.admissionWebhooks.podFailurePolicy "Ignore")) }}
+  {{- fail "admissionWebhooks.podFailurePolicy must be either 'Fail' or 'Ignore'" }}
+{{- end }}
 {{- if .Values.admissionWebhooks.autoGenerateCert.enabled }}
 apiVersion: v1
 kind: Secret
@@ -186,7 +203,7 @@ webhooks:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
         path: /mutate-newrelic-com-v1beta2-instrumentation
-    failurePolicy: Fail
+    failurePolicy: {{ .Values.admissionWebhooks.failurePolicy }}
     name: minstrumentation-v1beta2.kb.io
     rules:
       - apiGroups:
@@ -199,6 +216,9 @@ webhooks:
         resources:
           - instrumentations
     sideEffects: None
+    {{- if .Values.admissionWebhooks.timeoutSeconds }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    {{- end }}
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -209,7 +229,7 @@ webhooks:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
         path: /mutate-newrelic-com-v1beta1-instrumentation
-    failurePolicy: Fail
+    failurePolicy: {{ .Values.admissionWebhooks.failurePolicy }}
     name: minstrumentation-v1beta1.kb.io
     rules:
       - apiGroups:
@@ -222,6 +242,9 @@ webhooks:
         resources:
           - instrumentations
     sideEffects: None
+    {{- if .Values.admissionWebhooks.timeoutSeconds }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    {{- end }}
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -232,7 +255,7 @@ webhooks:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
         path: /mutate-newrelic-com-v1alpha2-instrumentation
-    failurePolicy: Fail
+    failurePolicy: {{ .Values.admissionWebhooks.failurePolicy }}
     name: minstrumentation-v1alpha2.kb.io
     rules:
       - apiGroups:
@@ -245,6 +268,9 @@ webhooks:
         resources:
           - instrumentations
     sideEffects: None
+    {{- if .Values.admissionWebhooks.timeoutSeconds }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    {{- end }}
   - admissionReviewVersions:
       - v1
     clientConfig:
@@ -255,7 +281,7 @@ webhooks:
         name: {{ include "k8s-agents-operator.webhook.service.name" . }}
         namespace: {{ .Release.Namespace }}
         path: /mutate-v1-pod
-    failurePolicy: Ignore
+    failurePolicy: {{ .Values.admissionWebhooks.podFailurePolicy }}
     name: mpod.kb.io
     rules:
       - apiGroups:
@@ -267,6 +293,9 @@ webhooks:
         resources:
           - pods
     sideEffects: None
+    {{- if .Values.admissionWebhooks.timeoutSeconds }}
+    timeoutSeconds: {{ .Values.admissionWebhooks.timeoutSeconds }}
+    {{- end }}
 ---
 {{- if .Values.crds.enabled }}
 apiVersion: apiextensions.k8s.io/v1
