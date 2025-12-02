@@ -70,12 +70,15 @@ controllerManager:
       requests:
         cpu: 100m
         memory: 64Mi
-    # -- Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext`
+    # -- Sets security context (at container level) for the manager container.
+    # -- Precedence (highest to lowest):
+    # --   1. controllerManager.manager.containerSecurityContext (component-specific, highest)
+    # --   2. containerSecurityContext (chart-local value)
+    # --   3. global.containerSecurityContext (global value)
+    # --   4. Secure defaults: allowPrivilegeEscalation=false, capabilities.drop=[ALL] (lowest)
+    # -- Values are merged, with higher precedence values overriding lower precedence values.
+    # -- To override defaults, set this value explicitly (e.g., allowPrivilegeEscalation: true)
     containerSecurityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
     # -- Source: https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
     # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
     leaderElection:
