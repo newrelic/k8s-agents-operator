@@ -504,20 +504,58 @@ tests:
           content: "--zap-log-level=error"
         template: templates/deployment.yaml
 
-  - it: global.verboseLog overrides local logLevel when both provided
+  - it: respects local logLevel when global.verboseLog is false
     set:
       licenseKey: us-whatever
       global:
-        verboseLog: true
+        verboseLog: false
       controllerManager:
         manager:
           logLevel: error
     asserts:
       - contains:
           path: spec.template.spec.containers[0].args
+          content: "--zap-log-level=error"
+        template: templates/deployment.yaml
+
+  - it: respects local logLevel when neither global nor local verboseLog is set
+    set:
+      licenseKey: us-whatever
+      controllerManager:
+        manager:
+          logLevel: warn
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--zap-log-level=warn"
+        template: templates/deployment.yaml
+
+  - it: local verboseLog true overrides global verboseLog false and local logLevel
+    set:
+      licenseKey: us-whatever
+      global:
+        verboseLog: false
+      controllerManager:
+        manager:
+          verboseLog: true
+          logLevel: error
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
           content: "--zap-log-level=debug"
         template: templates/deployment.yaml
-      - notContains:
+
+  - it: local verboseLog false overrides global verboseLog true and respects local logLevel
+    set:
+      licenseKey: us-whatever
+      global:
+        verboseLog: true
+      controllerManager:
+        manager:
+          verboseLog: false
+          logLevel: warn
+    asserts:
+      - contains:
           path: spec.template.spec.containers[0].args
-          content: "--zap-log-level=error"
+          content: "--zap-log-level=warn"
         template: templates/deployment.yaml
