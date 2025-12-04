@@ -69,7 +69,7 @@ controllerManager:
     # -- Possible values: debug, info, warn, error
     # -- Used when verboseLog is false or unset AND global.verboseLog is not set
     # -- Default: info
-    # -- Log level for the manager 
+    # -- Log level for the manager
     logLevel: info
     image:
       # -- Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images.
