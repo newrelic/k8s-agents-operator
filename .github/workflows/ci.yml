@@ -128,20 +128,18 @@ jobs:
       matrix:
         # Latest patch version can be found in https://github.com/kubernetes/website/blob/main/content/en/releases/patch-releases.md
         # Some versions might not be available yet in https://storage.googleapis.com/kubernetes-release/release/v1.X.Y/bin/linux/amd64/kubelet
-        k8sVersion: [ "v1.34.1", "v1.33.5", "v1.32.9", "v1.31.13", "v1.30.14",   "v1.33.4", "v1.32.8", "v1.31.12", "v1.29.15" ]
+        k8sVersion: [ "v1.34.1", "v1.33.5", "v1.32.9", "v1.31.13", "v1.30.14"]
     steps:
       - name: Checkout GitHub Repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: Download minikube
         run: |
-          if test "${{ matrix.k8sVersion }}" == "v1.33.4" || test "${{ matrix.k8sVersion }}" == "v1.32.8" || test "${{ matrix.k8sVersion }}" == "v1.31.12" || test "${{ matrix.k8sVersion }}" == "v1.29.15"; then exit 0; fi
           curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
           sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
 
       - name: Run E2E tests
         run: |
-          if test "${{ matrix.k8sVersion }}" == "v1.33.4" || test "${{ matrix.k8sVersion }}" == "v1.32.8" || test "${{ matrix.k8sVersion }}" == "v1.31.12" || test "${{ matrix.k8sVersion }}" == "v1.29.15"; then exit 0; fi
           cd tests/e2e
           ./e2e-tests.sh --k8s_version ${{ matrix.k8sVersion }} --license_key ${{ secrets.K8S_AGENTS_E2E_LICENSE_KEY }} --run_tests
 
