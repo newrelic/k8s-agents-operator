@@ -65,7 +65,6 @@ controllerManager:
     # --   4. Default "info" (lowest)
     # -- Enable or disable verbose (debug) logging
     verboseLog:
-
     # -- Log level for the manager -- #
     # -- Possible values: debug, info, warn, error
     # -- Used when verboseLog is false or unset AND global.verboseLog is not set
