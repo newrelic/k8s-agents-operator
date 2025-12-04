@@ -322,7 +322,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
 | affinity | object | `{}` | Sets all pods' affinities. Can be configured also with `global.affinity` |
 | containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
-| controllerManager.manager.containerSecurityContext | string | `nil` | Sets security context (at container level) for the manager container. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
+| controllerManager.manager.containerSecurityContext | string | `nil` | Sets security context (at container level) for the manager container. Overrides `containerSecurityContext` and `global.containerSecurityContext` (Type: object) |
 | controllerManager.manager.image.pullPolicy | string | `nil` |  |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` | Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images. |
 | controllerManager.manager.image.version | string | `nil` | Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e" |
