@@ -1,6 +1,6 @@
 module github.com/newrelic/k8s-agents-operator/tools
 
-go 1.25.4
+go 1.25.5
 
 require (
 	github.com/arttor/helmify v0.4.19
