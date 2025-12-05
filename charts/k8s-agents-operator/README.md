@@ -322,21 +322,23 @@ If you want to see a list of all available charts and releases, check [index.yam
 | admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
 | affinity | object | `{}` | Sets all pods' affinities. Can be configured also with `global.affinity` |
 | containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
-| controllerManager.manager.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
+| controllerManager.manager.containerSecurityContext | string | `nil` | Sets security context (at container level) for the manager container. Overrides `containerSecurityContext` and `global.containerSecurityContext` (Type: object) |
 | controllerManager.manager.image.pullPolicy | string | `nil` |  |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` | Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images. |
 | controllerManager.manager.image.version | string | `nil` | Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e" |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
-| controllerManager.manager.logLevel | string | `"info"` | Turns on debug logging |
+| controllerManager.manager.logLevel | string | `"info"` | Log level for the manager |
 | controllerManager.manager.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.manager.resources.limits.memory | string | `"192Mi"` |  |
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
+| controllerManager.manager.verboseLog | string | `nil` | Enable or disable verbose (debug) logging |
 | controllerManager.replicas | int | `1` |  |
 | crds.enabled | bool | `true` |  |
 | dnsConfig | object | `{}` | Sets pod's dnsConfig. Can be configured also with `global.dnsConfig` |
 | healthProbe | object | `{"port":8081}` | when the operator is healthy. It is used by Kubernetes to check the health of the operator. |
-| hostNetwork | bool | `false` |  |
+| hostNetwork | string | `nil` |  |
+| imagePullSecrets | list | `[]` | Image pull secrets. Can be configured also with `global.images.pullSecrets` |
 | kubernetesClusterDomain | string | `"cluster.local"` |  |
 | labels | object | `{}` | Additional labels for chart objects |
 | licenseKey | string | `""` | This set this license key to use. Can be configured also with `global.licenseKey` |
@@ -350,6 +352,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | podLabels | object | `{}` | Additional labels for chart pods |
 | podSecurityContext | object | `{"runAsNonRoot":true}` | SecurityContext holds pod-level security attributes and common container settings |
 | priorityClassName | string | `""` | Sets pod's priorityClassName. Can be configured also with `global.priorityClassName` |
+| proxy | string | `""` | HTTP/HTTPS proxy URL for Kubernetes API calls. Can be configured also with `global.proxy` |
 | serviceAccount | object | See `values.yaml` | Settings controlling ServiceAccount creation |
 | serviceAccount.create | bool | `true` | Specifies whether a ServiceAccount should be created |
 | tolerations | list | `[]` | Sets all pods' tolerations to node taints. Can be configured also with `global.tolerations` |
