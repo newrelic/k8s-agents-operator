@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook_test
+package main
 
 import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/go-logr/logr"
 	"io"
 	"os"
 	"path/filepath"
@@ -31,42 +32,31 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
+	"github.com/newrelic/k8s-agents-operator/internal/version"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	webhookruntime "sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/newrelic/k8s-agents-operator/api/current"
-	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
-	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
-	"github.com/newrelic/k8s-agents-operator/api/v1beta2"
-
-	"github.com/newrelic/k8s-agents-operator/internal/apm"
-	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
-	"github.com/newrelic/k8s-agents-operator/internal/version"
-	"github.com/newrelic/k8s-agents-operator/internal/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
-	k8sClient  client.Client
-	testEnv    *envtest.Environment
-	testScheme *runtime.Scheme = scheme.Scheme
-	ctx        context.Context
-	cancel     context.CancelFunc
-	err        error
-	cfg        *rest.Config
+	k8sClient client.Client
+	testEnv   *envtest.Environment
+	//testScheme *runtime.Scheme = clientgoscheme.Scheme
+	ctx    context.Context
+	cancel context.CancelFunc
+	err    error
+	cfg    *rest.Config
 )
 
 var _ io.Writer = (*fakeWriter)(nil)
@@ -82,20 +72,20 @@ func TestMain(m *testing.M) {
 	defer cancel()
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
 
-		ErrorIfCRDPathMissing: false,
+		ErrorIfCRDPathMissing: true,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
 		// without call the makefile target test. If not informed it will look for the
 		// default path defined in controller-runtime which is /usr/local/kubebuilder/.
 		// Note that you must have the required binaries setup under the bin directory to perform
 		// the tests directly. When we run make test it will be setup and used automatically.
-		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
+		BinaryAssetsDirectory: filepath.Join("..", "bin", "k8s",
 			fmt.Sprintf("1.34.1-%s-%s", stdruntime.GOOS, stdruntime.GOARCH)),
 
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+			Paths: []string{filepath.Join("..", "config", "webhook")},
 		},
 	}
 	cfg, err = testEnv.Start()
@@ -104,32 +94,14 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	if err = v1alpha2.AddToScheme(testScheme); err != nil {
-		fmt.Printf("failed to register scheme: %v", err)
-		os.Exit(1)
-	}
+	testScheme := getScheme()
 
-	if err = v1beta1.AddToScheme(testScheme); err != nil {
-		fmt.Printf("failed to register scheme: %v", err)
-		os.Exit(1)
+	if false {
+		if err = admissionv1.AddToScheme(testScheme); err != nil {
+			fmt.Printf("failed to register scheme: %v", err)
+			os.Exit(1)
+		}
 	}
-
-	if err = v1beta2.AddToScheme(testScheme); err != nil {
-		fmt.Printf("failed to register scheme: %v", err)
-		os.Exit(1)
-	}
-
-	if err = current.AddToScheme(testScheme); err != nil {
-		fmt.Printf("failed to register scheme: %v", err)
-		os.Exit(1)
-	}
-
-	if err = admissionv1.AddToScheme(testScheme); err != nil {
-		fmt.Printf("failed to register scheme: %v", err)
-		os.Exit(1)
-	}
-
-	// +kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: testScheme})
 	if err != nil {
@@ -137,102 +109,30 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	// start webhook server using Manager
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	mgr, mgrErr := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: testScheme,
-		WebhookServer: webhookruntime.NewServer(webhookruntime.Options{
-			Host:    webhookInstallOptions.LocalServingHost,
-			Port:    webhookInstallOptions.LocalServingPort,
-			CertDir: webhookInstallOptions.LocalServingCertDir,
-		}),
-		LeaderElection: false,
-		Metrics:        metricsserver.Options{BindAddress: "0"},
+	whOptions := &testEnv.WebhookInstallOptions
+	whAddrPort := fmt.Sprintf("%s:%d", whOptions.LocalServingHost, whOptions.LocalServingPort)
+	mgrOpts := getManagerOptions(testScheme, managerConfig{
+		webhookBindAddr: whAddrPort,
+		webhookCertDir:  whOptions.LocalServingCertDir,
+		metricsBindAddr: "0",
 	})
+
+	// start webhook server using Manager
+	mgr, mgrErr := ctrl.NewManager(cfg, mgrOpts)
 	if mgrErr != nil {
 		fmt.Printf("failed to start webhook server: %v", mgrErr)
 		os.Exit(1)
 	}
 
 	operatorNamespace := "newrelic"
-	injectorRegistry := apm.DefaultInjectorRegistry
-
-	v1alpha2InstDefaulter := &v1alpha2.InstrumentationDefaulter{}
-	v1alpha2InstValidator := &v1alpha2.InstrumentationValidator{
-		OperatorNamespace: operatorNamespace,
-	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.Instrumentation{}).
-		WithValidator(v1alpha2InstValidator).
-		WithDefaulter(v1alpha2InstDefaulter).
-		Complete()
-	if err != nil {
-		fmt.Printf("failed to register v1alpha2.instrumentation webhook: %v", err)
+	if err = setupInstrumentationWebhooks(mgr, operatorNamespace); err != nil {
+		fmt.Printf("%s\n", err.Error())
 		os.Exit(1)
 	}
-
-	v1beta1InstDefaulter := &v1beta1.InstrumentationDefaulter{}
-	v1beta1InstValidator := &v1beta1.InstrumentationValidator{
-		OperatorNamespace: operatorNamespace,
-	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1beta1.Instrumentation{}).
-		WithValidator(v1beta1InstValidator).
-		WithDefaulter(v1beta1InstDefaulter).
-		Complete()
-	if err != nil {
-		fmt.Printf("failed to register v1beta1.instrumentation webhook: %v", err)
+	if err = setupPodMutationWebhook(mgr, operatorNamespace, logr.Logger{}); err != nil {
+		fmt.Printf("%s\n", err.Error())
 		os.Exit(1)
 	}
-
-	v1beta2InstDefaulter := &v1beta2.InstrumentationDefaulter{}
-	v1beta2InstValidator := &v1beta2.InstrumentationValidator{
-		OperatorNamespace: operatorNamespace,
-	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1beta2.Instrumentation{}).
-		WithValidator(v1beta2InstValidator).
-		WithDefaulter(v1beta2InstDefaulter).
-		Complete()
-	if err != nil {
-		fmt.Printf("failed to register v1beta2.instrumentation webhook: %v", err)
-		os.Exit(1)
-	}
-
-	currentInstDefaulter := &current.InstrumentationDefaulter{}
-	currentInstValidator := &current.InstrumentationValidator{
-		OperatorNamespace: operatorNamespace,
-	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&current.Instrumentation{}).
-		WithValidator(currentInstValidator).
-		WithDefaulter(currentInstDefaulter).
-		Complete()
-	if err != nil {
-		fmt.Printf("failed to register current.instrumentation webhook: %v", err)
-		os.Exit(1)
-	}
-
-	client := mgr.GetClient()
-	injector := instrumentation.NewNewrelicSdkInjector(client, injectorRegistry)
-	secretReplicator := instrumentation.NewNewrelicSecretReplicator(client)
-	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(client)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(client, operatorNamespace)
-	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
-		Handler: &webhook.PodMutationHandler{
-			Client:  client,
-			Decoder: admission.NewDecoder(mgr.GetScheme()),
-			Mutators: []webhook.PodMutator{
-				instrumentation.NewMutator(
-					client,
-					injector,
-					secretReplicator,
-					configMapReplicator,
-					instrumentationLocator,
-					operatorNamespace,
-				),
-			},
-		}})
 
 	go func() {
 		if err = mgr.Start(ctx); err != nil {
@@ -244,7 +144,6 @@ func TestMain(m *testing.M) {
 	// wait for the webhook server to get ready
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
 	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
 		if err = retry.OnError(wait.Backoff{
@@ -258,7 +157,7 @@ func TestMain(m *testing.M) {
 		}, func() error {
 			tlsCtx, tlsCtxCancel := context.WithTimeout(ctx, time.Second)
 			defer tlsCtxCancel()
-			conn, tlsErr := (&tls.Dialer{Config: &tls.Config{InsecureSkipVerify: true}}).DialContext(tlsCtx, "tcp", addrPort)
+			conn, tlsErr := (&tls.Dialer{Config: &tls.Config{InsecureSkipVerify: true}}).DialContext(tlsCtx, "tcp", whAddrPort)
 			if tlsErr != nil {
 				return tlsErr
 			}

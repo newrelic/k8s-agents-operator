@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta2
+package v1beta3
 
 import (
 	"context"
@@ -40,7 +40,7 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-newrelic-com-v1beta2-instrumentation,mutating=true,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1beta2,name=minstrumentation-v1beta2.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-newrelic-com-v1beta3-instrumentation,mutating=true,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1beta3,name=minstrumentation-v1beta3.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomDefaulter = (*InstrumentationDefaulter)(nil)
 
@@ -51,7 +51,7 @@ type InstrumentationDefaulter struct {
 // Default to set the default values for Instrumentation
 func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	inst := obj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Setting defaults for v1beta2.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Setting defaults for v1beta3.Instrumentation", "name", inst.GetName())
 	if inst.Labels == nil {
 		inst.Labels = map[string]string{}
 	}
@@ -66,8 +66,8 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Obje
 
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1beta2-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1beta2,name=vinstrumentationcreateupdate-v1beta2.kb.io,sideEffects=none,admissionReviewVersions=v1
-// +kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1beta2-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1beta2,name=vinstrumentationdelete-v1beta2.kb.io,sideEffects=none,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=create;update,path=/validate-newrelic-com-v1beta3-instrumentation,mutating=false,failurePolicy=fail,groups=newrelic.com,resources=instrumentations,versions=v1beta3,name=vinstrumentationcreateupdate-v1beta3.kb.io,sideEffects=none,admissionReviewVersions=v1
+// +kubebuilder:webhook:verbs=delete,path=/validate-newrelic-com-v1beta3-instrumentation,mutating=false,failurePolicy=ignore,groups=newrelic.com,resources=instrumentations,versions=v1beta3,name=vinstrumentationdelete-v1beta3.kb.io,sideEffects=none,admissionReviewVersions=v1
 
 var validEnvPrefixes = []string{"NEW_RELIC_", "NEWRELIC_"}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
@@ -75,7 +75,7 @@ var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 var _ webhook.CustomValidator = (*InstrumentationValidator)(nil)
 
 // +k8s:deepcopy-gen=false
-// InstrumentationSpecValidator is used to validate the instrumentation spec
+// InstrumentationValidator is used to validate instrumentations
 type InstrumentationSpecValidator func(instrumentation *Instrumentation) error
 
 // +k8s:deepcopy-gen=false
@@ -97,21 +97,21 @@ func NewInstrumentationValidator(operatorNamespace string) *InstrumentationValid
 // ValidateCreate to validate the creation operation
 func (r *InstrumentationValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating creation of v1beta2.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating creation of v1beta3.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // ValidateUpdate to validate the update operation
 func (r *InstrumentationValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
 	inst := newObj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating update of v1beta2.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating update of v1beta3.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // ValidateDelete to validate the deletion operation
 func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	inst := obj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating deletion of v1beta2.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating deletion of v1beta3.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 

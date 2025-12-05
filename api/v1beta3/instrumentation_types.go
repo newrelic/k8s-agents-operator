@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta2
+package v1beta3
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -170,8 +170,10 @@ type InstrumentationStatus struct {
 	UnhealthyPodsErrors []UnhealthyPodError `json:"unhealthyPodsErrors,omitempty"`
 	LastUpdated         metav1.Time         `json:"lastUpdated,omitempty"`
 	ObservedVersion     string              `json:"observedVersion,omitempty"`
+	EntityGUIDs         []string            `json:"entityGUIDs,omitempty"`
 }
 
+// +kubebuilder:storageversion
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=nragent;nragents
 // +kubebuilder:subresource:status
