@@ -10,7 +10,7 @@ require (
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.39.0
 	helm.sh/helm/v3 v3.19.2
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20251117192939-89b5705eb5a0
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20251126220622-4b46eb04d57f
 	sigs.k8s.io/controller-tools v0.19.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.7.1
 )
@@ -318,7 +318,7 @@ require (
 	honnef.co/go/tools v0.6.1 // indirect
 	k8s.io/api v0.34.1 // indirect
 	k8s.io/apiextensions-apiserver v0.34.1 // indirect
-	k8s.io/apimachinery v0.35.0-alpha.3 // indirect
+	k8s.io/apimachinery v0.35.0-beta.0 // indirect
 	k8s.io/apiserver v0.34.1 // indirect
 	k8s.io/cli-runtime v0.34.0 // indirect
 	k8s.io/client-go v0.34.1 // indirect
