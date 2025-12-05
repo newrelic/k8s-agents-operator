@@ -9,7 +9,7 @@ tests:
     set:
       licenseKey: us-whatever
     asserts:
-      - notExists:
+      - isNull:
           path: spec.template.spec.tolerations
         template: templates/deployment.yaml
   - it: sets tolerations from global by common-library
