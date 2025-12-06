@@ -229,3 +229,376 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 		})
 	}
 }
+
+func TestAssignHealthPorts(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name                   string
+		matchedInstrumentation map[string][]*current.Instrumentation
+		pod                    corev1.Pod
+		expectedMap            map[string]int
+	}{
+		{
+			name: "nothing reserved",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 0},
+							},
+						},
+						{
+							Name: "b",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 0},
+							},
+						},
+					},
+				},
+			},
+			matchedInstrumentation: map[string][]*current.Instrumentation{
+				"a": {
+					{Spec: current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health-image"}}},
+				},
+				"b": {
+					{Spec: current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health-image"}}},
+				},
+			},
+			expectedMap: map[string]int{
+				"a": 6194,
+				"b": 6195,
+			},
+		},
+		{
+			name: "nothing reserved, blank values",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 0},
+							},
+						},
+						{
+							Name: "b",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 0},
+							},
+						},
+					},
+				},
+			},
+			matchedInstrumentation: map[string][]*current.Instrumentation{
+				"a": {
+					{Spec: current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health-image", Env: []corev1.EnvVar{{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: ""}}}}},
+				},
+				"b": {
+					{Spec: current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health-image", Env: []corev1.EnvVar{{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: ""}}}}},
+				},
+			},
+			expectedMap: map[string]int{
+				"a": 6194,
+				"b": 6195,
+			},
+		},
+		{
+			name: "default port taken",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 6194},
+							},
+						},
+						{
+							Name: "b",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 0},
+							},
+						},
+					},
+				},
+			},
+			matchedInstrumentation: map[string][]*current.Instrumentation{
+				"a": {
+					{Spec: current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health-image"}}},
+				},
+				"b": {
+					{Spec: current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health-image"}}},
+				},
+			},
+			expectedMap: map[string]int{
+				"a": 6195,
+				"b": 6196,
+			},
+		},
+		{
+			name: "both ports taken, 1 statically assigned",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 6194},
+							},
+						},
+						{
+							Name: "b",
+							Ports: []corev1.ContainerPort{
+								{ContainerPort: 6195},
+							},
+						},
+					},
+				},
+			},
+			matchedInstrumentation: map[string][]*current.Instrumentation{
+				"a": {
+					{
+						Spec: current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health-image", Env: []corev1.EnvVar{{Name: "NEW_RELIC_SIDECAR_LISTEN_PORT", Value: "6197"}}}},
+					},
+				},
+				"b": {
+					{
+						Spec: current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health-image"}},
+					},
+				},
+			},
+			expectedMap: map[string]int{
+				"a": 6197,
+				"b": 6196,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualMap := assignHealthPorts(ctx, tt.matchedInstrumentation, tt.pod)
+			if diff := cmp.Diff(tt.expectedMap, actualMap); diff != "" {
+				t.Errorf("actualMap differs from expected:\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestAssignHealthVolumes(t *testing.T) {
+	tests := []struct {
+		name                   string
+		matchedInstrumentation map[string][]*current.Instrumentation
+		pod                    corev1.Pod
+		expectedMap            map[string]string
+		expectedErr            error
+	}{
+		{
+			name: "all empty values, should be default",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+							Env:  []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+						{
+							Name: "b",
+							Env:  []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+					},
+				},
+			},
+			matchedInstrumentation: map[string][]*current.Instrumentation{
+				"a": {
+					{Spec: current.InstrumentationSpec{
+						Agent: current.Agent{
+							Image: "agent-image",
+							Env:   []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+						HealthAgent: current.HealthAgent{
+							Image: "health-image",
+							Env:   []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+					}},
+				},
+				"b": {
+					{Spec: current.InstrumentationSpec{
+						Agent: current.Agent{
+							Image: "agent-image",
+							Env:   []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+						HealthAgent: current.HealthAgent{
+							Image: "health-image",
+							Env:   []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+					}},
+				},
+			},
+			expectedMap: map[string]string{
+				"a": "file:///nri-health--a",
+				"b": "file:///nri-health--b",
+			},
+		},
+		{
+			name: "already set on pods, should whatever is set on pod if it doesn't conflict",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+							Env:  []corev1.EnvVar{{Name: apmHealthLocation, Value: "/a"}},
+						},
+						{
+							Name: "b",
+							Env:  []corev1.EnvVar{{Name: apmHealthLocation, Value: "/b"}},
+						},
+					},
+				},
+			},
+			matchedInstrumentation: map[string][]*current.Instrumentation{
+				"a": {
+					{Spec: current.InstrumentationSpec{
+						Agent: current.Agent{
+							Image: "agent-image",
+							Env:   []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+						HealthAgent: current.HealthAgent{
+							Image: "health-image",
+							Env:   []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+					}},
+				},
+				"b": {
+					{Spec: current.InstrumentationSpec{
+						Agent: current.Agent{
+							Image: "agent-image",
+							Env:   []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+						HealthAgent: current.HealthAgent{
+							Image: "health-image",
+							Env:   []corev1.EnvVar{{Name: apmHealthLocation, Value: ""}},
+						},
+					}},
+				},
+			},
+			expectedMap: map[string]string{
+				"a": "/a",
+				"b": "/b",
+			},
+		},
+		{
+			name: "use settings from agent for pod",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+							Env:  []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: ""}},
+						},
+						{
+							Name: "b",
+							Env:  []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: ""}},
+						},
+					},
+				},
+			},
+			matchedInstrumentation: map[string][]*current.Instrumentation{
+				"a": {
+					{Spec: current.InstrumentationSpec{
+						Agent: current.Agent{
+							Image: "agent-image",
+							Env:   []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: "/a"}},
+						},
+						HealthAgent: current.HealthAgent{
+							Image: "health-image",
+							Env:   []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: ""}},
+						},
+					}},
+				},
+				"b": {
+					{Spec: current.InstrumentationSpec{
+						Agent: current.Agent{
+							Image: "agent-image",
+							Env:   []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: "/b"}},
+						},
+						HealthAgent: current.HealthAgent{
+							Image: "health-image",
+							Env:   []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: ""}},
+						},
+					}},
+				},
+			},
+			expectedMap: map[string]string{
+				"a": "/a",
+				"b": "/b",
+			},
+		},
+		{
+			name: "use settings from health agent for pod",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "a",
+							Env:  []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: ""}},
+						},
+						{
+							Name: "b",
+							Env:  []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: ""}},
+						},
+					},
+				},
+			},
+			matchedInstrumentation: map[string][]*current.Instrumentation{
+				"a": {
+					{Spec: current.InstrumentationSpec{
+						Agent: current.Agent{
+							Image: "agent-image",
+							Env:   []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: ""}},
+						},
+						HealthAgent: current.HealthAgent{
+							Image: "health-image",
+							Env:   []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: "/a"}},
+						},
+					}},
+				},
+				"b": {
+					{Spec: current.InstrumentationSpec{
+						Agent: current.Agent{
+							Image: "agent-image",
+							Env:   []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: ""}},
+						},
+						HealthAgent: current.HealthAgent{
+							Image: "health-image",
+							Env:   []corev1.EnvVar{{Name: "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION", Value: "/b"}},
+						},
+					}},
+				},
+			},
+			expectedMap: map[string]string{
+				"a": "/a",
+				"b": "/b",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualMap, err := assignHealthVolumes(tt.matchedInstrumentation, tt.pod)
+			if err != tt.expectedErr {
+				t.Errorf("err differs from expected: %v, actual: %v", tt.expectedErr, err)
+			}
+			if diff := cmp.Diff(tt.expectedMap, actualMap); diff != "" {
+				t.Errorf("actualMap differs from expected:\n%s", diff)
+			}
+		})
+	}
+}
