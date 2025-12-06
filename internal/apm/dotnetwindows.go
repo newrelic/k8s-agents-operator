@@ -155,5 +155,5 @@ func (i *DotnetWindowsInjector) InjectContainer(ctx context.Context, inst curren
 		return corev1.Pod{}, err
 	}
 
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+	return pod, nil
 }

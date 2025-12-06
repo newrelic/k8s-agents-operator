@@ -209,7 +209,7 @@ func TestHealthMonitor(t *testing.T) {
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar not found"}},
+				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health urls > health sidecar not found"}},
 			},
 		},
 		{
@@ -240,7 +240,7 @@ func TestHealthMonitor(t *testing.T) {
 						InitContainers: []corev1.Container{
 							{
 								RestartPolicy: &containerRestartPolicyAlways,
-								Name:          healthSidecarContainerName,
+								Name:          "nri-health--something",
 							},
 						},
 					},
@@ -259,7 +259,7 @@ func TestHealthMonitor(t *testing.T) {
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar missing exposed ports"}},
+				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health urls > health sidecar missing exposed ports"}},
 			},
 		},
 		{
@@ -290,7 +290,7 @@ func TestHealthMonitor(t *testing.T) {
 						InitContainers: []corev1.Container{
 							{
 								RestartPolicy: &containerRestartPolicyAlways,
-								Name:          healthSidecarContainerName,
+								Name:          "nri-health--something",
 								Ports: []corev1.ContainerPort{
 									{ContainerPort: 5678},
 									{ContainerPort: 1234},
@@ -313,7 +313,7 @@ func TestHealthMonitor(t *testing.T) {
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar has too many exposed ports"}},
+				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health urls > health sidecar has too many exposed ports"}},
 			},
 		},
 		{
@@ -344,7 +344,7 @@ func TestHealthMonitor(t *testing.T) {
 						InitContainers: []corev1.Container{
 							{
 								RestartPolicy: &containerRestartPolicyAlways,
-								Name:          healthSidecarContainerName,
+								Name:          "nri-health--something",
 								Ports: []corev1.ContainerPort{
 									{ContainerPort: 5678},
 								},
@@ -398,7 +398,7 @@ func TestHealthMonitor(t *testing.T) {
 						InitContainers: []corev1.Container{
 							{
 								RestartPolicy: &containerRestartPolicyAlways,
-								Name:          healthSidecarContainerName,
+								Name:          "nri-health--something",
 								Ports: []corev1.ContainerPort{
 									{ContainerPort: 5678},
 								},

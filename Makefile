@@ -197,7 +197,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 .PHONY: helm
 helm: $(HELM) ## Download helmo
 $(HELM): $(LOCALBIN)
-	@test -s $(HELM) || GOBIN=$(LOCALBIN) go -C ./tools install helm.sh/helm/v3/cmd/helm
+	@test -s $(HELM) || GOBIN=$(LOCALBIN) go -C ./tools install helm.sh/helm/v4/cmd/helm
 
 .PHONY: helm-docs
 helm-docs: $(HELM_DOCS) ## Download helm-docs

@@ -27,7 +27,6 @@ import (
 
 const (
 	instrumentationVersionAnnotation = "newrelic.com/instrumentation-versions"
-	healthSidecarContainerName       = apm.HealthSidecarContainerName
 	healthUrlFormat                  = "http://%s:%d/healthz"
 )
 
@@ -188,15 +187,15 @@ func (im *instrumentationMetric) syncStatus() {
 
 // podMetric contains the pod, it's id (used for logging), health (empty by default), and doneCh - which is closed once health has been retrieved
 type podMetric struct {
-	pod    *corev1.Pod
-	podID  string
-	health Health
-	doneCh chan struct{}
+	pod     *corev1.Pod
+	podID   string
+	healths []Health
+	doneCh  chan struct{}
 }
 
 // resolve sets the health data and closes doneCh, which signals other processes (go routines) to continue
-func (pm *podMetric) resolve(health Health) {
-	pm.health = health
+func (pm *podMetric) resolve(healths []Health) {
+	pm.healths = healths
 	close(pm.doneCh)
 }
 
@@ -440,18 +439,27 @@ func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, eve
 			continue
 		}
 
-		if eventPodMetrics.health.EntityGUID != "" {
-			event.entityGUIDs = append(event.entityGUIDs, eventPodMetrics.health.EntityGUID)
+		var entityGUIDs []string
+		healthy := true
+		var unhealthyPods []current.UnhealthyPodError
+		for _, health := range eventPodMetrics.healths {
+			if health.EntityGUID != "" {
+				entityGUIDs = append(entityGUIDs, health.EntityGUID)
+			}
+			healthy = healthy && health.Healthy
+			if !health.Healthy {
+				unhealthyPods = append(unhealthyPods, current.UnhealthyPodError{
+					Pod:       eventPodMetrics.podID,
+					LastError: health.LastError,
+				})
+			}
 		}
-
-		if eventPodMetrics.health.Healthy {
+		event.entityGUIDs = entityGUIDs
+		event.unhealthyPods = unhealthyPods
+		if healthy {
 			event.podsHealthy++
 		} else {
 			event.podsUnhealthy++
-			event.unhealthyPods = append(event.unhealthyPods, current.UnhealthyPodError{
-				Pod:       eventPodMetrics.podID,
-				LastError: eventPodMetrics.health.LastError,
-			})
 		}
 	}
 	// send our instrumentation metrics off to be persisted
@@ -551,8 +559,8 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 	return instrumentationMetrics[0:i]
 }
 
-// getHealthUrlFromPod is used to get the pod ip and port of the container for the health sidecar
-func (m *HealthMonitor) getHealthUrlFromPod(pod *corev1.Pod) (string, error) {
+// getHealthUrlsFromPod is used to get the pod ip and port of the container for the health sidecar
+func (m *HealthMonitor) getHealthUrlsFromPod(pod *corev1.Pod) ([]string, error) {
 	var sidecars = make([]corev1.Container, 0, 1)
 	for _, container := range pod.Spec.InitContainers {
 		if container.RestartPolicy == nil {
@@ -561,22 +569,26 @@ func (m *HealthMonitor) getHealthUrlFromPod(pod *corev1.Pod) (string, error) {
 		if *container.RestartPolicy != corev1.ContainerRestartPolicyAlways {
 			continue
 		}
-		if container.Name != healthSidecarContainerName {
+		if len(container.Name) < 12 || container.Name[:12] != "nri-health--" {
 			continue
 		}
 		sidecars = append(sidecars, container)
 	}
 	if len(sidecars) == 0 {
-		return "", fmt.Errorf("health sidecar not found")
+		return nil, fmt.Errorf("health sidecar not found")
 	}
-	sidecar := sidecars[0]
-	if len(sidecar.Ports) == 0 {
-		return "", fmt.Errorf("health sidecar missing exposed ports")
+
+	var urls []string
+	for _, sidecar := range sidecars {
+		if len(sidecar.Ports) == 0 {
+			return nil, fmt.Errorf("health sidecar missing exposed ports")
+		}
+		if len(sidecar.Ports) > 1 {
+			return nil, fmt.Errorf("health sidecar has too many exposed ports")
+		}
+		urls = append(urls, fmt.Sprintf(healthUrlFormat, pod.Status.PodIP, sidecar.Ports[0].ContainerPort))
 	}
-	if len(sidecar.Ports) > 1 {
-		return "", fmt.Errorf("health sidecar has too many exposed ports")
-	}
-	return fmt.Sprintf(healthUrlFormat, pod.Status.PodIP, sidecar.Ports[0].ContainerPort), nil
+	return urls, nil
 }
 
 // isPodReady is ued to calculate if a pod is ready
@@ -622,35 +634,39 @@ func (m *HealthMonitor) isPodInstrumented(pod *corev1.Pod) bool {
 }
 
 // check is used to check the health of the container, the health sidecar
-func (m *HealthMonitor) check(ctx context.Context, podMetricItem *podMetric) Health {
+func (m *HealthMonitor) check(ctx context.Context, podMetricItem *podMetric) []Health {
 	logger := log.FromContext(ctx)
 	if !m.isPodInstrumented(podMetricItem.pod) {
-		return Health{}
+		return nil
 	}
 	if !m.isPodReady(podMetricItem.pod) {
-		return Health{}
+		return nil
 	}
 	logger.V(2).Info("checking health for pod", "pod", podMetricItem.podID)
 
-	podHealthUrl, err := m.getHealthUrlFromPod(podMetricItem.pod)
+	podHealthUrls, err := m.getHealthUrlsFromPod(podMetricItem.pod)
 	if err != nil {
-		return Health{
+		return []Health{{
 			Healthy:   false,
-			LastError: fmt.Sprintf("failed to identify health url > %s", err.Error()),
-		}
+			LastError: fmt.Sprintf("failed to identify health urls > %s", err.Error()),
+		}}
 	}
 
-	healthCtx, healthCtxCancel := context.WithTimeout(ctx, m.healthCheckTimeout)
+	healthCtx, healthCtxCancel := context.WithDeadline(ctx, time.Now().Add(m.healthCheckTimeout))
 	defer healthCtxCancel()
-	health, err := m.healthApi.GetHealth(healthCtx, podHealthUrl)
-	if err != nil {
-		return Health{
-			Healthy:   false,
-			LastError: fmt.Sprintf("failed while retrieving health > %s", err.Error()),
+	healths := make([]Health, 0, len(podHealthUrls))
+	for _, podHealthUrl := range podHealthUrls {
+		health, err := m.healthApi.GetHealth(healthCtx, podHealthUrl)
+		if err != nil {
+			return []Health{{
+				Healthy:   false,
+				LastError: fmt.Sprintf("failed while retrieving health > %s", err.Error()),
+			}}
 		}
+		healths = append(healths, health)
 	}
-	logger.V(2).Info("collected health for pod", "pod", podMetricItem.podID, "health", health)
-	return health
+	logger.V(2).Info("collected health for pod", "pod", podMetricItem.podID, "healths", healths)
+	return healths
 }
 
 // Shutdown is used to shutdown all new work.  anything already processing will continue.  this could be called multiple

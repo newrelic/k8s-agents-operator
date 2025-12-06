@@ -113,5 +113,5 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+	return pod, nil
 }
