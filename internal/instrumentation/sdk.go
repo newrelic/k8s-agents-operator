@@ -159,6 +159,7 @@ const (
 
 var errPathAlreadyAssigned = fmt.Errorf("path already assigned")
 
+//nolint:gocyclo
 func assignHealthVolumes(candidates map[string][]*current.Instrumentation, pod corev1.Pod) (map[string]string, error) {
 	assignedContainerPaths := map[string]string{}
 	for containerName := range candidates {
@@ -227,6 +228,7 @@ func assignHealthVolumes(candidates map[string][]*current.Instrumentation, pod c
 	return assignedContainerPaths, nil
 }
 
+//nolint:gocyclo
 func assignHealthPorts(ctx context.Context, candidates map[string][]*current.Instrumentation, pod corev1.Pod) map[string]int {
 	logger, _ := logr.FromContext(ctx)
 
