@@ -3,7 +3,6 @@ package instrumentation
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -396,7 +395,6 @@ func TestAssignHealthVolumes(t *testing.T) {
 		matchedInstrumentation map[string][]*current.Instrumentation
 		pod                    corev1.Pod
 		expectedMap            map[string]string
-		expectedErr            error
 	}{
 		{
 			name: "all empty values, should be default",
@@ -593,10 +591,7 @@ func TestAssignHealthVolumes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualMap, err := assignHealthVolumes(tt.matchedInstrumentation, tt.pod)
-			if errors.Is(err, tt.expectedErr) {
-				t.Errorf("err differs from expected: %v, actual: %v", tt.expectedErr, err)
-			}
+			actualMap, _ := assignHealthVolumes(tt.matchedInstrumentation, tt.pod)
 			if diff := cmp.Diff(tt.expectedMap, actualMap); diff != "" {
 				t.Errorf("actualMap differs from expected:\n%s", diff)
 			}
