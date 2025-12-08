@@ -577,8 +577,7 @@ func (m *HealthMonitor) getHealthUrlsFromPod(pod *corev1.Pod) ([]string, error) 
 	if len(sidecars) == 0 {
 		return nil, fmt.Errorf("health sidecar not found")
 	}
-
-	var urls []string
+	urls := make([]string, 0, len(sidecars))
 	for _, sidecar := range sidecars {
 		if len(sidecar.Ports) == 0 {
 			return nil, fmt.Errorf("health sidecar missing exposed ports")
