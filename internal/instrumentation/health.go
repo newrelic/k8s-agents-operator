@@ -463,6 +463,7 @@ func (m *HealthMonitor) instrumentationMetricPersistQueueEvent(ctx context.Conte
 	defer event.resolve()
 	logger := log.FromContext(ctx).WithValues(
 		"id", event.instrumentationID,
+		"entityGuids", event.entityGUIDs,
 		"pods", map[string]int64{
 			"matching":  event.podsMatching,
 			"outdated":  event.podsOutdated,
