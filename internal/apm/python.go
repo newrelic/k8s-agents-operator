@@ -87,5 +87,5 @@ func (i *PythonInjector) InjectContainer(ctx context.Context, inst current.Instr
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+	return pod, nil
 }
