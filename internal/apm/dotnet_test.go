@@ -117,7 +117,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-dotnet--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-dotnet--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-dotnet--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "/nri-dotnet--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-dotnet--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -152,7 +152,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 					InitContainers: []corev1.Container{
 						{
 							Name:    "nri-dotnet--init",
-							Command: []string{"cp", "-a", "/instrumentation/.", "/nri-dotnet--init/"},
+							Command: []string{"cp", "-r", "/instrumentation/.", "/nri-dotnet--init/"},
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
 									corev1.ResourceMemory: resource.MustParse("37Mi"),
