@@ -139,7 +139,7 @@ func (pm *InstrumentationPodMutator) Mutate(ctx context.Context, ns corev1.Names
 
 	logger.Info("instrumentation instances found matching pod", "count", len(instCandidates), "candidates", getInstrumentationNamesFromList(instCandidates))
 
-	// filter by container name; map[container.Name]=[instrumentation, instrtumentations...]
+	// filter by container name; map[container.Name]=[instrumentation, instrumentations...]
 	instrumentations := filterInstrumentations(ctx, instCandidates, &pod)
 
 	// sort, so that, given the same list of instrumentations, we always apply the mutations in the same predictable order
@@ -278,15 +278,22 @@ func reduceIdenticalInstrumentations(instCandidates []*current.Instrumentation) 
 	return instCandidates[:i]
 }
 
-var phpLangs = map[string]struct{}{
-	"php-7.2": {},
-	"php-7.3": {},
-	"php-7.4": {},
-	"php-8.0": {},
-	"php-8.1": {},
-	"php-8.2": {},
-	"php-8.3": {},
-	"php-8.4": {},
+var langRoots = map[string]string{
+	"dotnet":             "dotnet",
+	"dotnet-windows2022": "dotnet",
+	"dotnet-windows2025": "dotnet",
+	"java":               "java",
+	"nodejs":             "nodejs",
+	"php-7.2":            "php",
+	"php-7.3":            "php",
+	"php-7.4":            "php",
+	"php-8.0":            "php",
+	"php-8.1":            "php",
+	"php-8.2":            "php",
+	"php-8.3":            "php",
+	"php-8.4":            "php",
+	"python":             "python",
+	"ruby":               "ruby",
 }
 
 func agentIsEqual(a, b current.Agent) bool {
@@ -303,10 +310,7 @@ func validateInstrumentations(instCandidates []*current.Instrumentation) error {
 
 	dups := map[string][]*current.Instrumentation{}
 	for _, candidate := range instCandidates {
-		candidateLang := candidate.Spec.Agent.Language
-		if _, ok := phpLangs[candidateLang]; ok {
-			candidateLang = "php"
-		}
+		candidateLang := langRoots[candidate.Spec.Agent.Language]
 		if currentInst, ok := languages[candidateLang]; ok {
 			if !agentIsEqual(currentInst.Spec.Agent, candidate.Spec.Agent) {
 				dups[candidateLang] = append(dups[candidateLang], candidate)
@@ -677,18 +681,12 @@ func validateInstrumentationAgentConfigMaps(candidates map[string][]*current.Ins
 }
 
 func validateHealthAgents(candidates map[string][]*current.Instrumentation) error {
-	healthAgents := 0
-	var matchedContainers []string
 	for _, cInsts := range candidates {
 		for _, inst := range cInsts {
-			if !inst.Spec.HealthAgent.IsEmpty() {
-				healthAgents++
-				matchedContainers = append(matchedContainers, inst.Name)
+			if !inst.Spec.HealthAgent.IsEmpty() && len(cInsts) > 1 {
+				return fmt.Errorf("only one agent can be injected in a container if a health agent is used")
 			}
 		}
-	}
-	if healthAgents > 1 {
-		return fmt.Errorf("too many health agents, only 1 per pod on a single agent container is supported; healthAgents: %d, matched containers: %v", healthAgents, matchedContainers)
 	}
 	return nil
 }
