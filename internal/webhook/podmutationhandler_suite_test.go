@@ -50,6 +50,8 @@ import (
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/api/v1alpha2"
 	"github.com/newrelic/k8s-agents-operator/api/v1beta1"
+	"github.com/newrelic/k8s-agents-operator/api/v1beta2"
+
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
@@ -90,7 +92,7 @@ func TestMain(m *testing.M) {
 		// Note that you must have the required binaries setup under the bin directory to perform
 		// the tests directly. When we run make test it will be setup and used automatically.
 		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
-			fmt.Sprintf("1.29.0-%s-%s", stdruntime.GOOS, stdruntime.GOARCH)),
+			fmt.Sprintf("1.34.1-%s-%s", stdruntime.GOOS, stdruntime.GOARCH)),
 
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
@@ -108,6 +110,11 @@ func TestMain(m *testing.M) {
 	}
 
 	if err = v1beta1.AddToScheme(testScheme); err != nil {
+		fmt.Printf("failed to register scheme: %v", err)
+		os.Exit(1)
+	}
+
+	if err = v1beta2.AddToScheme(testScheme); err != nil {
 		fmt.Printf("failed to register scheme: %v", err)
 		os.Exit(1)
 	}
@@ -175,6 +182,20 @@ func TestMain(m *testing.M) {
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register v1beta1.instrumentation webhook: %v", err)
+		os.Exit(1)
+	}
+
+	v1beta2InstDefaulter := &v1beta2.InstrumentationDefaulter{}
+	v1beta2InstValidator := &v1beta2.InstrumentationValidator{
+		OperatorNamespace: operatorNamespace,
+	}
+	err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1beta2.Instrumentation{}).
+		WithValidator(v1beta2InstValidator).
+		WithDefaulter(v1beta2InstDefaulter).
+		Complete()
+	if err != nil {
+		fmt.Printf("failed to register v1beta2.instrumentation webhook: %v", err)
 		os.Exit(1)
 	}
 

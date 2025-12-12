@@ -1,2 +1,14 @@
 ignore:
   - "**/zz_generated.deepcopy.go"
+coverage:
+  range: "50...100"
+  status:
+    changes: false
+    patch: false
+    project:
+      default:
+        if_ci_failed: success
+        enabled: no
+        target: auto
+        base: auto
+        threshold: 10%

@@ -172,7 +172,6 @@ type InstrumentationStatus struct {
 	ObservedVersion     string              `json:"observedVersion,omitempty"`
 }
 
-// +kubebuilder:storageversion
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:shortName=nragent;nragents
 // +kubebuilder:subresource:status

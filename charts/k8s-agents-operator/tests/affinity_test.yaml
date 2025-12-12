@@ -9,7 +9,7 @@ tests:
     set:
       licenseKey: us-whatever
     asserts:
-      - notExists:
+      - isNull:
           path: spec.template.spec.affinity
         template: templates/deployment.yaml
   - it: sets affinity from global by common-library

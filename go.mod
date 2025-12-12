@@ -1,23 +1,23 @@
 module github.com/newrelic/k8s-agents-operator
 
-go 1.25.1
+go 1.25.5
 
 require (
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/go-cmp v0.7.0
-	github.com/onsi/ginkgo/v2 v2.25.2
-	github.com/onsi/gomega v1.38.2
-	github.com/openshift/api v0.0.0-20250901120840-a638ff2e96fb
+	github.com/onsi/ginkgo/v2 v2.27.3
+	github.com/onsi/gomega v1.38.3
+	github.com/openshift/api v0.0.0-20251212171319-cafbd603d60d
 	github.com/stretchr/testify v1.11.1
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.34.1
-	k8s.io/apimachinery v0.34.1
-	k8s.io/client-go v0.34.1
+	k8s.io/api v0.34.3
+	k8s.io/apimachinery v0.34.3
+	k8s.io/client-go v0.34.3
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/utils v0.0.0-20250820121507-0af2bda4dd1d
-	sigs.k8s.io/controller-runtime v0.22.0
+	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
+	sigs.k8s.io/controller-runtime v0.22.4
 )
 
 require (
@@ -77,6 +77,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c // indirect
+	golang.org/x/mod v0.27.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
@@ -92,9 +93,9 @@ require (
 	google.golang.org/protobuf v1.36.7 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apiextensions-apiserver v0.34.0 // indirect
-	k8s.io/apiserver v0.34.0 // indirect
-	k8s.io/component-base v0.34.0 // indirect
+	k8s.io/apiextensions-apiserver v0.34.1 // indirect
+	k8s.io/apiserver v0.34.1 // indirect
+	k8s.io/component-base v0.34.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect

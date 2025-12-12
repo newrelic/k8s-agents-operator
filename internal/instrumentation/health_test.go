@@ -2,6 +2,7 @@ package instrumentation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -208,7 +209,7 @@ func TestHealthMonitor(t *testing.T) {
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar not found"}},
+				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health urls > health sidecar not found"}},
 			},
 		},
 		{
@@ -239,7 +240,7 @@ func TestHealthMonitor(t *testing.T) {
 						InitContainers: []corev1.Container{
 							{
 								RestartPolicy: &containerRestartPolicyAlways,
-								Name:          healthSidecarContainerName,
+								Name:          "nri-health--something",
 							},
 						},
 					},
@@ -258,7 +259,7 @@ func TestHealthMonitor(t *testing.T) {
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar missing exposed ports"}},
+				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health urls > health sidecar missing exposed ports"}},
 			},
 		},
 		{
@@ -289,7 +290,7 @@ func TestHealthMonitor(t *testing.T) {
 						InitContainers: []corev1.Container{
 							{
 								RestartPolicy: &containerRestartPolicyAlways,
-								Name:          healthSidecarContainerName,
+								Name:          "nri-health--something",
 								Ports: []corev1.ContainerPort{
 									{ContainerPort: 5678},
 									{ContainerPort: 1234},
@@ -312,7 +313,7 @@ func TestHealthMonitor(t *testing.T) {
 				PodsMatching:        1,
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
-				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health url > health sidecar has too many exposed ports"}},
+				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed to identify health urls > health sidecar has too many exposed ports"}},
 			},
 		},
 		{
@@ -343,7 +344,7 @@ func TestHealthMonitor(t *testing.T) {
 						InitContainers: []corev1.Container{
 							{
 								RestartPolicy: &containerRestartPolicyAlways,
-								Name:          healthSidecarContainerName,
+								Name:          "nri-health--something",
 								Ports: []corev1.ContainerPort{
 									{ContainerPort: 5678},
 								},
@@ -367,6 +368,60 @@ func TestHealthMonitor(t *testing.T) {
 				PodsInjected:        1,
 				PodsUnhealthy:       1,
 				UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "default/pod0", LastError: "failed while retrieving health > fake health check error, url: \"http://127.0.0.1:5678/healthz\""}},
+			},
+		},
+		{
+			name: "matching, injected and ready, has the health sidecar with only 1 exposed port",
+			fnHealthCheck: fakeHealthCheck(func(ctx context.Context, url string) (health Health, err error) {
+				logger := log.FromContext(ctx)
+				logger.Info("fake health check")
+				return Health{EntityGUID: "1bad-f00d", Healthy: true}, nil
+			}),
+			fnInstrumentationStatusUpdater: fakeUpdateInstrumentationStatus(func(ctx context.Context, instrumentation *current.Instrumentation) error {
+				logger := log.FromContext(ctx)
+				logger.Info("fake instrumentation status updater")
+				return nil
+			}),
+			namespaces: map[string]*corev1.Namespace{
+				"default":  {ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+				"newrelic": {ObjectMeta: metav1.ObjectMeta{Name: "newrelic"}},
+			},
+			pods: map[string]*corev1.Pod{
+				"default/pod0": {
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pod0", Namespace: "default", Annotations: map[string]string{
+							"newrelic.com/apm-health":        "true",
+							instrumentationVersionAnnotation: `{"newrelic/instrumentation0":"01234567-89ab-cdef-0123-456789abcdef/55"}`,
+						},
+					},
+					Spec: corev1.PodSpec{
+						InitContainers: []corev1.Container{
+							{
+								RestartPolicy: &containerRestartPolicyAlways,
+								Name:          "nri-health--something",
+								Ports: []corev1.ContainerPort{
+									{ContainerPort: 5678},
+								},
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						PodIP: "127.0.0.1",
+					},
+				},
+			},
+			instrumentations: map[string]*current.Instrumentation{
+				"newrelic/instrumentation0": {
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
+					Spec:       current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health"}},
+				},
+			},
+			expectedInstrumentationStatus: current.InstrumentationStatus{
+				PodsMatching: 1,
+				PodsInjected: 1,
+				PodsHealthy:  1,
+				EntityGUIDs:  []string{"1bad-f00d"},
 			},
 		},
 	}
@@ -408,6 +463,98 @@ func TestHealthMonitor(t *testing.T) {
 			}
 			if diff := cmp.Diff(test.expectedInstrumentationStatus, instrumentationStatus, cmpopts.IgnoreFields(current.InstrumentationStatus{}, "LastUpdated")); diff != "" {
 				t.Errorf("unexpected status, got, want: %v", diff)
+			}
+		})
+	}
+}
+
+func TestIsDiff(t *testing.T) {
+	tests := []struct {
+		name     string
+		metric   instrumentationMetric
+		expected error
+	}{
+		{
+			name: "no diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{}},
+			},
+		},
+		{
+			name: "pods injected is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsInjected: 6}},
+				podsInjected:    5,
+			},
+			expected: errPodsInjectedIsDiff,
+		},
+		{
+			name: "pods outdated is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsOutdated: 5}},
+				podsOutdated:    4,
+			},
+			expected: errPodsOutdatedIsDiff,
+		},
+		{
+			name: "pods matching is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsMatching: 4}},
+				podsMatching:    3,
+			},
+			expected: errPodsMatchingIsDiff,
+		},
+		{
+			name: "pods healthy is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsHealthy: 3}},
+				podsHealthy:     2,
+			},
+			expected: errPodsHealthyIsDiff,
+		},
+		{
+			name: "pods unhealthy is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{PodsUnhealthy: 2}},
+				podsUnhealthy:   1,
+			},
+			expected: errPodsUnhealthyIsDiff,
+		},
+		{
+			name: "observed version is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "abc"}, Spec: current.InstrumentationSpec{}, Status: current.InstrumentationStatus{}},
+			},
+			expected: errObservedVersionIsDiff,
+		},
+		{
+			name: "entity ids is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{EntityGUIDs: []string{"1bad-f00d"}}},
+				entityGUIDs:     []string{"6ood-f00d"},
+			},
+			expected: errEntityGUIDIsDiff,
+		},
+		{
+			name: "unhealthy pod errors is diff",
+			metric: instrumentationMetric{
+				instrumentation: &current.Instrumentation{Status: current.InstrumentationStatus{UnhealthyPodsErrors: []current.UnhealthyPodError{{Pod: "b"}}}},
+				unhealthyPods:   []current.UnhealthyPodError{{Pod: "a"}},
+			},
+			expected: errUnhealthyPodErrorsIsDiff,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := tc.metric.isDiff()
+			if tc.expected != nil && actual != nil && !errors.Is(tc.expected, actual) {
+				t.Errorf("expected %v, got %v", tc.expected, actual)
+			}
+			if tc.expected == nil && actual != nil {
+				t.Errorf("expected nil, got %v", actual)
+			}
+			if tc.expected != nil && actual == nil {
+				t.Errorf("expected %v, got nil", tc.expected)
 			}
 		})
 	}
