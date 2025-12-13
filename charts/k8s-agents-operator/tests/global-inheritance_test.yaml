@@ -224,7 +224,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "newrelic/k8s-agents-operator:0.32.3"
+          value: "newrelic/k8s-agents-operator:0.33.0"
         template: templates/deployment.yaml
 
   - it: uses global.images.registry for container image
