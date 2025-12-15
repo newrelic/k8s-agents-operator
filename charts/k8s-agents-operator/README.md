@@ -367,3 +367,4 @@ If you want to see a list of all available charts and releases, check [index.yam
 | ---- | ------ | --- |
 | dbudziwojskiNR |  | <https://github.com/dbudziwojskiNR> |
 | danielstokes |  | <https://github.com/danielstokes> |
+| kondracek-nr |  | <https://github.com/kondracek-nr> |
