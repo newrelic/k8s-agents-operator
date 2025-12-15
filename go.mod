@@ -8,7 +8,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
-	github.com/openshift/api v0.0.0-20251212171319-cafbd603d60d
+	github.com/openshift/api v0.0.0-20251214014457-bfa868a22401
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
 	gopkg.in/yaml.v3 v3.0.1
