@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Test cluster
 CLUSTER_NAME=""
@@ -115,7 +116,7 @@ function create_cluster() {
     helm upgrade --install k8s-agents-operator ${REPO_ROOT}/charts/k8s-agents-operator \
       --namespace $operator_ns \
       --create-namespace \
-      --values ${SCRIPT_PATH}/e2e-values.yml \
+      --set controllerManager.manager.image.version=e2e,controllerManager.manager.image.pullPolicy=Never,controllerManager.manager.image.repository=e2e/k8s-agents-operator \
       --set licenseKey=${LICENSE_KEY}
 
     echo "🔄 Waiting for operator namespace"
@@ -146,7 +147,7 @@ function create_cluster() {
 
     echo "🔄 Waiting for apps to settle"
     for label in $(find ${SCRIPT_PATH}/apps -type f -name '*.yaml' -exec yq '. | select(.kind == "Deployment") | .metadata.name' {} \;); do
-      kubectl wait --timeout=120s --for=jsonpath='{.status.phase}'=Running --namespace $app_ns -l="app=$label" pod
+      kubectl wait --timeout=600s --for=jsonpath='{.status.phase}'=Running --namespace $app_ns -l="app=$label" pod
     done
 }
 

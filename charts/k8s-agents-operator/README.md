@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.31.1](https://img.shields.io/badge/Version-0.31.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.31.1](https://img.shields.io/badge/AppVersion-0.31.1-informational?style=flat-square)
+![Version: 0.34.0](https://img.shields.io/badge/Version-0.34.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.34.0](https://img.shields.io/badge/AppVersion-0.34.0-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -36,14 +36,16 @@ For each namespace you want the operator to be instrumented, a secret will be re
 For each `Instrumentation` custom resource created, specifying which APM agent you want to instrument for each language. All available APM
  agent docker images and corresponding tags are listed on DockerHub:
 
-* [.NET](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
+* [.NET on Linux](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-init/general)
+* [.NET on Windows 2022](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-windows2022-init/general)
+* [.NET on Windows 2025](https://hub.docker.com/repository/docker/newrelic/newrelic-dotnet-windows2025-init/general)
 * [Java](https://hub.docker.com/repository/docker/newrelic/newrelic-java-init/general)
 * [Node](https://hub.docker.com/repository/docker/newrelic/newrelic-node-init/general)
 * [Python](https://hub.docker.com/repository/docker/newrelic/newrelic-python-init/general)
 * [Ruby](https://hub.docker.com/repository/docker/newrelic/newrelic-ruby-init/general)
 * [PHP](https://hub.docker.com/repository/docker/newrelic/newrelic-php-init/general)
 
-For .NET
+For .NET on Linux
 
 ```yaml
 apiVersion: newrelic.com/v1alpha2
@@ -54,6 +56,34 @@ spec:
   agent:
     language: dotnet
     image: newrelic/newrelic-dotnet-init:latest # Please ensure you're using a trusted New Relic image
+    # env: ...
+```
+
+For .NET on Windows 2022
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-dotnet
+spec:
+  agent:
+    language: dotnet-windows2022
+    image: newrelic/newrelic-dotnet-windows2022-init:latest # Please ensure you're using a trusted New Relic image
+    # env: ...
+```
+
+For .NET on Windows 2025
+
+```yaml
+apiVersion: newrelic.com/v1alpha2
+kind: Instrumentation
+metadata:
+  name: newrelic-instrumentation-dotnet
+spec:
+  agent:
+    language: dotnet-windows2025
+    image: newrelic/newrelic-dotnet-windows2025-init:latest # Please ensure you're using a trusted New Relic image
     # env: ...
 ```
 
@@ -276,7 +306,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://helm-charts.newrelic.com | common-library | 1.3.3 |
+| https://helm-charts.newrelic.com | common-library | 1.4.0 |
 
 ## Values
 
@@ -292,21 +322,23 @@ If you want to see a list of all available charts and releases, check [index.yam
 | admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
 | affinity | object | `{}` | Sets all pods' affinities. Can be configured also with `global.affinity` |
 | containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
-| controllerManager.manager.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext` |
+| controllerManager.manager.containerSecurityContext | string | `nil` | Sets security context (at container level) for the manager container. Overrides `containerSecurityContext` and `global.containerSecurityContext` (Type: object) |
 | controllerManager.manager.image.pullPolicy | string | `nil` |  |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` | Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images. |
 | controllerManager.manager.image.version | string | `nil` | Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e" |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
-| controllerManager.manager.logLevel | string | `"info"` | Turns on debug logging |
+| controllerManager.manager.logLevel | string | `"info"` | Log level for the manager |
 | controllerManager.manager.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.manager.resources.limits.memory | string | `"192Mi"` |  |
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
+| controllerManager.manager.verboseLog | string | `nil` | Enable or disable verbose (debug) logging |
 | controllerManager.replicas | int | `1` |  |
 | crds.enabled | bool | `true` |  |
 | dnsConfig | object | `{}` | Sets pod's dnsConfig. Can be configured also with `global.dnsConfig` |
 | healthProbe | object | `{"port":8081}` | when the operator is healthy. It is used by Kubernetes to check the health of the operator. |
-| hostNetwork | bool | `false` |  |
+| hostNetwork | string | `nil` |  |
+| imagePullSecrets | list | `[]` | Image pull secrets. Can be configured also with `global.images.pullSecrets` |
 | kubernetesClusterDomain | string | `"cluster.local"` |  |
 | labels | object | `{}` | Additional labels for chart objects |
 | licenseKey | string | `""` | This set this license key to use. Can be configured also with `global.licenseKey` |
@@ -320,6 +352,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | podLabels | object | `{}` | Additional labels for chart pods |
 | podSecurityContext | object | `{"runAsNonRoot":true}` | SecurityContext holds pod-level security attributes and common container settings |
 | priorityClassName | string | `""` | Sets pod's priorityClassName. Can be configured also with `global.priorityClassName` |
+| proxy | string | `""` | HTTP/HTTPS proxy URL for Kubernetes API calls. Can be configured also with `global.proxy` |
 | serviceAccount | object | See `values.yaml` | Settings controlling ServiceAccount creation |
 | serviceAccount.create | bool | `true` | Specifies whether a ServiceAccount should be created |
 | tolerations | list | `[]` | Sets all pods' tolerations to node taints. Can be configured also with `global.tolerations` |

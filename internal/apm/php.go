@@ -113,7 +113,7 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 			}
 		}
 		commands := []string{
-			"cp -a /instrumentation/. " + mountPath + "/",
+			"cp -r /instrumentation/. " + mountPath + "/",
 
 			// fix up the paths
 			"sed -i 's@/newrelic-instrumentation@" + mountPath + "@g' " + mountPath + "/php-agent/ini/newrelic.ini",
@@ -144,13 +144,10 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 		}
 		setContainerEnvLicenseKey(&newContainer, inst.Spec.LicenseKeySecret)
 		addContainer(isTargetInitContainer, containerName, &pod, newContainer)
-
-		// re get container, it's address in memory likely changed, since appending can allocate a new slice
-		container, _ = util.GetContainerByNameFromPod(&pod, containerName)
 	}
 
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+	return pod, nil
 }

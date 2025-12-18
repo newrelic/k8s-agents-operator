@@ -79,7 +79,7 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 
 	commands := []string{
 		"cp /newrelic-agent.jar " + mountPath + "/newrelic-agent.jar",
-		"if test -d extensions; then cp -a extensions/. " + mountPath + "/extensions/; fi",
+		"if test -d extensions; then cp -r extensions/. " + mountPath + "/extensions/; fi",
 	}
 
 	// We just inject Volumes and init containers for the first processed container.
@@ -113,5 +113,5 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+	return pod, nil
 }

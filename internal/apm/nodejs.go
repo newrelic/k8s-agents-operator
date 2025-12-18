@@ -65,7 +65,7 @@ func (i *NodejsInjector) InjectContainer(ctx context.Context, inst current.Instr
 			Name:            initContainerName,
 			Image:           inst.Spec.Agent.Image,
 			ImagePullPolicy: inst.Spec.Agent.ImagePullPolicy,
-			Command:         []string{"cp", "-a", "/instrumentation/.", mountPath + "/"},
+			Command:         []string{"cp", "-r", "/instrumentation/.", mountPath + "/"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
 				MountPath: mountPath,
@@ -87,5 +87,5 @@ func (i *NodejsInjector) InjectContainer(ctx context.Context, inst current.Instr
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+	return pod, nil
 }

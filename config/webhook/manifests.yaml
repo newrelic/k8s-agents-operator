@@ -10,14 +10,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-newrelic-com-v1beta2-instrumentation
+      path: /mutate-newrelic-com-v1beta3-instrumentation
   failurePolicy: Fail
-  name: minstrumentation-v1beta2.kb.io
+  name: minstrumentation-v1beta3.kb.io
   rules:
   - apiGroups:
     - newrelic.com
     apiVersions:
-    - v1beta2
+    - v1beta3
     operations:
     - CREATE
     - UPDATE
@@ -70,35 +70,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-v1-pod
-  failurePolicy: Ignore
-  name: mpod.kb.io
-  rules:
-  - apiGroups:
-    - ""
-    apiVersions:
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - pods
-  sideEffects: None
----
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: validating-webhook-configuration
-webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-newrelic-com-v1beta2-instrumentation
+      path: /mutate-newrelic-com-v1beta2-instrumentation
   failurePolicy: Fail
-  name: vinstrumentationcreateupdate-v1beta2.kb.io
+  name: minstrumentation-v1beta2.kb.io
   rules:
   - apiGroups:
     - newrelic.com
@@ -116,14 +90,59 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-newrelic-com-v1beta2-instrumentation
+      path: /mutate-v1-pod
   failurePolicy: Ignore
-  name: vinstrumentationdelete-v1beta2.kb.io
+  name: mpod.kb.io
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-newrelic-com-v1beta3-instrumentation
+  failurePolicy: Fail
+  name: vinstrumentationcreateupdate-v1beta3.kb.io
   rules:
   - apiGroups:
     - newrelic.com
     apiVersions:
-    - v1beta2
+    - v1beta3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - instrumentations
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-newrelic-com-v1beta3-instrumentation
+  failurePolicy: Ignore
+  name: vinstrumentationdelete-v1beta3.kb.io
+  rules:
+  - apiGroups:
+    - newrelic.com
+    apiVersions:
+    - v1beta3
     operations:
     - DELETE
     resources:
@@ -202,6 +221,45 @@ webhooks:
     - newrelic.com
     apiVersions:
     - v1beta1
+    operations:
+    - DELETE
+    resources:
+    - instrumentations
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-newrelic-com-v1beta2-instrumentation
+  failurePolicy: Fail
+  name: vinstrumentationcreateupdate-v1beta2.kb.io
+  rules:
+  - apiGroups:
+    - newrelic.com
+    apiVersions:
+    - v1beta2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - instrumentations
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-newrelic-com-v1beta2-instrumentation
+  failurePolicy: Ignore
+  name: vinstrumentationdelete-v1beta2.kb.io
+  rules:
+  - apiGroups:
+    - newrelic.com
+    apiVersions:
+    - v1beta2
     operations:
     - DELETE
     resources:

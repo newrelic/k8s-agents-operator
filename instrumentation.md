@@ -1,4 +1,4 @@
-# Instrumentation (v1beta2)
+# Instrumentation (v1beta3)
 
 The instrumentation is the specification to match specific pods and containers, instrumenting them with the newrelic
 agent by mutating the pod via admission webhooks.  Typically, it means adding an init container to the pod (before the
@@ -6,28 +6,34 @@ selected container) with contains the agent, which is then copied to a temporary
 get a mounted volume (the temp volume) and the environment altered so that it loads the agent.  If something needs to be
 changed in the instrumentation, the pod will need to be deleted before it can be mutated again.
 
-- [namespaceSelector](#namespaceSelector)
-- [podSelector](#podSelector)
-- [containerSelector](#containerSelector) (introduced in v1beta2)
-  - [envSelector](#envSelector)
-  - [imageSelector](#imageSelector)
-  - [nameSelector](#nameSelector)
-  - [namesFromPodAnnotation](#namesFromPodAnnotation)
-- [agent](#agent)
-  - [language](#agent-language)
-  - [image](#agent-image)
-  - [imagePullPolicy](#agent-imagePullPolicy) (introduced in v1beta2)
-  - [env](#agent-env)
-  - [resourceRequirements](#agent-resourceRequirements) (introduced in v1beta2)
-  - [securityContext](#agent-securityContext) (introduced in v1beta2)
-- [healthAgent](#healthAgent)  (introduced in v1beta1)
-    - [image](#healthAgent-image)
-    - [imagePullPolicy](#healthAgent-imagePullPolicy) (introduced in v1beta2)
-    - [env](#healthAgent-env)
-    - [resourceRequirements](#healthAgent-resourceRequirements) (introduced in v1beta2)
-    - [securityContext](#healthAgent-securityContext) (introduced in v1beta2)
-- [licenseKeySecret](#licenseKeySecret)
-- [agentConfigMap](#agentConfigMap) (introduced in v1beta1)
+- [Instrumentation (v1beta2)](#instrumentation-v1beta2)
+  - [namespaceSelector](#namespaceselector)
+  - [podSelector](#podselector)
+  - [containerSelector](#containerselector)
+      - [Targeting containers using the classic approach](#targeting-containers-using-the-classic-approach)
+  - [envSelector](#envselector)
+    - [Targeting containers by container environment variables](#targeting-containers-by-container-environment-variables)
+  - [imageSelector](#imageselector)
+    - [Targeting containers by container image](#targeting-containers-by-container-image)
+  - [nameSelector](#nameselector)
+    - [Targeting containers by name](#targeting-containers-by-name)
+  - [namesFromPodAnnotation](#namesfrompodannotation)
+    - [Targeting container by an annotation on the pod and instrumentation](#targeting-container-by-an-annotation-on-the-pod-and-instrumentation)
+  - [agent](#agent)
+  - [agent language](#agent-language)
+  - [agent image](#agent-image)
+  - [agent imagePullPolicy](#agent-imagepullpolicy)
+  - [agent env](#agent-env)
+  - [agent resourceRequirements](#agent-resourcerequirements)
+  - [agent securityContext](#agent-securitycontext)
+  - [healthAgent](#healthagent)
+  - [healthAgent image](#healthagent-image)
+  - [healthAgent imagePullPolicy](#healthagent-imagepullpolicy)
+  - [healthAgent env](#healthagent-env)
+  - [healthAgent resourceRequirements](#healthagent-resourcerequirements)
+  - [healthAgent securityContext](#healthagent-securitycontext)
+  - [licenseKeySecret](#licensekeysecret)
+  - [agentConfigMap](#agentconfigmap)
 
 ```yaml
 apiVersion: newrelic.com/v1beta2
@@ -482,50 +488,54 @@ spec:
 
 The supported language agents.  PHP being an exception, and currently requires specifying a version suffix.
 
-| languages |
-|-----------|
-| dotnet    |
-| java      |
-| nodejs    |
-| php-7.2   |
-| php-7.3   |
-| php-7.4   |
-| php-8.0   |
-| php-8.1   |
-| php-8.2   |
-| php-8.3   |
-| php-8.4   |
-| python    |
-| ruby      |
+| languages           |
+|---------------------|
+| dotnet              |
+| dotnet-windows2022  |
+| dotnet-windows2025  |
+| java                |
+| nodejs              |
+| php-7.2             |
+| php-7.3             |
+| php-7.4             |
+| php-8.0             |
+| php-8.1             |
+| php-8.2             |
+| php-8.3             |
+| php-8.4             |
+| python              |
+| ruby                |
 
 ## agent image
 
-The supported images.  Each image requires at least `cp` to copy the agent to a temporary volume; php being an exception and requires a shell.
+The supported images.  Each image requires at least `cp` (Linux) or `xcopy` (Windows) to copy the agent to a temporary volume; php being an exception and requires a shell.
 Custom-built images can be used and specified.
 
-| language | official image                       | arch        | os    | libc  |
-|----------|--------------------------------------|-------------|-------|-------|
-| dotnet   | newrelic/newrelic-dotnet-init:latest |             | linux |       |
-| java     | newrelic/newrelic-java-init:latest   |             | linux |       |
-| nodejs   | newrelic/newrelic-node-init:latest   |             | linux | glibc |
-| php-7.2  | newrelic/newrelic-php-init:latest    | amd64       | linux | glibc |
-| php-7.3  | newrelic/newrelic-php-init:latest    | amd64       | linux | glibc |
-| php-7.4  | newrelic/newrelic-php-init:latest    | amd64       | linux | glibc |
-| php-8.0  | newrelic/newrelic-php-init:latest    | amd64,arm64 | linux | glibc |
-| php-8.1  | newrelic/newrelic-php-init:latest    | amd64,arm64 | linux | glibc |
-| php-8.2  | newrelic/newrelic-php-init:latest    | amd64,arm64 | linux | glibc |
-| php-8.3  | newrelic/newrelic-php-init:latest    | amd64,arm64 | linux | glibc |
-| php-8.4  | newrelic/newrelic-php-init:latest    | amd64,arm64 | linux | glibc |
-| php-7.2  | newrelic/newrelic-php-init:musl      | amd64       | linux | musl  |
-| php-7.3  | newrelic/newrelic-php-init:musl      | amd64       | linux | musl  |
-| php-7.4  | newrelic/newrelic-php-init:musl      | amd64       | linux | musl  |
-| php-8.0  | newrelic/newrelic-php-init:musl      | amd64,arm64 | linux | musl  |
-| php-8.1  | newrelic/newrelic-php-init:musl      | amd64,arm64 | linux | musl  |
-| php-8.2  | newrelic/newrelic-php-init:musl      | amd64,arm64 | linux | musl  |
-| php-8.3  | newrelic/newrelic-php-init:musl      | amd64,arm64 | linux | musl  |
-| php-8.4  | newrelic/newrelic-php-init:musl      | amd64,arm64 | linux | musl  |
-| python   | newrelic/newrelic-python-init:latest |             | linux |       |
-| ruby     | newrelic/newrelic-ruby-init:latest   |             | linux |       |
+| language            | official image                                   | arch        | os      | libc  |
+|---------------------|--------------------------------------------------|-------------|---------|-------|
+| dotnet              | newrelic/newrelic-dotnet-init:latest             |             | linux   |       |
+| dotnet-windows2022  | newrelic/newrelic-dotnet-windows2022-init:latest | amd64       | windows |       |
+| dotnet-windows2025  | newrelic/newrelic-dotnet-windows2025-init:latest | amd64       | windows |       |
+| java                | newrelic/newrelic-java-init:latest               |             | linux   |       |
+| nodejs              | newrelic/newrelic-node-init:latest               |             | linux   | glibc |
+| php-7.2             | newrelic/newrelic-php-init:latest                | amd64       | linux   | glibc |
+| php-7.3             | newrelic/newrelic-php-init:latest                | amd64       | linux   | glibc |
+| php-7.4             | newrelic/newrelic-php-init:latest                | amd64       | linux   | glibc |
+| php-8.0             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
+| php-8.1             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
+| php-8.2             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
+| php-8.3             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
+| php-8.4             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
+| php-7.2             | newrelic/newrelic-php-init:musl                  | amd64       | linux   | musl  |
+| php-7.3             | newrelic/newrelic-php-init:musl                  | amd64       | linux   | musl  |
+| php-7.4             | newrelic/newrelic-php-init:musl                  | amd64       | linux   | musl  |
+| php-8.0             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
+| php-8.1             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
+| php-8.2             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
+| php-8.3             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
+| php-8.4             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
+| python              | newrelic/newrelic-python-init:latest             |             | linux   |       |
+| ruby                | newrelic/newrelic-ruby-init:latest               |             | linux   |       |
 
 ## agent imagePullPolicy
 

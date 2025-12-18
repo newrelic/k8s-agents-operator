@@ -27,12 +27,12 @@ import (
 )
 
 const (
-	envDotnetCoreClrEnableProfiling     = "CORECLR_ENABLE_PROFILING"
-	envDotnetCoreClrProfiler            = "CORECLR_PROFILER"
-	envDotnetCoreClrProfilerPath        = "CORECLR_PROFILER_PATH"
-	envDotnetNewrelicHome               = "CORECLR_NEWRELIC_HOME"
-	dotnetCoreClrEnableProfilingEnabled = "1"
-	dotnetCoreClrProfilerID             = "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
+	envLinuxDotnetCoreClrEnableProfiling        = "CORECLR_ENABLE_PROFILING"
+	envLinuxDotnetCoreClrProfiler               = "CORECLR_PROFILER"
+	envLinuxDotnetCoreClrProfilerPath           = "CORECLR_PROFILER_PATH"
+	envLinuxDotnetNewrelicHome                  = "CORECLR_NEWRELIC_HOME"
+	envLinuxDotnetCoreClrEnableProfilingEnabled = "1"
+	envLinuxDotnetCoreClrProfilerID             = "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
 )
 
 var errUnableToConfigureEnv = errors.New("unable to configure environment variables, they've already been set to different values")
@@ -59,24 +59,24 @@ func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instr
 	coreClrProfilerPath := mountPath + "/libNewRelicProfiler.so"
 	newrelicHomePath := mountPath
 
-	if err := validateContainerEnv(container.Env, envDotnetCoreClrEnableProfiling, envDotnetCoreClrProfiler, envDotnetCoreClrProfilerPath, envDotnetNewrelicHome); err != nil {
+	if err := validateContainerEnv(container.Env, envLinuxDotnetCoreClrEnableProfiling, envLinuxDotnetCoreClrProfiler, envLinuxDotnetCoreClrProfilerPath, envLinuxDotnetNewrelicHome); err != nil {
 		return corev1.Pod{}, err
 	}
 
-	setEnvVar(container, envDotnetCoreClrEnableProfiling, dotnetCoreClrEnableProfilingEnabled, false, "")
-	setEnvVar(container, envDotnetCoreClrProfiler, dotnetCoreClrProfilerID, false, "")
-	setEnvVar(container, envDotnetCoreClrProfilerPath, coreClrProfilerPath, false, "")
-	setEnvVar(container, envDotnetNewrelicHome, newrelicHomePath, false, "")
-	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrEnableProfiling); v != dotnetCoreClrEnableProfilingEnabled {
+	setEnvVar(container, envLinuxDotnetCoreClrEnableProfiling, envLinuxDotnetCoreClrEnableProfilingEnabled, false, "")
+	setEnvVar(container, envLinuxDotnetCoreClrProfiler, envLinuxDotnetCoreClrProfilerID, false, "")
+	setEnvVar(container, envLinuxDotnetCoreClrProfilerPath, coreClrProfilerPath, false, "")
+	setEnvVar(container, envLinuxDotnetNewrelicHome, newrelicHomePath, false, "")
+	if v, _ := getValueFromEnv(container.Env, envLinuxDotnetCoreClrEnableProfiling); v != envLinuxDotnetCoreClrEnableProfilingEnabled {
 		return corev1.Pod{}, errUnableToConfigureEnv
 	}
-	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfiler); v != dotnetCoreClrProfilerID {
+	if v, _ := getValueFromEnv(container.Env, envLinuxDotnetCoreClrProfiler); v != envLinuxDotnetCoreClrProfilerID {
 		return corev1.Pod{}, errUnableToConfigureEnv
 	}
-	if v, _ := getValueFromEnv(container.Env, envDotnetCoreClrProfilerPath); v != coreClrProfilerPath {
+	if v, _ := getValueFromEnv(container.Env, envLinuxDotnetCoreClrProfilerPath); v != coreClrProfilerPath {
 		return corev1.Pod{}, errUnableToConfigureEnv
 	}
-	if v, _ := getValueFromEnv(container.Env, envDotnetNewrelicHome); v != newrelicHomePath {
+	if v, _ := getValueFromEnv(container.Env, envLinuxDotnetNewrelicHome); v != newrelicHomePath {
 		return corev1.Pod{}, errUnableToConfigureEnv
 	}
 	setContainerEnvFromInst(container, inst)
@@ -90,7 +90,7 @@ func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instr
 			Name:            initContainerName,
 			Image:           inst.Spec.Agent.Image,
 			ImagePullPolicy: inst.Spec.Agent.ImagePullPolicy,
-			Command:         []string{"cp", "-a", "/instrumentation/.", mountPath + "/"},
+			Command:         []string{"cp", "-r", "/instrumentation/.", mountPath + "/"},
 			VolumeMounts: []corev1.VolumeMount{{
 				Name:      volumeName,
 				MountPath: mountPath,
@@ -112,5 +112,5 @@ func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instr
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+	return pod, nil
 }
