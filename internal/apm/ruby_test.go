@@ -61,7 +61,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-ruby--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test", MountPath: "/nri-ruby--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-ruby--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -95,7 +95,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-ruby--test--container-with-a-really-long-name-that-ee75c2a",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--test--container-with-a-really-long-name-that-ee75c2a/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--test--container-with-a-really-long-name-that-ee75c2a/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test--container-with-a-really-long-name-that-ee75c2a", MountPath: "/nri-ruby--test--container-with-a-really-long-name-that-ee75c2a"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-ruby--test--container-with-a-really-long-name-that-ee75c2a", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -131,7 +131,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-ruby--test-2",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--test-2/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--test-2/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test-2", MountPath: "/nri-ruby--test-2"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-ruby--test-2", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -160,7 +160,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 					InitContainers: []corev1.Container{
 						{
 							Name:         "nri-ruby--init-test",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--init-test/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--init-test/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--init-test", MountPath: "/nri-ruby--init-test"}},
 						},
 						{
@@ -204,7 +204,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-ruby--init-b",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--init-b/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--init-b/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--init-b", MountPath: "/nri-ruby--init-b"}},
 						},
 						{
@@ -248,7 +248,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 					InitContainers: []corev1.Container{
 						{
 							Name:         "nri-ruby--init-a",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--init-a/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--init-a/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--init-a", MountPath: "/nri-ruby--init-a"}},
 						},
 						{
@@ -264,7 +264,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-ruby--init-b",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--init-b/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--init-b/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--init-b", MountPath: "/nri-ruby--init-b"}},
 						},
 						{
@@ -280,7 +280,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-ruby--init-c",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--init-c/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--init-c/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--init-c", MountPath: "/nri-ruby--init-c"}},
 						},
 						{
@@ -349,7 +349,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-ruby--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-ruby--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test", MountPath: "/nri-ruby--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-ruby--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
