@@ -305,7 +305,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 ## Requirements
 
 | Repository | Name | Version |
-|------------|------|-------|
+|------------|------|-----|
 | https://helm-charts.newrelic.com | common-library | 1.4.0 |
 
 ## Values
