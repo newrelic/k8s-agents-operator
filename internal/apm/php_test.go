@@ -80,7 +80,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 						},
 						Command: []string{"/bin/sh"},
 						Args: []string{"-c", strings.Join([]string{
-							"cp -a /instrumentation/. /nri-php--test/",
+							"cp -r /instrumentation/. /nri-php--test/",
 							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/php-agent/ini/newrelic.ini",
 							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/k8s-php-install.sh",
 							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/nr_env_to_ini.sh",
@@ -139,7 +139,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 						},
 						Command: []string{"/bin/sh"},
 						Args: []string{"-c", strings.Join([]string{
-							"cp -a /instrumentation/. /nri-php--test/",
+							"cp -r /instrumentation/. /nri-php--test/",
 							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/php-agent/ini/newrelic.ini",
 							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/k8s-php-install.sh",
 							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/nr_env_to_ini.sh",

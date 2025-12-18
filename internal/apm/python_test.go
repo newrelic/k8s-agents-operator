@@ -62,7 +62,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-python--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-python--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -101,7 +101,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-python--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-python--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -162,7 +162,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-python--init-python",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--init-python/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--init-python/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--init-python", MountPath: "/nri-python--init-python"}},
 						},
 						{
@@ -180,7 +180,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-python--any-python1",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--any-python1/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--any-python1/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--any-python1", MountPath: "/nri-python--any-python1"}},
 						},
 						{
@@ -198,12 +198,12 @@ func TestPythonInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-python--any-python2",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--any-python2/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--any-python2/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--any-python2", MountPath: "/nri-python--any-python2"}},
 						},
 						{
 							Name:         "nri-python--python",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--python/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--python/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--python", MountPath: "/nri-python--python"}},
 						},
 					},

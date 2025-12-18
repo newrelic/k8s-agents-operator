@@ -346,7 +346,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 						{
 							Name:    "nri-python--alpine",
 							Image:   "not-a-real-python-image",
-							Command: []string{"cp", "-a", "/instrumentation/.", "/nri-python--alpine/"},
+							Command: []string{"cp", "-r", "/instrumentation/.", "/nri-python--alpine/"},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name: "nri-python--alpine", MountPath: "/nri-python--alpine",
@@ -440,7 +440,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 							Image:   "not-a-real-php-image",
 							Command: []string{"/bin/sh"},
 							Args: []string{"-c", strings.Join([]string{
-								"cp -a /instrumentation/. /nri-php--alpine/",
+								"cp -r /instrumentation/. /nri-php--alpine/",
 								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/php-agent/ini/newrelic.ini",
 								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/k8s-php-install.sh",
 								"sed -i 's@/newrelic-instrumentation@/nri-php--alpine@g' /nri-php--alpine/nr_env_to_ini.sh",
