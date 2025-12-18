@@ -62,7 +62,7 @@ func TestNodejsInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-nodejs--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-nodejs--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-nodejs--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-nodejs--test", MountPath: "/nri-nodejs--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-nodejs--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -102,7 +102,7 @@ func TestNodejsInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-nodejs--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-nodejs--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-nodejs--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-nodejs--test", MountPath: "/nri-nodejs--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-nodejs--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},

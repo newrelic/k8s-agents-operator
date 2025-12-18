@@ -113,7 +113,7 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 			}
 		}
 		commands := []string{
-			"cp -a /instrumentation/. " + mountPath + "/",
+			"cp -r /instrumentation/. " + mountPath + "/",
 
 			// fix up the paths
 			"sed -i 's@/newrelic-instrumentation@" + mountPath + "@g' " + mountPath + "/php-agent/ini/newrelic.ini",
