@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.33.0](https://img.shields.io/badge/Version-0.33.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.33.0](https://img.shields.io/badge/AppVersion-0.33.0-informational?style=flat-square)
+![Version: 0.34.0](https://img.shields.io/badge/Version-0.34.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.34.0](https://img.shields.io/badge/AppVersion-0.34.0-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -306,7 +306,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://helm-charts.newrelic.com | common-library | 1.3.3 |
+| https://helm-charts.newrelic.com | common-library | 1.4.0 |
 
 ## Values
 
