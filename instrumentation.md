@@ -503,6 +503,7 @@ The supported language agents.  PHP being an exception, and currently requires s
 | php-8.2             |
 | php-8.3             |
 | php-8.4             |
+| php-8.5             |
 | python              |
 | ruby                |
 
@@ -526,6 +527,7 @@ Custom-built images can be used and specified.
 | php-8.2             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
 | php-8.3             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
 | php-8.4             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
+| php-8.5             | newrelic/newrelic-php-init:latest                | amd64,arm64 | linux   | glibc |
 | php-7.2             | newrelic/newrelic-php-init:musl                  | amd64       | linux   | musl  |
 | php-7.3             | newrelic/newrelic-php-init:musl                  | amd64       | linux   | musl  |
 | php-7.4             | newrelic/newrelic-php-init:musl                  | amd64       | linux   | musl  |
@@ -534,6 +536,7 @@ Custom-built images can be used and specified.
 | php-8.2             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
 | php-8.3             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
 | php-8.4             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
+| php-8.5             | newrelic/newrelic-php-init:musl                  | amd64,arm64 | linux   | musl  |
 | python              | newrelic/newrelic-python-init:latest             |             | linux   |       |
 | ruby                | newrelic/newrelic-ruby-init:latest               |             | linux   |       |
 
