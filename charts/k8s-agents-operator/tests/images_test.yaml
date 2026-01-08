@@ -25,7 +25,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: nr/test-1:1.1.1
+          value: docker.io/nr/test-1:1.1.1
         template: templates/deployment.yaml
 
   - it: loads image and version using SHA digest
@@ -39,7 +39,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: nr/test-1@sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e
+          value: docker.io/nr/test-1@sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e
         template: templates/deployment.yaml
   - it: uses global.images.registry for manager image
     set:
