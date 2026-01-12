@@ -292,6 +292,7 @@ var langRoots = map[string]string{
 	"php-8.2":            "php",
 	"php-8.3":            "php",
 	"php-8.4":            "php",
+	"php-8.5":            "php",
 	"python":             "python",
 	"ruby":               "ruby",
 }
