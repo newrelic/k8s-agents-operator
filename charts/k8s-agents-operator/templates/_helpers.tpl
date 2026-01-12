@@ -7,26 +7,15 @@ Returns if the template should render, it checks if the required values are set.
 {{- end -}}
 
 {{- define "k8s-agents-operator.manager.image" -}}
-{{- $globalRegistry := "" -}}
-{{- if .Values.global -}}
-{{- if .Values.global.images -}}
-{{- $globalRegistry = .Values.global.images.registry | default "" -}}
-{{- end -}}
-{{- end -}}
-{{- $registry := .Values.controllerManager.manager.image.registry | default $globalRegistry | default "" -}}
-{{- $repository := .Values.controllerManager.manager.image.repository | default "newrelic/k8s-agents-operator" -}}
-{{- $managerVersion := .Values.controllerManager.manager.image.version | default .Chart.AppVersion -}}
-{{- if $registry -}}
-{{- if eq (substr 0 7 $managerVersion) "sha256:" -}}
-{{- printf "%s/%s@%s" $registry $repository $managerVersion -}}
+{{- $imageRoot := .Values.controllerManager.manager.image -}}
+{{- /* Create a normalized imageRoot with .tag field for common-library compatibility */ -}}
+{{- $normalizedImageRoot := dict "registry" $imageRoot.registry "repository" $imageRoot.repository "tag" $imageRoot.version -}}
+{{- $registry := include "newrelic.common.images.registry" ( dict "imageRoot" $normalizedImageRoot "context" .) -}}
+{{- $repository := include "newrelic.common.images.repository" $normalizedImageRoot -}}
+{{- $tag := include "newrelic.common.images.tag" ( dict "imageRoot" $normalizedImageRoot "context" .) -}}
+{{- if eq (substr 0 7 $tag) "sha256:" -}}
+{{- printf "%s/%s@%s" $registry $repository $tag -}}
 {{- else -}}
-{{- printf "%s/%s:%s" $registry $repository $managerVersion -}}
-{{- end -}}
-{{- else -}}
-{{- if eq (substr 0 7 $managerVersion) "sha256:" -}}
-{{- printf "%s@%s" $repository $managerVersion -}}
-{{- else -}}
-{{- printf "%s:%s" $repository $managerVersion -}}
-{{- end -}}
+{{- printf "%s/%s:%s" $registry $repository $tag -}}
 {{- end -}}
 {{- end -}}

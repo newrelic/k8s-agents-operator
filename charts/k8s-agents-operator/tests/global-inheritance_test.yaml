@@ -218,13 +218,17 @@ tests:
         template: templates/deployment.yaml
 
   # ========== IMAGE REGISTRY INHERITANCE TESTS ==========
+  # Tests verify registry precedence order (highest to lowest):
+  # 1. Local repository setting (controllerManager.manager.image.registry)
+  # 2. Global setting (global.images.registry)
+  # 3. Common-library default (docker.io)
   - it: uses default image when no registry override provided
     set:
       licenseKey: us-whatever
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "newrelic/k8s-agents-operator:0.32.3"
+          value: "docker.io/newrelic/k8s-agents-operator:0.35.1"
         template: templates/deployment.yaml
 
   - it: uses global.images.registry for container image
@@ -277,6 +281,19 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "harbor.corp.net/newrelic/k8s-agents-operator@sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e"
+        template: templates/deployment.yaml
+
+  - it: uses docker.io as default registry with SHA256 digest
+    set:
+      licenseKey: us-whatever
+      controllerManager:
+        manager:
+          image:
+            version: "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "docker.io/newrelic/k8s-agents-operator@sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e"
         template: templates/deployment.yaml
 
   # ========== PRIORITY CLASS INHERITANCE TESTS ==========
