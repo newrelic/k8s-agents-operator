@@ -9,7 +9,7 @@ require (
 	github.com/helm/chart-testing/v3 v3.14.0
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.40.0
-	helm.sh/helm/v4 v4.0.4
+	helm.sh/helm/v4 v4.0.5
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20251222141034-adb64659bb1f
 	sigs.k8s.io/controller-tools v0.20.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.8.0
