@@ -1,0 +1,14 @@
+{{- if gt (int .Values.controllerManager.replicas) 1 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "k8s-agents-operator.policy.poddisruptionbudget.name" . }}
+  labels:
+    {{- include "newrelic.common.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "newrelic.common.labels.selectorLabels" . | nindent 6 }}
+      control-plane: controller-manager
+{{- end }}

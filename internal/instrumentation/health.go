@@ -78,18 +78,19 @@ type event struct {
 // instrumentationMetric contains a copy(pointer to the copy) of the instrumentation, a copy(shared pointer copy) of
 // each matching pod metric (pod + health) along with the aggregated summary of the health of all the pod metric health
 type instrumentationMetric struct {
-	instrumentationID string
-	instrumentation   *current.Instrumentation
-	podMetrics        []*podMetric
-	doneCh            chan struct{}
-	podsMatching      int64
-	podsInjected      int64
-	podsNotReady      int64
-	podsOutdated      int64
-	podsHealthy       int64
-	podsUnhealthy     int64
-	unhealthyPods     []current.UnhealthyPodError
-	entityGUIDs       []string
+	instrumentationID  string
+	instrumentation    *current.Instrumentation
+	podMetrics         []*podMetric
+	healthCheckEnabled bool // whether to perform health checks for this instrumentation
+	doneCh             chan struct{}
+	podsMatching       int64
+	podsInjected       int64
+	podsNotReady       int64
+	podsOutdated       int64
+	podsHealthy        int64
+	podsUnhealthy      int64
+	unhealthyPods      []current.UnhealthyPodError
+	entityGUIDs        []string
 }
 
 // resolve marks the instrumentation metric done.  anything waiting via `wait` will continue
@@ -352,7 +353,7 @@ func (m *HealthMonitor) resourceQueueEvent(ctx context.Context, ev event) {
 		}
 		instrumentationMetrics := m.getInstrumentationMetrics(ctx, podMetrics)
 		if len(instrumentationMetrics) == 0 {
-			logger.V(1).Info("triggered a health check, but there's nothing to report the health to.  No instrumentations with a configured health agent")
+			logger.V(1).Info("triggered a health check, but there's nothing to report to.  No instrumentations found")
 			return
 		}
 		logger.V(1).Info("trigger health check")
@@ -424,10 +425,15 @@ func (m *HealthMonitor) instrumentationMetricsQueueEvent(ctx context.Context, ev
 
 func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, event *instrumentationMetric) {
 	for _, eventPodMetrics := range event.podMetrics {
-		// wait for pod metrics (health) to be collected
-		_ = eventPodMetrics.wait(ctx)
+		// Only wait for health checks if HealthAgent is configured
+		if event.healthCheckEnabled {
+			// wait for pod metrics (health) to be collected
+			_ = eventPodMetrics.wait(ctx)
+		}
+
 		event.podsMatching++
-		if !m.isPodInstrumented(eventPodMetrics.pod) {
+		// Check if pod has been instrumented (regardless of health agent)
+		if !m.hasInstrumentationAnnotation(eventPodMetrics.pod) {
 			continue
 		}
 		if m.isPodOutdated(eventPodMetrics.pod, event.instrumentation) {
@@ -439,27 +445,30 @@ func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, eve
 			continue
 		}
 
-		var entityGUIDs []string
-		healthy := true
-		var unhealthyPods []current.UnhealthyPodError
-		for _, health := range eventPodMetrics.healths {
-			if health.EntityGUID != "" {
-				entityGUIDs = append(entityGUIDs, health.EntityGUID)
+		// Only process health check results if HealthAgent is configured
+		if event.healthCheckEnabled {
+			var entityGUIDs []string
+			healthy := true
+			var unhealthyPods []current.UnhealthyPodError
+			for _, health := range eventPodMetrics.healths {
+				if health.EntityGUID != "" {
+					entityGUIDs = append(entityGUIDs, health.EntityGUID)
+				}
+				healthy = healthy && health.Healthy
+				if !health.Healthy {
+					unhealthyPods = append(unhealthyPods, current.UnhealthyPodError{
+						Pod:       eventPodMetrics.podID,
+						LastError: health.LastError,
+					})
+				}
 			}
-			healthy = healthy && health.Healthy
-			if !health.Healthy {
-				unhealthyPods = append(unhealthyPods, current.UnhealthyPodError{
-					Pod:       eventPodMetrics.podID,
-					LastError: health.LastError,
-				})
+			event.entityGUIDs = entityGUIDs
+			event.unhealthyPods = unhealthyPods
+			if healthy {
+				event.podsHealthy++
+			} else {
+				event.podsUnhealthy++
 			}
-		}
-		event.entityGUIDs = entityGUIDs
-		event.unhealthyPods = unhealthyPods
-		if healthy {
-			event.podsHealthy++
-		} else {
-			event.podsUnhealthy++
 		}
 	}
 	// send our instrumentation metrics off to be persisted
@@ -513,10 +522,8 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 	var instrumentationMetrics = make([]*instrumentationMetric, len(m.instrumentations))
 	i := 0
 	for _, instrumentation := range m.instrumentations {
-		// skip instrumentation without the health agent configuration, because it's extra work without any benefit
-		if instrumentation.Spec.HealthAgent.IsEmpty() {
-			continue
-		}
+		// Track all instrumentations, but only perform health checks if HealthAgent is configured
+		healthCheckEnabled := !instrumentation.Spec.HealthAgent.IsEmpty()
 
 		podSelector, err := metav1.LabelSelectorAsSelector(&instrumentation.Spec.PodLabelSelector)
 		if err != nil {
@@ -549,10 +556,11 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 		}
 
 		instrumentationMetrics[i] = &instrumentationMetric{
-			instrumentationID: types.NamespacedName{Namespace: instrumentation.Namespace, Name: instrumentation.Name}.String(),
-			instrumentation:   instrumentation,
-			podMetrics:        instPodMetrics,
-			doneCh:            make(chan struct{}),
+			instrumentationID:  types.NamespacedName{Namespace: instrumentation.Namespace, Name: instrumentation.Name}.String(),
+			instrumentation:    instrumentation,
+			podMetrics:         instPodMetrics,
+			healthCheckEnabled: healthCheckEnabled,
+			doneCh:             make(chan struct{}),
 		}
 		i++
 	}
@@ -618,6 +626,16 @@ func (m *HealthMonitor) isPodOutdated(pod *corev1.Pod, inst *current.Instrumenta
 }
 
 // isPodInstrumented check if a pod has been instrumented with the health sidecar
+// hasInstrumentationAnnotation checks if a pod has been instrumented (has the instrumentation-versions annotation)
+func (m *HealthMonitor) hasInstrumentationAnnotation(pod *corev1.Pod) bool {
+	if pod.Annotations == nil {
+		return false
+	}
+	_, ok := pod.Annotations[instrumentationVersionAnnotation]
+	return ok
+}
+
+// isPodInstrumented checks if a pod has health agent instrumentation
 func (m *HealthMonitor) isPodInstrumented(pod *corev1.Pod) bool {
 	if pod.Annotations == nil {
 		return false

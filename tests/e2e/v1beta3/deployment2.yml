@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: php-deployment
+  name: both-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      pod: both-pod
+  template:
+    metadata:
+      labels:
+        pod: both-pod
+        newrelic.com/inject-apm-both: '8.4'
+    spec:
+      containers:
+        - name: a
+          image:  ghcr.io/open-telemetry/opentelemetry-operator/e2e-test-app-nodejs:main
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_PATH
+              value: /usr/local/lib/node_modules
+        - name: b
+          image: andrewlozoya/flask-hello-world:latest
+          ports:
+            - containerPort: 5000

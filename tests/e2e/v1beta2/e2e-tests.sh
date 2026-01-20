@@ -1,16 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../common-functions.sh"
+
 # Test cluster
 CLUSTER_NAME=""
-K8S_VERSION=""
+K8S_VERSION="v1.35.0"
 
 # New Relic account (production) details
-LICENSE_KEY=""
+LICENSE_KEY="abc123"
+
+OPERATOR_NAMESPACE=k8s-agents-operator
+APP_NAMESPACE=e2e-namespace
 
 # Unset if you only want to setup a test cluster with E2E specifications
 # Set to true if you additionally want to run tests
-RUN_TESTS=""
+RUN_TESTS=false
+RUN_TEARDOWN=false
+RUN_CREATE=true
+RUN_PRE_TEARDOWN=true
+RUN_LOAD_AUX_IMAGES=true
+
 
 SCRIPT_PATH=$(dirname $0)
 REPO_ROOT=$(realpath $SCRIPT_PATH/../../..)
@@ -19,15 +31,23 @@ function main() {
     parse_args "$@"
 
     if test $(echo $K8S_VERSION | awk -F. '{print $1}') == "v1" && test $(echo $K8S_VERSION | awk -F. '{print $2}') -le "28"; then
-      echo "⚠️ cluster skipped because the version $K8S_VERSION does not have native sidecars support, which is required; introduced as a feature flag in v1.28.0 disabled by default, and enabled by default in v1.29.0 or greater"
-      exit 0
+        echo "⚠️ cluster skipped because the version $K8S_VERSION does not have native sidecars support, which is required; introduced as a feature flag in v1.28.0 disabled by default, and enabled by default in v1.29.0 or greater"
+        exit 0
     fi
 
-    create_cluster
-    if [[ "$RUN_TESTS" == "true" ]]; then
-        run_tests
-        teardown
+    test -z "$CLUSTER_NAME" && set_clustername
+    $RUN_PRE_TEARDOWN && pre_teardown
+    $RUN_CREATE && create_cluster
+    $RUN_LOAD_AUX_IMAGES && load_aux_images
+    if ${RUN_TESTS}; then
+        build_images
+        load_images
+        install_operator
+        install_tests
+        #run_tests
     fi
+
+    $RUN_TEARDOWN teardown
 }
 
 function parse_args() {
@@ -50,6 +70,22 @@ function parse_args() {
             K8S_VERSION="${1#*=}"
             ;;
 
+            --set_namespace|--set-namespace)
+            shift
+            OPERATOR_NAMESPACE="$1"
+            ;;
+            --set_namespace=*|--set-namespace=*)
+            OPERATOR_NAMESPACE="${1#*=}"
+            ;;
+
+            --set_clustername|--set-clustername)
+            shift
+            CLUSTER_NAME="$1"
+            ;;
+            --set_clustername=*|--set-clustername=*)
+            CLUSTER_NAME="${1#*=}"
+            ;;
+
             --license_key|--license-key)
             shift
             LICENSE_KEY="$1"
@@ -59,8 +95,21 @@ function parse_args() {
             ;;
 
             --run_tests|--run-tests)
-            RUN_TESTS="true"
+            RUN_TESTS=true
             ;;
+
+            --disable_teardown|--disable-teardown)
+            RUN_TEARDOWN=false
+            ;;
+
+            --disable_pre_teardown|--disable-pre-teardown)
+            RUN_PRE_TEARDOWN=false
+            ;;
+
+            --enable_aux_images|--enable-aux-images)
+            RUN_LOAD_AUX_IMAGES=true
+            ;;
+
             -*|--*|*)
             echo "Unknown field: $1"
             exit 1
@@ -69,7 +118,7 @@ function parse_args() {
         shift
     done
 
-    if [[ totalArgs -lt 4 ]]; then
+    if [[ totalArgs -lt 2 ]]; then
         help
         exit 0
     fi
@@ -89,27 +138,46 @@ function help() {
 END
 }
 
-function create_cluster() {
-    echo "🔄 Setup"
+function pre_teardown() {
+    echo "🔄 Tearing down all previous minikube instances if they exist"
     minikube delete --all > /dev/null
+}
+
+function set_clustername() {
     now=$( date "+%Y-%m-%d-%H-%M-%S" )
     CLUSTER_NAME=${now}-e2e-tests
+}
 
+function create_cluster() {
     echo "🔄 Creating cluster ${CLUSTER_NAME}"
     minikube start --container-runtime=containerd --kubernetes-version=${K8S_VERSION} --profile ${CLUSTER_NAME} > /dev/null
+}
 
+function build_images() {
     echo "🔄 Building Docker image"
     DOCKER_BUILDKIT=1 docker build --tag e2e/k8s-agents-operator:e2e ${REPO_ROOT} --quiet > /dev/null
+}
 
+function load_images() {
     echo "🔄 Loading operator image into cluster"
     minikube image load e2e/k8s-agents-operator:e2e --profile ${CLUSTER_NAME} > /dev/null
+}
 
-    echo "🔄 Loading dotnet init image into cluster"
-    minikube image load --profile ${CLUSTER_NAME} newrelic/newrelic-dotnet-init:latest
+function load_aux_image() {
+    echo "🔄 Pulling image $1 onto local machine"
+    docker pull $1
+    echo "🔄 Loading image $1 into cluster ${CLUSTER_NAME}"
+    minikube image load --profile ${CLUSTER_NAME} $1
+}
 
-    echo "🔄 Loading health agent sidecar image into cluster"
-    minikube image load --profile ${CLUSTER_NAME} newrelic/k8s-apm-agent-health-sidecar:latest
+function load_aux_images() {
+    export -f load_aux_image
+    export CLUSTER_NAME
+    find ${SCRIPT_PATH} -type f \( -name '*.yaml' -or -name '*.yml' \) -exec awk '/image:/{print $2}' {} \; \
+    | sort | uniq | xargs -I {} bash -c "set -euo pipefail; load_aux_image {}"
+}
 
+function install_operator() {
     echo "🔄 Adding Helm repositories"
     helm repo add newrelic https://helm-charts.newrelic.com > /dev/null
     helm repo update > /dev/null
@@ -117,31 +185,35 @@ function create_cluster() {
 
     echo "🔄 Installing operator"
     helm upgrade --install k8s-agents-operator ${REPO_ROOT}/charts/k8s-agents-operator \
-      --namespace k8s-agents-operator \
+      --namespace ${OPERATOR_NAMESPACE} \
       --create-namespace \
       --set controllerManager.manager.image.version=e2e,controllerManager.manager.image.pullPolicy=Never,controllerManager.manager.image.repository=e2e/k8s-agents-operator \
       --set licenseKey=${LICENSE_KEY}
 
-    echo "🔄 Waiting for operator to settle"
-    sleep 15
-    kubectl wait --timeout=30s --for=jsonpath='{.status.phase}'=Running -n k8s-agents-operator -l="app.kubernetes.io/instance=k8s-agents-operator" pod
-    sleep 15
+    # Use common wait function
+    wait_for_operator_ready ${OPERATOR_NAMESPACE}
+}
 
+function install_tests() {
     echo "🔄 Creating E2E namespace"
-    kubectl create namespace e2e-namespace
+    if ! kubectl get ns ${APP_NAMESPACE} > /dev/null 2>&1; then
+      kubectl create namespace ${APP_NAMESPACE}
+    fi
 
-    echo "🔄 Installing instrumentation"
+    echo "🔄 Installing instrumentations"
     for i in $(find ${SCRIPT_PATH} -maxdepth 1 -type f -name 'e2e-instrumentation-*.yml'); do
-      kubectl apply --namespace k8s-agents-operator --filename $i
+      echo "  Applying $(basename $i)"
+      kubectl apply --namespace ${OPERATOR_NAMESPACE} --filename $i
     done
+
+    # Use common wait function for instrumentations
+    wait_for_instrumentations ${OPERATOR_NAMESPACE} "${SCRIPT_PATH}/e2e-instrumentation-*.yml"
 
     echo "🔄 Installing apps"
-    kubectl apply --namespace e2e-namespace --filename ${SCRIPT_PATH}/apps/
+    kubectl apply --namespace ${APP_NAMESPACE} --filename ${SCRIPT_PATH}/apps/
 
-    echo "🔄 Waiting for apps to settle"
-    for label in $(find ${SCRIPT_PATH}/apps -type f -name '*.yaml' -exec yq '. | select(.kind == "Deployment") | .metadata.name' {} \;); do
-      kubectl wait --timeout=600s --for=jsonpath='{.status.phase}'=Running --namespace e2e-namespace -l="app=$label" pod
-    done
+    # Use common wait function for apps
+    wait_for_apps_ready ${APP_NAMESPACE} "${SCRIPT_PATH}/apps"
 }
 
 function run_tests() {

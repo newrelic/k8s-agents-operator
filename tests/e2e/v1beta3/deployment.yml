@@ -1,0 +1,154 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: php-cfgmap
+data:
+  index.php: |
+    <?php
+    
+    $agent_id   = file_exists('/data/agent_id') ? trim(file_get_contents('/data/agent_id')) : sprintf("%08x-%04x-%04x-%04x-%012x", mt_rand(0,0xffffffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffffffffffff));
+    $started_at = file_exists('/data/started_at') ? strtotime(trim(file_get_contents('/data/started_at'))) : time();
+    $entity_id  = file_exists('/data/entity_id') ? trim(file_get_contents('/data/entity_id')) : sprintf("%08x-%04x-%04x-%04x-%012x", mt_rand(0,0xffffffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffffffffffff));
+    $n          = microtime(true);
+    $now        = ((int)$n)*1000000000 + (int)(fmod($n,1)*1000000)*1000;
+    
+    $o = (object)([
+      'status' => 'ready',
+      'healthy' => true,
+      'last_error' => '',
+      'status_time_unix_nano' => $now,
+      'start_time_unix_nano' => $started_at*1000000000,
+      'agent_run_id' => $agent_id,
+      'entity_guid' => $entity_id,
+    ]);
+    
+    if (!extension_loaded('newrelic')) {
+      $o->status     = 'not ready';
+      $o->last_error = 'extension not loaded';
+    }
+    
+    $r = '';
+    foreach ($o as $k => $v) {
+      if (preg_match('@^[0-9]|[^a-zA-Z0-9_]@', $k) === true) {
+        $r .= '"'.str_replace(["'", '"', "\\", "\n", "\t", "\r"], ["\\'", '\\"', "\\\\", "\\n", "\\t", "\\r"], $k).'": ';
+      } else {
+        $r .= "$k: ";
+      }
+      $t = gettype($v);
+      switch (gettype($v)) {
+        case 'string':  $r .= '"'.str_replace(['\\',"'",'"',"\n","\r","\t"],['\\\\',"\\'",'\\"',"\\n","\\r","\\t"],$v).'"'; break;
+        case 'boolean': $r .= $v?'true':'false'; break;
+        case 'integer': $r .= number_format($v, 0, "", ""); break;
+        default:        $r .= $v; break;
+      }
+      $r .= "\n";
+    }
+    $r .= "\n";
+    
+    echo $r;
+    if (getenv('NEW_RELIC_FLEET_CONTROL_HEALTH_FILE') !== '' && getenv('NEW_RELIC_FLEET_CONTROL_HEALTH_FILE') !== false) {
+      file_put_contents(getenv('NEW_RELIC_FLEET_CONTROL_HEALTH_FILE'), $r);
+    }
+    if (getenv('NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION') !== '' && getenv('NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION') !== false) {
+      $location = rtrim(getenv('NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION'),'/').'/health-main.yaml';
+      if (substr($location, 0, 7) === "file://") {
+        $location = substr($location, 7);
+      }
+      file_put_contents(rtrim(getenv('NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION'),'/').'/health-main.yaml', $r);
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: php-deployment
+  name: php-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      pod: php-pod
+  template:
+    metadata:
+      labels:
+        pod: php-pod
+        old-newrelic.com/inject-apm-health: 'true'
+        newrelic.com/inject-apm-php: '8.4'
+    spec:
+      initContainers:
+        - name: started
+          image: alpine
+          command:
+            - ash
+          args:
+            - -c
+            - 'date -u +"%Y-%m-%dT%H:%M:%SZ" > /data/started_at;  cat /proc/sys/kernel/random/uuid > /data/agent_id;  cat /proc/sys/kernel/random/uuid > /data/entity_id'
+          volumeMounts:
+            - mountPath: /data/
+              name: tmp
+        - name: started2
+          image: alpine
+          command:
+            - ash
+          args:
+            - -c
+            - 'date -u +"%Y-%m-%dT%H:%M:%SZ" > /data/started_at;  cat /proc/sys/kernel/random/uuid > /data/agent_id;  cat /proc/sys/kernel/random/uuid > /data/entity_id'
+          volumeMounts:
+            - mountPath: /data/
+              name: tmp2
+        - name: requester
+          image: alpine
+          command:
+            - ash
+          args:
+            - -c
+            - 'while true; do wget -O - 127.0.0.1:8000; sleep 1; done'
+          restartPolicy: Always
+        - name: requester2
+          image: alpine
+          command:
+            - ash
+          args:
+            - -c
+            - 'while true; do wget -O - 127.0.0.1:8001; sleep 1; done'
+          restartPolicy: Always
+      containers:
+        - name: a
+          image: php:8.4-alpine
+          workingDir: /app
+          command:
+            - php
+            - -S
+            - 0.0.0.0:8000
+            - index.php
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - mountPath: /app/
+              name: code
+            - mountPath: /data/
+              name: tmp
+        - name: b
+          image: php:8.4-alpine
+          workingDir: /app
+          command:
+            - php
+            - -S
+            - 0.0.0.0:8001
+            - index.php
+          ports:
+            - containerPort: 8001
+          volumeMounts:
+            - mountPath: /app/
+              name: code
+            - mountPath: /data/
+              name: tmp2
+      volumes:
+        - name: code
+          configMap:
+            name: php-cfgmap
+        - name: tmp
+          emptyDir: {}
+        - name: tmp2
+          emptyDir: {}
