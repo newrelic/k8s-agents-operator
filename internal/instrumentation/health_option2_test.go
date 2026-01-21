@@ -241,18 +241,18 @@ func TestGetInstrumentationMetrics_WithoutHealthAgent(t *testing.T) {
 // flag properly controls whether health metrics are collected (Option 2 implementation)
 func TestInstrumentationMetricQueueEvent_HealthCheckEnabled(t *testing.T) {
 	tests := []struct {
-		name                        string
-		pod                         *corev1.Pod
-		healthCheckEnabled          bool
-		podHasAnnotation            bool
-		podReady                    bool
-		healths                     []Health
-		expectedPodsMatching        int64
-		expectedPodsInjected        int64
-		expectedPodsHealthy         int64
-		expectedPodsUnhealthy       int64
-		expectedPodsNotReady        int64
-		expectedPodsOutdated        int64
+		name                  string
+		pod                   *corev1.Pod
+		healthCheckEnabled    bool
+		podHasAnnotation      bool
+		podReady              bool
+		healths               []Health
+		expectedPodsMatching  int64
+		expectedPodsInjected  int64
+		expectedPodsHealthy   int64
+		expectedPodsUnhealthy int64
+		expectedPodsNotReady  int64
+		expectedPodsOutdated  int64
 	}{
 		{
 			name: "pod tracked without health agent",
@@ -356,10 +356,10 @@ func TestInstrumentationMetricQueueEvent_HealthCheckEnabled(t *testing.T) {
 					Phase: corev1.PodPending,
 				},
 			},
-			healthCheckEnabled: true,
-			podHasAnnotation:   true,
-			podReady:           false,
-			healths:            []Health{},
+			healthCheckEnabled:    true,
+			podHasAnnotation:      true,
+			podReady:              false,
+			healths:               []Health{},
 			expectedPodsMatching:  1,
 			expectedPodsInjected:  1,
 			expectedPodsHealthy:   0,

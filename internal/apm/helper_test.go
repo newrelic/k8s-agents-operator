@@ -1,22 +1,6 @@
 package apm
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"github.com/newrelic/k8s-agents-operator/api/current"
-	"github.com/stretchr/testify/assert"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-)
-
-Recovery records
-Self-extracting archives
-Archive comments
-import (
 	"context"
 	"encoding/json"
 	"strings"
@@ -295,11 +279,11 @@ func TestGenerateContainerName(t *testing.T) {
 
 func TestSetPodAnnotationFromInstrumentationVersion(t *testing.T) {
 	tests := []struct {
-		name                 string
-		pod                  corev1.Pod
-		instrumentation      current.Instrumentation
-		expectedAnnotation   string
-		expectedErrContains  string
+		name                string
+		pod                 corev1.Pod
+		instrumentation     current.Instrumentation
+		expectedAnnotation  string
+		expectedErrContains string
 	}{
 		{
 			name: "pod with no annotations",

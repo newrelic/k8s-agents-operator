@@ -409,10 +409,10 @@ func TestIsPodInstrumented(t *testing.T) {
 
 func TestGetPodMetrics(t *testing.T) {
 	tests := []struct {
-		name         string
-		pods         map[string]*corev1.Pod
-		expectedLen  int
-		expectedIDs  []string
+		name        string
+		pods        map[string]*corev1.Pod
+		expectedLen int
+		expectedIDs []string
 	}{
 		{
 			name:        "empty pods map",
