@@ -565,9 +565,9 @@ func WebhookReadyCheck(name string, mgr ctrl.Manager, webhookValidatingConfigNam
 	}
 }
 
-// Helper 1: Check for ready Service Endpoints
+//nolint:staticcheck // SA1019: Endpoints is deprecated but kept for backward compatibility
 func checkServiceEndpoints(ctx context.Context, c client.Client, webhookServiceNamespace, webhookServiceName string) error {
-	var endpoints corev1.Endpoints
+	var endpoints corev1.Endpoints //nolint:staticcheck // SA1019: Endpoints is deprecated but kept for backward compatibility
 	namespacedName := types.NamespacedName{Name: webhookServiceName, Namespace: webhookServiceNamespace}
 
 	if err := c.Get(ctx, namespacedName, &endpoints); err != nil {
@@ -581,7 +581,7 @@ func checkServiceEndpoints(ctx context.Context, c client.Client, webhookServiceN
 	return fmt.Errorf("no ready endpoints found for service %s/%s", webhookServiceNamespace, webhookServiceName)
 }
 
-// Helper 2: Check for TLS Secret readiness (based on self-signed scenario)
+// checkTLSCertSecret Check for TLS Secret readiness (based on self-signed scenario)
 func checkTLSCertSecret(ctx context.Context, c client.Client, webhookServiceNamespace, webhookSecretName string) error {
 	var tlsSecret corev1.Secret
 	namespacedName := types.NamespacedName{Name: webhookSecretName, Namespace: webhookServiceNamespace}
@@ -637,7 +637,7 @@ func checkTLSCertSecret(ctx context.Context, c client.Client, webhookServiceName
 	return nil
 }
 
-// Helper 3: Check for CA Bundle Injection/Presence
+// checkMutatingWebhookCABundleInjection Check for CA Bundle Injection/Presence
 func checkMutatingWebhookCABundleInjection(ctx context.Context, c client.Client, webhookConfigName string) error {
 	var mwhc admissionv1.MutatingWebhookConfiguration
 	namespacedName := types.NamespacedName{Name: webhookConfigName} // WebhookConfig is cluster-scoped
@@ -665,7 +665,7 @@ func checkMutatingWebhookCABundleInjection(ctx context.Context, c client.Client,
 	return nil
 }
 
-// Helper 3: Check for CA Bundle Injection/Presence
+// checkValidatingWebhookCABundleInjection Check for CA Bundle Injection/Presence
 func checkValidatingWebhookCABundleInjection(ctx context.Context, c client.Client, webhookConfigName string) error {
 	var vwhc admissionv1.ValidatingWebhookConfiguration
 	namespacedName := types.NamespacedName{Name: webhookConfigName} // WebhookConfig is cluster-scoped
@@ -693,7 +693,7 @@ func checkValidatingWebhookCABundleInjection(ctx context.Context, c client.Clien
 	return nil
 }
 
-// Helper 1: Check for ready Service Endpoints using EndpointSlice
+// checkServiceEndpointSlices Check for ready Service Endpoints using EndpointSlice
 func checkServiceEndpointSlices(ctx context.Context, c client.Client, webhookServiceNamespace, webhookServiceName string) error {
 
 	// Create a label selector to find all EndpointSlices for the target Service.
@@ -745,7 +745,7 @@ func checkServiceEndpointSlices(ctx context.Context, c client.Client, webhookSer
 	return nil
 }
 
-// Helper: Check for cert-manager Certificate readiness (optional, only used when cert-manager is enabled)
+// checkCertManagerCertificate Check for cert-manager Certificate readiness (optional, only used when cert-manager is enabled)
 func checkCertManagerCertificate(ctx context.Context, c client.Client, namespace, certificateName string) error {
 	certNamespacedName := types.NamespacedName{
 		Name:      certificateName,

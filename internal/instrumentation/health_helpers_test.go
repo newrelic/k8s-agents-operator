@@ -222,19 +222,22 @@ func TestGetHealthUrlsFromPod(t *testing.T) {
 			m := &HealthMonitor{}
 			urls, err := m.getHealthUrlsFromPod(tt.pod)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("expected error containing %q, got nil", tt.errContains)
-				} else if tt.errContains != "" && !containsString(err.Error(), tt.errContains) {
-					t.Errorf("expected error containing %q, got %q", tt.errContains, err.Error())
-				}
-			} else {
-				if err != nil {
-					t.Errorf("unexpected error: %v", err)
-				}
-				if len(urls) != tt.expectedLen {
-					t.Errorf("expected %d URLs, got %d", tt.expectedLen, len(urls))
-				}
+			// Check error expectations
+			if tt.wantErr && err == nil {
+				t.Errorf("expected error containing %q, got nil", tt.errContains)
+				return
+			}
+			if tt.wantErr && tt.errContains != "" && !containsString(err.Error(), tt.errContains) {
+				t.Errorf("expected error containing %q, got %q", tt.errContains, err.Error())
+				return
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			// Check URL count
+			if !tt.wantErr && len(urls) != tt.expectedLen {
+				t.Errorf("expected %d URLs, got %d", tt.expectedLen, len(urls))
 			}
 		})
 	}

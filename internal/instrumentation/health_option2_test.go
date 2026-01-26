@@ -6,10 +6,29 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
+	"github.com/newrelic/k8s-agents-operator/internal/instrumentation/util/worker"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// verifyMixedHealthConfigs is a helper to verify health check configs for multiple instrumentations
+func verifyMixedHealthConfigs(t *testing.T, instMetrics []*instrumentationMetric) {
+	t.Helper()
+	for _, im := range instMetrics {
+		inst := im.instrumentation
+		switch inst.Name {
+		case "inst-no-health":
+			if im.healthCheckEnabled {
+				t.Errorf("instrumentation 'inst-no-health' should have healthCheckEnabled=false")
+			}
+		case "inst-with-health":
+			if !im.healthCheckEnabled {
+				t.Errorf("instrumentation 'inst-with-health' should have healthCheckEnabled=true")
+			}
+		}
+	}
+}
 
 // TestGetInstrumentationMetrics_WithoutHealthAgent tests that instrumentations
 // without HealthAgent configured are still tracked in metrics (Option 2 implementation)
@@ -196,7 +215,7 @@ func TestGetInstrumentationMetrics_WithoutHealthAgent(t *testing.T) {
 			}
 
 			// Create pod metrics
-			podMetrics := []*podMetric{}
+			podMetrics := make([]*podMetric, 0, len(tt.pods))
 			for _, pod := range tt.pods {
 				podMetrics = append(podMetrics, &podMetric{
 					pod: pod,
@@ -220,18 +239,7 @@ func TestGetInstrumentationMetrics_WithoutHealthAgent(t *testing.T) {
 
 			// For multiple instrumentations test, verify each one
 			if tt.name == "multiple instrumentations with mixed health agent configs" {
-				for _, im := range instMetrics {
-					inst := im.instrumentation
-					if inst.Name == "inst-no-health" {
-						if im.healthCheckEnabled {
-							t.Errorf("instrumentation 'inst-no-health' should have healthCheckEnabled=false")
-						}
-					} else if inst.Name == "inst-with-health" {
-						if !im.healthCheckEnabled {
-							t.Errorf("instrumentation 'inst-with-health' should have healthCheckEnabled=true")
-						}
-					}
-				}
+				verifyMixedHealthConfigs(t, instMetrics)
 			}
 		})
 	}
@@ -422,8 +430,12 @@ func TestInstrumentationMetricQueueEvent_HealthCheckEnabled(t *testing.T) {
 				healthCheckEnabled: tt.healthCheckEnabled,
 			}
 
-			// Create monitor
-			m := &HealthMonitor{}
+			// Create monitor with required queue
+			m := &HealthMonitor{
+				instrumentationMetricPersistQueue: worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
+					// No-op worker for test
+				}),
+			}
 
 			// Process the event
 			m.instrumentationMetricQueueEvent(ctx, event)
@@ -696,7 +708,7 @@ func TestGetInstrumentationMetrics_EdgeCases(t *testing.T) {
 			}
 
 			// Create pod metrics
-			podMetrics := []*podMetric{}
+			podMetrics := make([]*podMetric, 0, len(tt.pods))
 			for _, pod := range tt.pods {
 				podMetrics = append(podMetrics, &podMetric{
 					pod: pod,
@@ -914,8 +926,12 @@ func TestInstrumentationMetricQueueEvent_EdgeCases(t *testing.T) {
 				doneCh:             make(chan struct{}),
 			}
 
-			// Create monitor
-			m := &HealthMonitor{}
+			// Create monitor with required queue
+			m := &HealthMonitor{
+				instrumentationMetricPersistQueue: worker.NewManyWorkers(1, 0, func(ctx context.Context, data any) {
+					// No-op worker for test
+				}),
+			}
 
 			// Process the event
 			m.instrumentationMetricQueueEvent(ctx, event)

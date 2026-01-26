@@ -315,7 +315,7 @@ func TestCheckMutatingWebhookCABundleInjection(t *testing.T) {
 				Webhooks: []admissionv1.MutatingWebhook{},
 			},
 			wantErr:         true,
-			wantErrContains: "has 0 webhooks",
+			wantErrContains: "has no webhooks",
 		},
 		{
 			name: "webhook config exists with empty CA bundle",
@@ -333,7 +333,7 @@ func TestCheckMutatingWebhookCABundleInjection(t *testing.T) {
 				},
 			},
 			wantErr:         true,
-			wantErrContains: "CA bundle is empty",
+			wantErrContains: "is missing the CA bundle",
 		},
 		{
 			name: "webhook config exists with valid CA bundle",
@@ -345,7 +345,7 @@ func TestCheckMutatingWebhookCABundleInjection(t *testing.T) {
 					{
 						Name: "test.webhook.example.com",
 						ClientConfig: admissionv1.WebhookClientConfig{
-							CABundle: []byte("fake-ca-bundle-data"),
+							CABundle: []byte("fake-ca-bundle-data-that-is-long-enough-to-pass-the-size-validation-check-of-at-least-100-bytes-which-is-required"),
 						},
 					},
 				},
@@ -362,13 +362,13 @@ func TestCheckMutatingWebhookCABundleInjection(t *testing.T) {
 					{
 						Name: "test1.webhook.example.com",
 						ClientConfig: admissionv1.WebhookClientConfig{
-							CABundle: []byte("fake-ca-bundle-data"),
+							CABundle: []byte("fake-ca-bundle-data-that-is-long-enough-to-pass-the-size-validation-check-of-at-least-100-bytes-which-is-required"),
 						},
 					},
 					{
 						Name: "test2.webhook.example.com",
 						ClientConfig: admissionv1.WebhookClientConfig{
-							CABundle: []byte("another-ca-bundle"),
+							CABundle: []byte("another-ca-bundle-that-is-also-long-enough-to-pass-the-100-byte-minimum-size-requirement-for-testing"),
 						},
 					},
 				},
@@ -431,7 +431,7 @@ func TestCheckValidatingWebhookCABundleInjection(t *testing.T) {
 				Webhooks: []admissionv1.ValidatingWebhook{},
 			},
 			wantErr:         true,
-			wantErrContains: "has 0 webhooks",
+			wantErrContains: "has no webhooks",
 		},
 		{
 			name: "webhook config exists with empty CA bundle",
@@ -449,7 +449,7 @@ func TestCheckValidatingWebhookCABundleInjection(t *testing.T) {
 				},
 			},
 			wantErr:         true,
-			wantErrContains: "CA bundle is empty",
+			wantErrContains: "is missing the CA bundle",
 		},
 		{
 			name: "webhook config exists with valid CA bundle",
@@ -461,7 +461,7 @@ func TestCheckValidatingWebhookCABundleInjection(t *testing.T) {
 					{
 						Name: "test.webhook.example.com",
 						ClientConfig: admissionv1.WebhookClientConfig{
-							CABundle: []byte("fake-ca-bundle-data"),
+							CABundle: []byte("fake-ca-bundle-data-that-is-long-enough-to-pass-the-size-validation-check-of-at-least-100-bytes-which-is-required"),
 						},
 					},
 				},
@@ -535,7 +535,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 				},
 			},
 			wantErr:         true,
-			wantErrContains: "no endpoints",
+			wantErrContains: "zero ready endpoints",
 		},
 		{
 			name: "endpoint slice exists with ready=false endpoint",
@@ -550,6 +550,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 					},
 					Endpoints: []discoveryv1.Endpoint{
 						{
+							Addresses: []string{"10.0.0.1"},
 							Conditions: discoveryv1.EndpointConditions{
 								Ready: &readyFalse,
 							},
@@ -558,7 +559,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 				},
 			},
 			wantErr:         true,
-			wantErrContains: "no ready endpoints",
+			wantErrContains: "zero ready endpoints",
 		},
 		{
 			name: "endpoint slice exists with serving=false endpoint",
@@ -573,6 +574,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 					},
 					Endpoints: []discoveryv1.Endpoint{
 						{
+							Addresses: []string{"10.0.0.1"},
 							Conditions: discoveryv1.EndpointConditions{
 								Ready:   &readyTrue,
 								Serving: &servingFalse,
@@ -581,8 +583,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 					},
 				},
 			},
-			wantErr:         true,
-			wantErrContains: "no serving endpoints",
+			wantErr: false, // Ready is true, so no error even though serving is false
 		},
 		{
 			name: "endpoint slice exists with ready and serving endpoints",
@@ -597,6 +598,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 					},
 					Endpoints: []discoveryv1.Endpoint{
 						{
+							Addresses: []string{"10.0.0.1"},
 							Conditions: discoveryv1.EndpointConditions{
 								Ready:   &readyTrue,
 								Serving: &servingTrue,
@@ -620,6 +622,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 					},
 					Endpoints: []discoveryv1.Endpoint{
 						{
+							Addresses: []string{"10.0.0.1"},
 							Conditions: discoveryv1.EndpointConditions{
 								Ready:   &readyFalse,
 								Serving: &servingFalse,
@@ -637,6 +640,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 					},
 					Endpoints: []discoveryv1.Endpoint{
 						{
+							Addresses: []string{"10.0.0.2"},
 							Conditions: discoveryv1.EndpointConditions{
 								Ready:   &readyTrue,
 								Serving: &servingTrue,
@@ -673,6 +677,7 @@ func TestCheckServiceEndpointSlices(t *testing.T) {
 	}
 }
 
+//nolint:staticcheck // SA1019: Testing deprecated Endpoints API for backward compatibility
 func TestCheckServiceEndpoints(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
@@ -680,7 +685,7 @@ func TestCheckServiceEndpoints(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		endpoints       *corev1.Endpoints
+		endpoints       *corev1.Endpoints //nolint:staticcheck // SA1019: Testing deprecated Endpoints API
 		wantErr         bool
 		wantErrContains string
 	}{
@@ -692,12 +697,13 @@ func TestCheckServiceEndpoints(t *testing.T) {
 		},
 		{
 			name: "endpoints exist with ready addresses",
+			//nolint:staticcheck // SA1019: Testing deprecated Endpoints API
 			endpoints: &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-service",
 					Namespace: "test-ns",
 				},
-				Subsets: []corev1.EndpointSubset{
+				Subsets: []corev1.EndpointSubset{ //nolint:staticcheck // SA1019: Testing deprecated API
 					{
 						Addresses: []corev1.EndpointAddress{
 							{
@@ -711,24 +717,26 @@ func TestCheckServiceEndpoints(t *testing.T) {
 		},
 		{
 			name: "endpoints exist but no subsets",
+			//nolint:staticcheck // SA1019: Testing deprecated Endpoints API
 			endpoints: &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-service",
 					Namespace: "test-ns",
 				},
-				Subsets: []corev1.EndpointSubset{},
+				Subsets: []corev1.EndpointSubset{}, //nolint:staticcheck // SA1019: Testing deprecated API
 			},
 			wantErr:         true,
 			wantErrContains: "no ready endpoints found",
 		},
 		{
 			name: "endpoints exist with subsets but no addresses",
+			//nolint:staticcheck // SA1019: Testing deprecated Endpoints API
 			endpoints: &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-service",
 					Namespace: "test-ns",
 				},
-				Subsets: []corev1.EndpointSubset{
+				Subsets: []corev1.EndpointSubset{ //nolint:staticcheck // SA1019: Testing deprecated API
 					{
 						Addresses: []corev1.EndpointAddress{},
 					},
@@ -739,12 +747,13 @@ func TestCheckServiceEndpoints(t *testing.T) {
 		},
 		{
 			name: "endpoints exist with multiple subsets and addresses",
+			//nolint:staticcheck // SA1019: Testing deprecated Endpoints API
 			endpoints: &corev1.Endpoints{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-service",
 					Namespace: "test-ns",
 				},
-				Subsets: []corev1.EndpointSubset{
+				Subsets: []corev1.EndpointSubset{ //nolint:staticcheck // SA1019: Testing deprecated API
 					{
 						Addresses: []corev1.EndpointAddress{
 							{IP: "10.0.0.1"},

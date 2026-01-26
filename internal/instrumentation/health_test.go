@@ -121,11 +121,14 @@ func TestHealthMonitor(t *testing.T) {
 				"newrelic": {ObjectMeta: metav1.ObjectMeta{Name: "newrelic"}},
 			},
 			pods: map[string]*corev1.Pod{
-				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default", Annotations: map[string]string{"newrelic.com/apm-health": "true"}}},
+				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default", Annotations: map[string]string{
+					"newrelic.com/apm-health":        "true",
+					instrumentationVersionAnnotation: `{"newrelic/instrumentation0":"old-uid/1"}`, // Outdated UID
+				}}},
 			},
 			instrumentations: map[string]*current.Instrumentation{
 				"newrelic/instrumentation0": {
-					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
 					Spec:       current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health"}},
 				},
 			},

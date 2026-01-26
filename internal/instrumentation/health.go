@@ -446,33 +446,44 @@ func (m *HealthMonitor) instrumentationMetricQueueEvent(ctx context.Context, eve
 		}
 
 		// Only process health check results if HealthAgent is configured
-		if event.healthCheckEnabled {
-			var entityGUIDs []string
-			healthy := true
-			var unhealthyPods []current.UnhealthyPodError
-			for _, health := range eventPodMetrics.healths {
-				if health.EntityGUID != "" {
-					entityGUIDs = append(entityGUIDs, health.EntityGUID)
-				}
-				healthy = healthy && health.Healthy
-				if !health.Healthy {
-					unhealthyPods = append(unhealthyPods, current.UnhealthyPodError{
-						Pod:       eventPodMetrics.podID,
-						LastError: health.LastError,
-					})
-				}
-			}
-			event.entityGUIDs = entityGUIDs
-			event.unhealthyPods = unhealthyPods
-			if healthy {
-				event.podsHealthy++
-			} else {
-				event.podsUnhealthy++
-			}
+		if !event.healthCheckEnabled {
+			continue
 		}
+		m.processHealthCheckResults(event, eventPodMetrics)
 	}
 	// send our instrumentation metrics off to be persisted
 	_ = m.instrumentationMetricPersistQueue.Add(ctx, event)
+}
+
+func (m *HealthMonitor) processHealthCheckResults(event *instrumentationMetric, eventPodMetrics *podMetric) {
+	var entityGUIDs []string
+	healthy := true
+	var unhealthyPods []current.UnhealthyPodError
+	hasHealthData := len(eventPodMetrics.healths) > 0
+
+	for _, health := range eventPodMetrics.healths {
+		if health.EntityGUID != "" {
+			entityGUIDs = append(entityGUIDs, health.EntityGUID)
+		}
+		healthy = healthy && health.Healthy
+		if !health.Healthy {
+			unhealthyPods = append(unhealthyPods, current.UnhealthyPodError{
+				Pod:       eventPodMetrics.podID,
+				LastError: health.LastError,
+			})
+		}
+	}
+	event.entityGUIDs = entityGUIDs
+	event.unhealthyPods = unhealthyPods
+	// Only count as healthy/unhealthy if we have health data
+	if !hasHealthData {
+		return
+	}
+	if healthy {
+		event.podsHealthy++
+	} else {
+		event.podsUnhealthy++
+	}
 }
 
 func (m *HealthMonitor) instrumentationMetricPersistQueueEvent(ctx context.Context, event *instrumentationMetric) {
