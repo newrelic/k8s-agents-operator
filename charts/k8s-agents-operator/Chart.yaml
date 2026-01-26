@@ -6,7 +6,7 @@ version: '0.37.0'
 dependencies:
   - name: common-library
     version: 1.4.0
-    repository: "https://helm-charts.newrelic.com"
+    repository: "https://newrelic.github.io/helm-charts/"
 appVersion: '0.37.0'
 home: https://github.com/newrelic/k8s-agents-operator/blob/main/charts/k8s-agents-operator/README.md
 sources:

@@ -121,11 +121,14 @@ func TestHealthMonitor(t *testing.T) {
 				"newrelic": {ObjectMeta: metav1.ObjectMeta{Name: "newrelic"}},
 			},
 			pods: map[string]*corev1.Pod{
-				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default", Annotations: map[string]string{"newrelic.com/apm-health": "true"}}},
+				"default/pod0": {ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "default", Annotations: map[string]string{
+					"newrelic.com/apm-health":        "true",
+					instrumentationVersionAnnotation: `{"newrelic/instrumentation0":"old-uid/1"}`, // Outdated UID
+				}}},
 			},
 			instrumentations: map[string]*current.Instrumentation{
 				"newrelic/instrumentation0": {
-					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic"},
+					ObjectMeta: metav1.ObjectMeta{Name: "instrumentation0", Namespace: "newrelic", UID: "01234567-89ab-cdef-0123-456789abcdef", Generation: 55},
 					Spec:       current.InstrumentationSpec{HealthAgent: current.HealthAgent{Image: "health"}},
 				},
 			},
@@ -555,6 +558,266 @@ func TestIsDiff(t *testing.T) {
 			}
 			if tc.expected != nil && actual == nil {
 				t.Errorf("expected %v, got nil", tc.expected)
+			}
+		})
+	}
+}
+
+func TestHasInstrumentationAnnotation(t *testing.T) {
+	tests := []struct {
+		name     string
+		pod      *corev1.Pod
+		expected bool
+	}{
+		{
+			name:     "pod with no annotations",
+			pod:      &corev1.Pod{},
+			expected: false,
+		},
+		{
+			name: "pod with empty annotations map",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pod with instrumentation version annotation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/test-inst":"uid/1"}`,
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with other annotations but not instrumentation version",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"some-other-annotation": "value",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pod with instrumentation version and other annotations",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/test":"uid/1"}`,
+						"other-annotation":               "value",
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			m := &HealthMonitor{}
+			actual := m.hasInstrumentationAnnotation(test.pod)
+			if actual != test.expected {
+				t.Errorf("expected %v, got %v", test.expected, actual)
+			}
+		})
+	}
+}
+
+func TestIsPodOutdated(t *testing.T) {
+	tests := []struct {
+		name            string
+		pod             *corev1.Pod
+		instrumentation *current.Instrumentation
+		expected        bool
+	}{
+		{
+			name:            "pod with no annotations",
+			pod:             &corev1.Pod{},
+			instrumentation: &current.Instrumentation{},
+			expected:        true,
+		},
+		{
+			name: "pod with empty annotations map",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			instrumentation: &current.Instrumentation{},
+			expected:        true,
+		},
+		{
+			name: "pod without instrumentation version annotation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"other-annotation": "value",
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{},
+			expected:        true,
+		},
+		{
+			name: "pod with invalid JSON in version annotation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `invalid json`,
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{},
+			expected:        true,
+		},
+		{
+			name: "pod missing specific instrumentation key",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/other-inst":"uid/1"}`,
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid",
+					Generation: 1,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with matching UID and Generation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/test-inst":"test-uid/5"}`,
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid",
+					Generation: 5,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pod with outdated UID",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/test-inst":"old-uid/5"}`,
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "new-uid",
+					Generation: 5,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with outdated Generation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/test-inst":"test-uid/3"}`,
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid",
+					Generation: 5,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with newer Generation (shouldn't happen but handle gracefully)",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/test-inst":"test-uid/10"}`,
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid",
+					Generation: 5,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "pod with multiple instrumentations, one matching",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/inst1":"uid1/1","default/test-inst":"test-uid/3","default/inst2":"uid2/2"}`,
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid",
+					Generation: 3,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pod with instrumentation from different namespace",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"kube-system/test-inst":"test-uid/5"}`,
+					},
+				},
+			},
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid",
+					Generation: 5,
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			m := &HealthMonitor{}
+			actual := m.isPodOutdated(test.pod, test.instrumentation)
+			if actual != test.expected {
+				t.Errorf("expected %v, got %v", test.expected, actual)
 			}
 		})
 	}

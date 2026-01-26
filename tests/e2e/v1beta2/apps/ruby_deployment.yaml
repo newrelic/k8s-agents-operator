@@ -17,37 +17,70 @@ data:
     BUNDLED WITH
        1.17.2
   main.rb: |
-    require 'bundler/setup'
-    Bundler::require(:default)
     require 'socket'
     require 'logger'
+
+    # Load New Relic agent if available (injected by operator)
+    begin
+      require 'newrelic_rpm'
+    rescue LoadError
+      puts "New Relic agent not available (not injected yet)"
+    end
+
     logger = Logger.new(STDOUT)
     logger.level = Logger::DEBUG
+
     class HttpServer
+      include NewRelic::Agent::Instrumentation::ControllerInstrumentation if defined?(NewRelic)
+
       def initialize(logger, port)
         @server = TCPServer.new('0.0.0.0', port)
         @logger = logger
       end
+
       def accept_connection
         while session = @server.accept
-          request = session.readpartial(1024)
-          @logger.info("peer #{session.peeraddr[3]}:#{session.peeraddr[1]} connected")
-          STDERR.puts("peer #{session.peeraddr[3]}:#{session.peeraddr[1]} connected")
-          verb,path,proto = request.lines[0].split
-          scheme,ver = proto.split('/')
-          @logger.info("requested #{verb} #{path} #{scheme} #{ver}")
-          STDERR.puts("requested #{verb} #{path} #{scheme} #{ver}")
-          session.write("HTTP/1.0 200 OK\r\n")
-          session.write("Host: rubyapp\r\n")
-          session.write("Connection: close\r\n")
-          session.write("\r\n")
-          session.write("hello world from ruby\n")
-          session.write("peer: #{session.peeraddr[3]}:#{session.peeraddr[1]}\n")
-          session.write("server: #{session.addr[3]}:#{session.addr[1]}\n")
-          session.close
+          handle_request(session)
         end
       end
+
+      def handle_request(session)
+        request = session.readpartial(1024)
+        @logger.info("peer #{session.peeraddr[3]}:#{session.peeraddr[1]} connected")
+        STDERR.puts("peer #{session.peeraddr[3]}:#{session.peeraddr[1]} connected")
+
+        verb, path, proto = request.lines[0].split
+        scheme, ver = proto.split('/')
+        @logger.info("requested #{verb} #{path} #{scheme} #{ver}")
+        STDERR.puts("requested #{verb} #{path} #{scheme} #{ver}")
+
+        # Set transaction name for New Relic
+        if defined?(NewRelic)
+          NewRelic::Agent.set_transaction_name("HttpServer/#{verb}#{path}")
+        end
+
+        session.write("HTTP/1.0 200 OK\r\n")
+        session.write("Host: rubyapp\r\n")
+        session.write("Connection: close\r\n")
+        session.write("\r\n")
+        session.write("hello world from ruby\n")
+        session.write("peer: #{session.peeraddr[3]}:#{session.peeraddr[1]}\n")
+        session.write("server: #{session.addr[3]}:#{session.addr[1]}\n")
+        session.close
+      rescue => e
+        @logger.error("Error handling request: #{e.message}")
+        STDERR.puts("Error handling request: #{e.message}")
+        session.close rescue nil
+      end
+
+      # Instrument the handle_request method as a web transaction
+      if defined?(NewRelic)
+        add_transaction_tracer :handle_request,
+                               category: :controller,
+                               name: 'handle_request'
+      end
     end
+
     logger.info("starting server")
     STDERR.puts("starting server")
     server = HttpServer.new(logger, 8080)
@@ -76,8 +109,12 @@ spec:
             - name: RUBYOPT
               value: -W2
           command:
-            - ruby
-            - main.rb
+            - sh
+            - -c
+            - |
+              gem install bundler
+              bundle install
+              ruby main.rb
           ports:
             - containerPort: 8080
           volumeMounts:

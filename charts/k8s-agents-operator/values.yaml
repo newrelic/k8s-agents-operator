@@ -52,7 +52,7 @@ crds:
   enabled: true
 
 controllerManager:
-  replicas: 1
+  replicas: 2
 
   manager:
     # -- Enable or disable verbose (debug) logging -- #

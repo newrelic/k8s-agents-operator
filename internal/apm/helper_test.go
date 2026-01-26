@@ -2,6 +2,7 @@ package apm
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -274,4 +275,156 @@ func TestGenerateContainerName(t *testing.T) {
 	assert.Equal(t, "test"+strings.Repeat("-", 59), generateContainerName("test"+strings.Repeat("-", 59)))
 	assert.Equal(t, "test-272f74c", generateContainerName("test"+strings.Repeat("-", 60)))
 	assert.Equal(t, "test"+strings.Repeat("x", 51)+"-58def81", generateContainerName("test"+strings.Repeat("x", 60)))
+}
+
+func TestSetPodAnnotationFromInstrumentationVersion(t *testing.T) {
+	tests := []struct {
+		name                string
+		pod                 corev1.Pod
+		instrumentation     current.Instrumentation
+		expectedAnnotation  string
+		expectedErrContains string
+	}{
+		{
+			name: "pod with no annotations",
+			pod:  corev1.Pod{},
+			instrumentation: current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid-123",
+					Generation: 1,
+				},
+			},
+			expectedAnnotation: `{"default/test-inst":"test-uid-123/1"}`,
+		},
+		{
+			name: "pod with empty annotations map",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			instrumentation: current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid-456",
+					Generation: 2,
+				},
+			},
+			expectedAnnotation: `{"default/test-inst":"test-uid-456/2"}`,
+		},
+		{
+			name: "pod with existing annotation - adding new instrumentation",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/existing-inst":"existing-uid/5"}`,
+					},
+				},
+			},
+			instrumentation: current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "new-inst",
+					Namespace:  "default",
+					UID:        "new-uid-789",
+					Generation: 3,
+				},
+			},
+			expectedAnnotation: `{"default/existing-inst":"existing-uid/5","default/new-inst":"new-uid-789/3"}`,
+		},
+		{
+			name: "pod with existing annotation - updating same instrumentation",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/test-inst":"old-uid/1"}`,
+					},
+				},
+			},
+			instrumentation: current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "new-uid-999",
+					Generation: 5,
+				},
+			},
+			expectedAnnotation: `{"default/test-inst":"new-uid-999/5"}`,
+		},
+		{
+			name: "pod with multiple existing instrumentations from different namespaces",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `{"default/inst1":"uid1/1","kube-system/inst2":"uid2/2"}`,
+					},
+				},
+			},
+			instrumentation: current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "inst3",
+					Namespace:  "monitoring",
+					UID:        "uid3",
+					Generation: 3,
+				},
+			},
+			expectedAnnotation: `{"default/inst1":"uid1/1","kube-system/inst2":"uid2/2","monitoring/inst3":"uid3/3"}`,
+		},
+		{
+			name: "pod with invalid JSON in annotation",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						instrumentationVersionAnnotation: `invalid json`,
+					},
+				},
+			},
+			instrumentation: current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-inst",
+					Namespace:  "default",
+					UID:        "test-uid",
+					Generation: 1,
+				},
+			},
+			expectedErrContains: "failed to unmarshal instrumentation version annotation",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := setPodAnnotationFromInstrumentationVersion(&test.pod, test.instrumentation)
+
+			if test.expectedErrContains != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", test.expectedErrContains)
+				}
+				if !strings.Contains(err.Error(), test.expectedErrContains) {
+					t.Errorf("expected error containing %q, got %q", test.expectedErrContains, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			actualAnnotation := test.pod.Annotations[instrumentationVersionAnnotation]
+
+			// Parse both JSON strings and compare as maps to handle different ordering
+			var expectedMap, actualMap map[string]string
+			if err := json.Unmarshal([]byte(test.expectedAnnotation), &expectedMap); err != nil {
+				t.Fatalf("failed to parse expected annotation: %v", err)
+			}
+			if err := json.Unmarshal([]byte(actualAnnotation), &actualMap); err != nil {
+				t.Fatalf("failed to parse actual annotation: %v", err)
+			}
+
+			if diff := cmp.Diff(expectedMap, actualMap); diff != "" {
+				t.Errorf("annotation mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
 }

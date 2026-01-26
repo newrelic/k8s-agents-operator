@@ -306,7 +306,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://helm-charts.newrelic.com | common-library | 1.4.0 |
+| https://newrelic.github.io/helm-charts/ | common-library | 1.4.0 |
 
 ## Values
 
@@ -333,7 +333,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.manager.resources.requests.cpu | string | `"100m"` |  |
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
 | controllerManager.manager.verboseLog | string | `nil` | Enable or disable verbose (debug) logging |
-| controllerManager.replicas | int | `1` |  |
+| controllerManager.replicas | int | `2` |  |
 | crds.enabled | bool | `true` |  |
 | dnsConfig | object | `{}` | Sets pod's dnsConfig. Can be configured also with `global.dnsConfig` |
 | healthProbe | object | `{"port":8081}` | when the operator is healthy. It is used by Kubernetes to check the health of the operator. |
