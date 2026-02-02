@@ -2,12 +2,12 @@ apiVersion: v2
 name: k8s-agents-operator
 description: A Helm chart for the Kubernetes Agents Operator
 type: application
-version: '0.37.0'
+version: '0.37.1'
 dependencies:
   - name: common-library
     version: 1.4.0
     repository: "https://helm-charts.newrelic.com"
-appVersion: '0.37.0'
+appVersion: '0.37.1'
 home: https://github.com/newrelic/k8s-agents-operator/blob/main/charts/k8s-agents-operator/README.md
 sources:
   - https://github.com/newrelic/k8s-agents-operator
