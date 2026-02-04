@@ -62,3 +62,7 @@
 {{- define "k8s-agents-operator.rbac.instrumentationViewer.role.name" -}}
 {{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "instrumentation-viewer-role") -}}
 {{- end -}}
+
+{{- define "k8s-agents-operator.policy.poddisruptionbudget.name" -}}
+{{- include "newrelic.common.naming.truncateToDNSWithSuffix" (dict "name" (include "newrelic.common.naming.fullname" .) "suffix" "pdb") -}}
+{{- end -}}

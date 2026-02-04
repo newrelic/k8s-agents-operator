@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../common-functions.sh"
+
 # Test cluster
 CLUSTER_NAME=""
 K8S_VERSION=""
@@ -14,6 +18,9 @@ RUN_TESTS=""
 
 SCRIPT_PATH=$(dirname $0)
 REPO_ROOT=$(realpath $SCRIPT_PATH/../../..)
+
+OPERATOR_NAMESPACE=k8s-agents-operator
+APP_NAMESPACE=e2e-namespace
 
 function main() {
     parse_args "$@"
@@ -90,42 +97,44 @@ function create_cluster() {
     minikube image load e2e/k8s-agents-operator:e2e --profile ${CLUSTER_NAME} > /dev/null
 
     echo "🔄 Adding Helm repositories"
-    helm repo add newrelic https://helm-charts.newrelic.com > /dev/null
+    helm repo add newrelic https://newrelic.github.io/helm-charts/ > /dev/null
     helm repo update > /dev/null
     helm dependency update ${REPO_ROOT}/charts/k8s-agents-operator > /dev/null
 
     echo "🔄 Installing operator"
     helm upgrade --install k8s-agents-operator ${REPO_ROOT}/charts/k8s-agents-operator \
-      --namespace k8s-agents-operator \
+      --namespace ${OPERATOR_NAMESPACE} \
       --create-namespace \
       --set controllerManager.manager.image.version=e2e,controllerManager.manager.image.pullPolicy=Never,controllerManager.manager.image.repository=e2e/k8s-agents-operator \
       --set licenseKey=${LICENSE_KEY}
 
-    echo "🔄 Waiting for operator to settle"
-    sleep 15
-    kubectl wait --timeout=30s --for=jsonpath='{.status.phase}'=Running -n k8s-agents-operator -l="app.kubernetes.io/instance=k8s-agents-operator" pod
-    sleep 15
+    # Use common wait function
+    wait_for_operator_ready ${OPERATOR_NAMESPACE}
 
     echo "🔄 Creating E2E namespace"
-    kubectl create namespace e2e-namespace
+    if ! kubectl get ns ${APP_NAMESPACE} > /dev/null 2>&1; then
+      kubectl create namespace ${APP_NAMESPACE}
+    fi
 
-    echo "🔄 Installing instrumentation"
+    echo "🔄 Installing instrumentations"
     for i in $(find ${SCRIPT_PATH} -maxdepth 1 -type f -name 'e2e-instrumentation-*.yml'); do
-      kubectl apply --namespace k8s-agents-operator --filename $i
+      echo "  Applying $(basename $i)"
+      kubectl apply --namespace ${OPERATOR_NAMESPACE} --filename $i
     done
+
+    # Use common wait function for instrumentations
+    wait_for_instrumentations ${OPERATOR_NAMESPACE} "${SCRIPT_PATH}/e2e-instrumentation-*.yml"
 
     echo "🔄 Installing apps"
-    kubectl apply --namespace e2e-namespace --filename ${SCRIPT_PATH}/apps/
+    kubectl apply --namespace ${APP_NAMESPACE} --filename ${SCRIPT_PATH}/apps/
 
-    echo "🔄 Waiting for apps to settle"
-    for label in $(find ${SCRIPT_PATH}/apps -type f -name '*.yaml' -exec yq '. | select(.kind == "Deployment") | .metadata.name' {} \;); do
-      kubectl wait --timeout=600s --for=jsonpath='{.status.phase}'=Running --namespace e2e-namespace -l="app=$label" pod
-    done
+    # Use common wait function for apps
+    wait_for_apps_ready ${APP_NAMESPACE} "${SCRIPT_PATH}/apps"
 }
 
 function run_tests() {
     echo "🔄 Starting E2E tests"
-    initContainers=$(kubectl get pods --namespace e2e-namespace --output yaml | yq '.items[].spec.initContainers[].name' | wc -l)
+    initContainers=$(kubectl get pods --namespace ${APP_NAMESPACE} --output yaml | yq '.items[].spec.initContainers[].name' | wc -l)
     local expected=$(ls ${SCRIPT_PATH}/apps | wc -l)
     if [[ ${initContainers} -lt $expected ]]; then
       echo "❌ Error: not all apps were instrumented. Expected $expected, got ${initContainers}"

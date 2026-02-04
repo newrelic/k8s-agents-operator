@@ -8,6 +8,10 @@ metadata:
     {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controllerManager.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
   selector:
     matchLabels:
       {{- include "newrelic.common.labels.selectorLabels" . | nindent 6 }}
@@ -94,6 +98,18 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         - name: ENABLE_WEBHOOKS
           value: "true"
+        - name: WEBHOOK_VALIDATING_CONFIG_NAME
+          value: {{ include "k8s-agents-operator.webhook.validating.name" . }}
+        - name: WEBHOOK_MUTATING_CONFIG_NAME
+          value: {{ include "k8s-agents-operator.webhook.mutating.name" . }}
+        - name: WEBHOOK_SERVICE_NAME
+          value: {{ include "k8s-agents-operator.webhook.service.name" . }}
+        - name: WEBHOOK_SECRET_NAME
+          value: {{ include "k8s-agents-operator.certificateSecret.name" . }}
+        - name: CERT_MANAGER_ENABLED
+          value: {{ .Values.admissionWebhooks.certManager.enabled | quote }}
+        - name: CERT_MANAGER_CERTIFICATE_NAME
+          value: {{ include "k8s-agents-operator.cert-manager.certificate.name" . }}
         {{- $globalProxy := "" }}
         {{- if .Values.global }}
           {{- $globalProxy = .Values.global.proxy | default "" }}
@@ -107,6 +123,20 @@ spec:
         {{- end }}
         image: {{ include "k8s-agents-operator.manager.image" . }}
         imagePullPolicy: {{ .Values.controllerManager.manager.image.pullPolicy | default "Always" }}
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - sleep 15
+        startupProbe:
+          httpGet:
+            path: /readyz
+            port: {{ .Values.healthProbe.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 30
         livenessProbe:
           httpGet:
             path: /healthz
@@ -123,6 +153,7 @@ spec:
             port: {{ .Values.healthProbe.port }}
           initialDelaySeconds: 5
           periodSeconds: 10
+          failureThreshold: 3
         resources:
           {{- toYaml .Values.controllerManager.manager.resources | nindent 10 }}
         volumeMounts:
