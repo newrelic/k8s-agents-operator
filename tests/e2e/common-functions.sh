@@ -35,13 +35,13 @@ function wait_for_operator_ready() {
 
     # Verify webhook configurations are properly configured with CA bundles
     echo "🔄 Verifying webhook configurations"
-    until kubectl get validatingwebhookconfigurations k8s-agents-operator-validating-webhook-configuration \
+    until kubectl get validatingwebhookconfigurations k8s-agents-operator-validation \
       -o jsonpath='{.webhooks[0].clientConfig.caBundle}' 2>/dev/null | grep -q '.'; do
       echo "  Waiting for validating webhook CA bundle to be injected..."
       sleep 2
     done
 
-    until kubectl get mutatingwebhookconfigurations k8s-agents-operator-mutating-webhook-configuration \
+    until kubectl get mutatingwebhookconfigurations k8s-agents-operator-mutation \
       -o jsonpath='{.webhooks[0].clientConfig.caBundle}' 2>/dev/null | grep -q '.'; do
       echo "  Waiting for mutating webhook CA bundle to be injected..."
       sleep 2

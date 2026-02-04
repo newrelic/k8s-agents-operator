@@ -220,7 +220,6 @@ func main() {
 	// Webhook configuration names from environment (set by Helm)
 	webhookValidatingConfigName := os.Getenv("WEBHOOK_VALIDATING_CONFIG_NAME")
 	webhookMutatingConfigName := os.Getenv("WEBHOOK_MUTATING_CONFIG_NAME")
-	webhookServiceName := os.Getenv("WEBHOOK_SERVICE_NAME")
 	webhookSecretName := os.Getenv("WEBHOOK_SECRET_NAME")
 	certManagerEnabled := os.Getenv("CERT_MANAGER_ENABLED") == "true"
 	certManagerCertName := os.Getenv("CERT_MANAGER_CERTIFICATE_NAME")
@@ -231,10 +230,6 @@ func main() {
 	}
 	if webhookMutatingConfigName == "" {
 		setupLog.Info("env var WEBHOOK_MUTATING_CONFIG_NAME is required")
-		os.Exit(1)
-	}
-	if webhookServiceName == "" {
-		setupLog.Info("env var WEBHOOK_SERVICE_NAME is required")
 		os.Exit(1)
 	}
 	if webhookSecretName == "" {

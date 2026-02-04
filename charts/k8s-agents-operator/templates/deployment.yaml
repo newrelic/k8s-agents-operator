@@ -102,8 +102,6 @@ spec:
           value: {{ include "k8s-agents-operator.webhook.validating.name" . }}
         - name: WEBHOOK_MUTATING_CONFIG_NAME
           value: {{ include "k8s-agents-operator.webhook.mutating.name" . }}
-        - name: WEBHOOK_SERVICE_NAME
-          value: {{ include "k8s-agents-operator.webhook.service.name" . }}
         - name: WEBHOOK_SECRET_NAME
           value: {{ include "k8s-agents-operator.certificateSecret.name" . }}
         - name: CERT_MANAGER_ENABLED
