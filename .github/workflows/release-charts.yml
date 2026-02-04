@@ -26,7 +26,7 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Add newrelic repository
-        run: helm repo add newrelic https://helm-charts.newrelic.com
+        run: helm repo add newrelic https://newrelic.github.io/helm-charts/
 
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@cae68fefc6b5f367a0275617c9f83181ba54714f # v1.7.0
