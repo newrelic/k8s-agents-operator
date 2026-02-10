@@ -18,6 +18,11 @@ import (
 	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
+// NewRelicAppNameAnnotation is the environment variable used to set the New Relic
+// application to all the pods instrumented by the same Instrumentation resource.
+// This does not have precedence over the application name set at the environment variable level, which will be used if defined.
+const NewRelicAppNameAnnotation = "newrelic.com/app-name"
+
 type baseInjector struct {
 	client client.Client
 	lang   string
@@ -44,21 +49,41 @@ func (i *baseInjector) Language() string {
 	return i.lang
 }
 
-func (i *baseInjector) setContainerEnvAppName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod, container *corev1.Container) error {
-	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx == -1 {
-		name, err := i.getRootResourceName(ctx, ns, pod)
-		if err != nil {
-			return fmt.Errorf("failed to get root resource name for pod > %w", err)
-		}
-		if name == "" {
-			name = container.Name
-		}
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  EnvNewRelicAppName,
-			Value: name,
-		})
+func (i *baseInjector) setContainerEnvAppName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod, container *corev1.Container, inst current.Instrumentation) error {
+	// if the EnvNewRelicAppName is already set in the container, we do not override it
+	if idx := getIndexOfEnv(container.Env, EnvNewRelicAppName); idx != -1 {
+		return nil
 	}
+
+	name, err := i.retrieveAppName(ctx, ns, pod, container, inst)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve application name > %w", err)
+	}
+
+	container.Env = append(container.Env, corev1.EnvVar{
+		Name:  EnvNewRelicAppName,
+		Value: name,
+	})
 	return nil
+}
+
+// retrieveAppName determines the application name to be used for a given pod and container when and environment variable is not already specified.
+// It first checks if the application name is specified in the instrumentation annotations.
+// If not, it attempts to derive the application name from the pod's owner resources (like Deployment, StatefulSet, etc.).
+// If it cannot determine a name from the owners, it defaults to using the pod's name as the application name, falling
+// back to the container name if empty.
+func (i *baseInjector) retrieveAppName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod, container *corev1.Container, inst current.Instrumentation) (string, error) {
+	if appName, ok := inst.Annotations[NewRelicAppNameAnnotation]; ok {
+		return appName, nil
+	}
+
+	if rootResourceName, err := i.getRootResourceName(ctx, ns, pod); err != nil {
+		return "", fmt.Errorf("failed to get root resource name for pod > %w", err)
+	} else if rootResourceName != "" {
+		return rootResourceName, nil
+	}
+
+	return container.Name, nil
 }
 
 func (i *baseInjector) getRootResourceName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod) (string, error) {
