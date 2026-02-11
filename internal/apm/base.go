@@ -18,8 +18,8 @@ import (
 	"github.com/newrelic/k8s-agents-operator/api/current"
 )
 
-// NewRelicAppNameAnnotation is the environment variable used to set the New Relic
-// application to all the pods instrumented by the same Instrumentation resource.
+// NewRelicAppNameAnnotation is the annotation used to set the same New Relic application name to all the pods instrumented
+// by the same Instrumentation resource.
 // This does not have precedence over the application name set at the environment variable level, which will be used if defined.
 const NewRelicAppNameAnnotation = "newrelic.com/app-name"
 

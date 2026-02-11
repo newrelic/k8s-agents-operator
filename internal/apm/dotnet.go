@@ -104,7 +104,6 @@ func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instr
 		container, _ = util.GetContainerByNameFromPod(&pod, containerName)
 	}
 
-	// This is just an example of setting App Name from Instrumentation spec. The code obviously should be improved.
 	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container, inst); err != nil {
 		return corev1.Pod{}, err
 	}
