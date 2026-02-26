@@ -76,6 +76,7 @@ controllerManager:
       repository: newrelic/k8s-agents-operator
       # -- Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e"
       version:
+      # -- Sets the image pull policy for the manager container. Can be configured also with `global.images.pullPolicy`
       pullPolicy:
     resources:
       limits:

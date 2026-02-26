@@ -6,6 +6,23 @@ Returns if the template should render, it checks if the required values are set.
 {{- and (or $licenseKey)}}
 {{- end -}}
 
+{{- define "k8s-agents-operator.manager.imagePullPolicy" -}}
+{{- $globalPullPolicy := "" -}}
+{{- if .Values.global -}}
+{{- if .Values.global.images -}}
+{{- $globalPullPolicy = .Values.global.images.pullPolicy | default "" -}}
+{{- end -}}
+{{- end -}}
+{{- $chartPullPolicy := .Values.controllerManager.manager.image.pullPolicy | default "" -}}
+{{- if $chartPullPolicy -}}
+  {{- $chartPullPolicy -}}
+{{- else if $globalPullPolicy -}}
+  {{- $globalPullPolicy -}}
+{{- else -}}
+  IfNotPresent
+{{- end -}}
+{{- end -}}
+
 {{- define "k8s-agents-operator.manager.image" -}}
 {{- $imageRoot := .Values.controllerManager.manager.image -}}
 {{- /* Create a normalized imageRoot with .tag field for common-library compatibility */ -}}
