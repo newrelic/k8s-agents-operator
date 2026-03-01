@@ -1,0 +1,21 @@
+apiVersion: newrelic.com/v1beta3
+kind: Instrumentation
+metadata:
+  name: both-2
+  namespace: k8s-agents-operator
+spec:
+  containerSelector:
+    nameSelector:
+      matchExpressions:
+        - key: container
+          operator: In
+          values: [ "b" ]
+  podLabelSelector:
+    matchExpressions:
+      - key: "newrelic.com/inject-apm-both"
+        operator: "Exists"
+  agent:
+    language: python
+    image: newrelic/newrelic-python-init:latest
+  healthAgent:
+    image: newrelic/k8s-apm-agent-health-sidecar

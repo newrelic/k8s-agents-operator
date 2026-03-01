@@ -120,6 +120,11 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 		return nil, fmt.Errorf("instrumentation must be in operator namespace")
 	}
 
+	// Check if agent is empty first, before validating individual fields
+	if inst.Spec.Agent.IsEmpty() {
+		return nil, fmt.Errorf("instrumentation %q agent is empty", inst.Name)
+	}
+
 	agentLang := inst.Spec.Agent.Language
 	if !slices.Contains(acceptableLangs, agentLang) {
 		return nil, fmt.Errorf("instrumentation agent language %q must be one of the accepted languages (%s)", agentLang, strings.Join(acceptableLangs, ", "))
@@ -129,14 +134,16 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 		if !slices.Contains(acceptLangsForAgentConfigMap, agentLang) {
 			return nil, fmt.Errorf("instrumentation agent language %q does not support an agentConfigMap, agentConfigMap can only be configured with one of these languages (%q)", agentLang, strings.Join(acceptLangsForAgentConfigMap, ", "))
 		}
+		// Check that NEWRELIC_FILE is not set when using agentConfigMap (Java only)
+		for _, env := range inst.Spec.Agent.Env {
+			if env.Name == "NEWRELIC_FILE" {
+				return nil, fmt.Errorf("%q is already set by the agentConfigMap", env.Name)
+			}
+		}
 	}
 
 	if err := r.validateEnv(inst.Spec.Agent.Env); err != nil {
 		return nil, err
-	}
-
-	if inst.Spec.Agent.IsEmpty() {
-		return nil, fmt.Errorf("instrumentation %q agent is empty", inst.Name)
 	}
 	if len(inst.Spec.HealthAgent.Env) > 0 && inst.Spec.HealthAgent.Image == "" {
 		return nil, fmt.Errorf("instrumentation %q healthAgent.image is empty, meanwhile the environment is not", inst.Name)
@@ -154,6 +161,14 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 
 // validateEnv to validate the environment variables used all start with the required prefixes
 func (r *InstrumentationValidator) validateEnv(envs []corev1.EnvVar) error {
+	// First, check that NEW_RELIC_LICENSE_KEY is not set (it should only be in the secret)
+	for _, env := range envs {
+		if env.Name == "NEW_RELIC_LICENSE_KEY" {
+			return fmt.Errorf("NEW_RELIC_LICENSE_KEY should not be set in agent.env; the license key should be set via the licenseKeySecret field")
+		}
+	}
+
+	// Then validate that all env vars start with valid prefixes
 	var invalidNames []string
 	for _, env := range envs {
 		var valid bool

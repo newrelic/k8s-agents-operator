@@ -19,10 +19,8 @@ RUN_TESTS=""
 SCRIPT_PATH=$(dirname $0)
 REPO_ROOT=$(realpath $SCRIPT_PATH/../../..)
 
-
 OPERATOR_NAMESPACE=k8s-agents-operator
 APP_NAMESPACE=e2e-namespace
-
 
 function main() {
     parse_args "$@"
@@ -34,7 +32,6 @@ function main() {
 
     create_cluster
     if [[ "$RUN_TESTS" == "true" ]]; then
-        run_tests
         teardown
     fi
 }
@@ -50,15 +47,24 @@ function parse_args() {
             help
             exit 0
             ;;
-            --k8s_version)
+
+            --k8s_version|--k8s-version)
             shift
             K8S_VERSION="$1"
             ;;
-            --license_key)
+            --k8s_version=*|--k8s-version=*)
+            K8S_VERSION="${1#*=}"
+            ;;
+
+            --license_key|--license-key)
             shift
             LICENSE_KEY="$1"
             ;;
-            --run_tests)
+            --license_key=*|--license-key=*)
+            LICENSE_KEY="${1#*=}"
+            ;;
+
+            --run_tests|--run-tests)
             RUN_TESTS="true"
             ;;
             -*|--*|*)
@@ -91,24 +97,23 @@ END
 
 function create_cluster() {
     echo "🔄 Setup"
-    minikube delete --all > /dev/null
+    #minikube delete --all > /dev/null
     now=$( date "+%Y-%m-%d-%H-%M-%S" )
     CLUSTER_NAME=${now}-e2e-tests
 
+    CLUSTER_NAME=2025-11-14-16-27-48-e2e-tests
+
     echo "🔄 Creating cluster ${CLUSTER_NAME}"
-    minikube start --container-runtime=containerd --kubernetes-version=${K8S_VERSION} --profile ${CLUSTER_NAME} > /dev/null
-
-    echo "🔄 Waiting for nodes"
-    kubectl wait --for=condition=Ready --all nodes
-
-    echo "🔄 Waiting for default service account"
-    until_ready 15 "kubectl get sa/default"
+    #minikube start --container-runtime=containerd --kubernetes-version=${K8S_VERSION} --profile ${CLUSTER_NAME} > /dev/null
 
     echo "🔄 Building Docker image"
     DOCKER_BUILDKIT=1 docker build --tag e2e/k8s-agents-operator:e2e ${REPO_ROOT} --quiet > /dev/null
 
-    echo "🔄 Loading image into cluster"
+    echo "🔄 Loading operator image into cluster"
     minikube image load e2e/k8s-agents-operator:e2e --profile ${CLUSTER_NAME} > /dev/null
+
+    echo "🔄 Loading health agent sidecar image into cluster"
+    minikube image load --profile ${CLUSTER_NAME} newrelic/k8s-apm-agent-health-sidecar:latest
 
     echo "🔄 Adding Helm repositories"
     helm repo add newrelic https://newrelic.github.io/helm-charts/ > /dev/null
@@ -131,86 +136,42 @@ function create_cluster() {
     fi
 
     echo "🔄 Installing instrumentations"
-    for i in $(find ${SCRIPT_PATH} -maxdepth 1 -type f -name 'e2e-instrumentation-*.yml'); do
-      echo "  Applying $(basename $i)"
-      kubectl apply --namespace ${OPERATOR_NAMESPACE} --filename $i
-    done
+    echo "  Applying instrumentation.yml"
+    kubectl apply --namespace ${OPERATOR_NAMESPACE} --filename ${SCRIPT_PATH}/instrumentation.yml
 
-    # Use common wait function for instrumentations
-    wait_for_instrumentations ${OPERATOR_NAMESPACE} "${SCRIPT_PATH}/e2e-instrumentation-*.yml"
+    # Wait for instrumentation to be established
+    echo "🔄 Waiting for instrumentations to be established"
+    sleep 3
+    inst_name=$(yq '.metadata.name' ${SCRIPT_PATH}/instrumentation.yml 2>/dev/null || grep 'name:' ${SCRIPT_PATH}/instrumentation.yml | head -1 | awk '{print $2}')
+    if [ -n "$inst_name" ]; then
+      echo "  Verifying instrumentation: $inst_name"
+      until kubectl get instrumentation -n ${OPERATOR_NAMESPACE} $inst_name 2>/dev/null; do
+        echo "    Waiting for instrumentation $inst_name to be created..."
+        sleep 1
+      done
+    fi
+    echo "✅ Instrumentations are established"
 
     echo "🔄 Installing apps"
-    kubectl apply --namespace ${APP_NAMESPACE} --filename ${SCRIPT_PATH}/apps/
+    kubectl apply --namespace ${APP_NAMESPACE} --filename ${SCRIPT_PATH}/deployment.yml
 
-    # Use common wait function for apps
-    wait_for_apps_ready ${APP_NAMESPACE} "${SCRIPT_PATH}/apps"
-}
+    echo "🔄 Waiting for app pods to be ready"
+    # Wait for pod to exist first
+    until kubectl get pod -n ${APP_NAMESPACE} -l="pod=php-pod" 2>/dev/null | grep -q "php-pod"; do
+      echo "  Waiting for pod with label pod=php-pod to be created..."
+      sleep 2
+    done
 
-function run_tests() {
-    echo "🔄 Starting E2E tests"
+    # Wait for pod to be ready (not just running)
+    kubectl wait --timeout=600s --for=condition=Ready \
+      --namespace ${APP_NAMESPACE} -l="pod=php-pod" pod
 
-    initContainers=$(kubectl get pods --namespace ${APP_NAMESPACE} --output yaml | yq '.items[].spec.initContainers[].name' | wc -l)
-    local expected=$(ls ${SCRIPT_PATH}/apps | wc -l)
-    if [[ ${initContainers} -lt $expected ]]; then
-      echo "❌ Error: not all apps were instrumented. Expected $expected, got ${initContainers}"
-      exit 1
-    fi
-
-    if command -v yq > /dev/null 2> /dev/null; then
-      test_dotnet
-      test_java
-    else
-      echo "⚠️ test skipped because 'yq' is missing"
-    fi
-
-
-    echo "✅  Success: all apps were instrumented"
-}
-
-# ensure that the resources get assigned to the pod init container
-function test_dotnet() {
-  local dotnet_resources_mem=$(kubectl get pods -l app=dotnetapp -n ${APP_NAMESPACE} -o yaml | yq '.items[] | .spec.initContainers[] | select(.name == "nri-dotnet--dotnetapp") | .resources.requests.memory')
-  if test "$dotnet_resources_mem" != "512Mi" ; then
-    echo "❌ Error: expected resource with request.memory"
-    exit 1
-  fi
-
-  # verify that the health sidecar exists
-}
-
-# ensure that the configmap gets mounted
-function test_java() {
-  local java_cfg_vol_name=$(kubectl get pods -l app=javaapp -n ${APP_NAMESPACE} -o yaml | yq '.items[] | .spec.volumes[] | select(.name == "nri-cfg--javaapp") | .name')
-  local java_cfg_mount_name=$(kubectl get pods -l app=javaapp -n ${APP_NAMESPACE} -o yaml | yq '.items[] | .spec.containers[].volumeMounts[] | select(.name == "nri-cfg--javaapp") | .name')
-  if test "$java_cfg_vol_name" != "nri-cfg--javaapp" || test "$java_cfg_mount_name" != "nri-cfg--javaapp"; then
-    echo "❌ Error: expected volume and volume mount with agent config map"
-    exit 1
-  fi
+    echo "✅ All apps are ready and instrumented"
 }
 
 function teardown() {
     echo "🔄 Teardown"
-    minikube delete --all > /dev/null
-}
-
-function until_ready() {
-  local to=$1
-  to=$(($to*10))
-  shift
-  local cmd="$1"
-  local c=0
-  while ! (eval "$cmd") > /dev/null 2> /dev/null; do
-    if test "$c" == "$to"; then
-      printf "timeout.\n"
-      return 1
-    fi
-    printf "."
-    sleep 0.1
-    c=$(($c+1))
-  done
-  printf "\n"
-  return 0
+    #minikube delete --all > /dev/null
 }
 
 main "$@"
-

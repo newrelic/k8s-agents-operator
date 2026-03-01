@@ -29,6 +29,9 @@ spec:
       allowPrivilegeEscalation: false
       readOnlyRootFilesystem: true
       runAsUser: 1234
+      capabilities:
+        drop:
+          - ALL
     imagePullPolicy: Never
   healthAgent:
     image: newrelic/k8s-apm-agent-health-sidecar:latest
@@ -43,4 +46,7 @@ spec:
       allowPrivilegeEscalation: false
       readOnlyRootFilesystem: true
       runAsUser: 5678
+      capabilities:
+        drop:
+          - ALL
     imagePullPolicy: Always
