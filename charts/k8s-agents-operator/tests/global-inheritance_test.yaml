@@ -228,7 +228,7 @@ tests:
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image
-          value: "docker.io/newrelic/k8s-agents-operator:0.35.1"
+          value: "docker.io/newrelic/k8s-agents-operator:0.37.1"
         template: templates/deployment.yaml
 
   - it: uses global.images.registry for container image
@@ -294,6 +294,61 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: "docker.io/newrelic/k8s-agents-operator@sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e"
+        template: templates/deployment.yaml
+
+  # ========== IMAGE PULL POLICY INHERITANCE TESTS ==========
+  # Tests verify pull policy precedence order (highest to lowest):
+  # 1. Local setting (controllerManager.manager.image.pullPolicy)
+  # 2. Global setting (global.images.pullPolicy)
+  # 3. Default (IfNotPresent)
+  - it: uses IfNotPresent as default pull policy when nothing is set
+    set:
+      licenseKey: us-whatever
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: "IfNotPresent"
+        template: templates/deployment.yaml
+
+  - it: uses global.images.pullPolicy when no local is set
+    set:
+      licenseKey: us-whatever
+      global:
+        images:
+          pullPolicy: Always
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: "Always"
+        template: templates/deployment.yaml
+
+  - it: uses local pullPolicy when set
+    set:
+      licenseKey: us-whatever
+      controllerManager:
+        manager:
+          image:
+            pullPolicy: Never
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: "Never"
+        template: templates/deployment.yaml
+
+  - it: local pullPolicy overrides global.images.pullPolicy
+    set:
+      licenseKey: us-whatever
+      global:
+        images:
+          pullPolicy: Always
+      controllerManager:
+        manager:
+          image:
+            pullPolicy: Never
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: "Never"
         template: templates/deployment.yaml
 
   # ========== PRIORITY CLASS INHERITANCE TESTS ==========
