@@ -136,6 +136,14 @@ webhookService:
 admissionWebhooks:
   create: true
 
+  # -- Namespaces to exclude from pod mutation. The webhook will not be invoked for pods created in
+  # -- these namespaces. Defaults to well-known Kubernetes system namespaces. To allow instrumenting
+  # -- a system namespace, remove it from this list.
+  ignoreNamespaces:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+
   ## TLS Certificate Option 1: Use Helm to automatically generate self-signed certificate.
   ## certManager must be disabled and autoGenerateCert must be enabled.
   autoGenerateCert:

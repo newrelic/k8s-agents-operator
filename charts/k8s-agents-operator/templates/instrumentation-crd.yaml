@@ -338,6 +338,13 @@ webhooks:
         path: /mutate-v1-pod
     failurePolicy: {{ .Values.admissionWebhooks.podFailurePolicy }}
     name: mpod.kb.io
+    {{- if .Values.admissionWebhooks.ignoreNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: {{ .Values.admissionWebhooks.ignoreNamespaces | toJson }}
+    {{- end }}
     rules:
       - apiGroups:
           - ""
