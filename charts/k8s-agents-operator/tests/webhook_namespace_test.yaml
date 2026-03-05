@@ -1,0 +1,70 @@
+suite: webhook namespace selector
+templates:
+  - templates/instrumentation-crd.yaml
+release:
+  name: my-release
+  namespace: my-namespace
+tests:
+  - it: excludes system namespaces by default
+    set:
+      licenseKey: us-whatever
+    asserts:
+      - equal:
+          path: webhooks[4].namespaceSelector.matchExpressions[0].key
+          value: kubernetes.io/metadata.name
+        documentIndex: 2
+      - equal:
+          path: webhooks[4].namespaceSelector.matchExpressions[0].operator
+          value: NotIn
+        documentIndex: 2
+      - equal:
+          path: webhooks[4].namespaceSelector.matchExpressions[0].values
+          value:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+        documentIndex: 2
+
+  - it: uses a custom ignore list when ignoreNamespaces is overridden
+    set:
+      licenseKey: us-whatever
+      admissionWebhooks.ignoreNamespaces:
+        - custom-system-ns
+        - another-ns
+    asserts:
+      - equal:
+          path: webhooks[4].namespaceSelector.matchExpressions[0].operator
+          value: NotIn
+        documentIndex: 2
+      - equal:
+          path: webhooks[4].namespaceSelector.matchExpressions[0].values
+          value:
+            - custom-system-ns
+            - another-ns
+        documentIndex: 2
+
+  - it: omits namespaceSelector when ignoreNamespaces is set to an empty list
+    set:
+      licenseKey: us-whatever
+      admissionWebhooks.ignoreNamespaces: []
+    asserts:
+      - isNull:
+          path: webhooks[4].namespaceSelector
+        documentIndex: 2
+
+  - it: does not add namespaceSelector to instrumentation webhooks
+    set:
+      licenseKey: us-whatever
+    asserts:
+      - isNull:
+          path: webhooks[0].namespaceSelector
+        documentIndex: 2
+      - isNull:
+          path: webhooks[1].namespaceSelector
+        documentIndex: 2
+      - isNull:
+          path: webhooks[2].namespaceSelector
+        documentIndex: 2
+      - isNull:
+          path: webhooks[3].namespaceSelector
+        documentIndex: 2
