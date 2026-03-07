@@ -34,7 +34,7 @@ jobs:
 
       - name: Upload agent metadata to New Relic
         if: steps.validate.outputs.valid == 'true'
-        uses: newrelic/agent-metadata-action@67f86b847bfe1c35b2856c57b454674c4767f885 # v1.0.6
+        uses: newrelic/agent-metadata-action@71561e9ee1c1d18252d102d5dc29c9d0523e6def # v1.0.6
         with:
           agent-type: NRApmOperator
           version: ${{ steps.validate.outputs.version }}
