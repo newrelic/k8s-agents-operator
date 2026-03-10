@@ -106,7 +106,7 @@ spec:
           value: {{ $proxy | quote }}
         {{- end }}
         image: {{ include "k8s-agents-operator.manager.image" . }}
-        imagePullPolicy: {{ .Values.controllerManager.manager.image.pullPolicy | default "Always" }}
+        imagePullPolicy: {{ include "k8s-agents-operator.manager.imagePullPolicy" . }}
         livenessProbe:
           httpGet:
             path: /healthz
