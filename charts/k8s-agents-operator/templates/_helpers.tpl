@@ -8,10 +8,8 @@ Returns if the template should render, it checks if the required values are set.
 
 {{- define "k8s-agents-operator.manager.imagePullPolicy" -}}
 {{- $globalPullPolicy := "" -}}
-{{- if .Values.global -}}
-{{- if .Values.global.images -}}
-{{- $globalPullPolicy = .Values.global.images.pullPolicy | default "" -}}
-{{- end -}}
+{{- if and .Values.global .Values.global.images -}}
+  {{- $globalPullPolicy = .Values.global.images.pullPolicy | default "" -}}
 {{- end -}}
 {{- $chartPullPolicy := .Values.controllerManager.manager.image.pullPolicy | default "" -}}
 {{- if $chartPullPolicy -}}
