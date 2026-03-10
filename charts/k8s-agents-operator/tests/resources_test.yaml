@@ -12,17 +12,10 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].resources
           value:
-            requests:
-              cpu: 100m
-              memory: 64Mi
-        template: templates/deployment.yaml
-      - equal:
-          path: spec.template.spec.containers[1].resources
-          value:
             limits:
               cpu: 500m
-              memory: 128Mi
+              memory: 192Mi
             requests:
-              cpu: 5m
+              cpu: 100m
               memory: 64Mi
         template: templates/deployment.yaml

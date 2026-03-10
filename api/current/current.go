@@ -1,6 +1,6 @@
 package current
 
-import currentapi "github.com/newrelic/k8s-agents-operator/api/v1beta2"
+import currentapi "github.com/newrelic/k8s-agents-operator/api/v1beta3"
 
 type (
 	Agent                    = currentapi.Agent
@@ -22,13 +22,46 @@ type (
 	ImageSelectorOperator = currentapi.ImageSelectorOperator
 	NameSelectorOperator  = currentapi.NameSelectorOperator
 
+	ImageSelectorKey = currentapi.ImageSelectorKey
+	NameSelectorKey  = currentapi.NameSelectorKey
+
 	EnvSelectorRequirement   = currentapi.EnvSelectorRequirement
 	ImageSelectorRequirement = currentapi.ImageSelectorRequirement
 	NameSelectorRequirement  = currentapi.NameSelectorRequirement
 )
 
 var (
-	AddToScheme   = currentapi.AddToScheme
-	GroupVersion  = currentapi.GroupVersion
-	SchemeBuilder = currentapi.SchemeBuilder
+	AddToScheme             = currentapi.AddToScheme
+	GroupVersion            = currentapi.GroupVersion
+	SchemeBuilder           = currentapi.SchemeBuilder
+	SetupWebhookWithManager = currentapi.SetupWebhookWithManager
+
+	EnvSelectorOpIn           = currentapi.EnvSelectorOpIn
+	EnvSelectorOpNotIn        = currentapi.EnvSelectorOpNotIn
+	EnvSelectorOpEquals       = currentapi.EnvSelectorOpEquals
+	EnvSelectorOpNotEquals    = currentapi.EnvSelectorOpNotEquals
+	EnvSelectorOpExists       = currentapi.EnvSelectorOpExists
+	EnvSelectorOpDoesNotExist = currentapi.EnvSelectorOpDoesNotExist
+
+	NameSelectorKeyInitContainer = currentapi.NameSelectorKeyInitContainer
+	NameSelectorKeyContainer     = currentapi.NameSelectorKeyContainer
+	NameSelectorKeyAnyContainer  = currentapi.NameSelectorKeyAnyContainer
+
+	NameSelectorOpEquals    = currentapi.NameSelectorOpEquals
+	NameSelectorOpNotEquals = currentapi.NameSelectorOpNotEquals
+	NameSelectorOpIn        = currentapi.NameSelectorOpIn
+	NameSelectorOpNotIn     = currentapi.NameSelectorOpNotIn
+
+	ImageSelectorKeyUrl = currentapi.ImageSelectorKeyUrl
+
+	ImageSelectorOpEquals        = currentapi.ImageSelectorOpEquals
+	ImageSelectorOpNotEquals     = currentapi.ImageSelectorOpNotEquals
+	ImageSelectorOpIn            = currentapi.ImageSelectorOpIn
+	ImageSelectorOpNotIn         = currentapi.ImageSelectorOpNotIn
+	ImageSelectorOpStartsWith    = currentapi.ImageSelectorOpStartsWith
+	ImageSelectorOpNotStartsWith = currentapi.ImageSelectorOpNotStartsWith
+	ImageSelectorOpEndsWith      = currentapi.ImageSelectorOpEndsWith
+	ImageSelectorOpNotEndsWith   = currentapi.ImageSelectorOpNotEndsWith
+	ImageSelectorOpContains      = currentapi.ImageSelectorOpContains
+	ImageSelectorOpNotContains   = currentapi.ImageSelectorOpNotContains
 )

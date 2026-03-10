@@ -48,6 +48,7 @@ const (
 	php82 acceptVersion = "php-8.2"
 	php83 acceptVersion = "php-8.3"
 	php84 acceptVersion = "php-8.4"
+	php85 acceptVersion = "php-8.5"
 )
 
 var phpApiMap = map[acceptVersion]string{
@@ -59,9 +60,10 @@ var phpApiMap = map[acceptVersion]string{
 	php82: "20220829",
 	php83: "20230831",
 	php84: "20240924",
+	php85: "20250925",
 }
 
-var phpAcceptVersions = []acceptVersion{php72, php73, php74, php80, php81, php82, php83, php84}
+var phpAcceptVersions = []acceptVersion{php72, php73, php74, php80, php81, php82, php83, php84, php85}
 
 type acceptVersion string
 
@@ -113,7 +115,7 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 			}
 		}
 		commands := []string{
-			"cp -a /instrumentation/. " + mountPath + "/",
+			"cp -r /instrumentation/. " + mountPath + "/",
 
 			// fix up the paths
 			"sed -i 's@/newrelic-instrumentation@" + mountPath + "@g' " + mountPath + "/php-agent/ini/newrelic.ini",
@@ -144,13 +146,10 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 		}
 		setContainerEnvLicenseKey(&newContainer, inst.Spec.LicenseKeySecret)
 		addContainer(isTargetInitContainer, containerName, &pod, newContainer)
-
-		// re get container, it's address in memory likely changed, since appending can allocate a new slice
-		container, _ = util.GetContainerByNameFromPod(&pod, containerName)
 	}
 
 	if err := setPodAnnotationFromInstrumentationVersion(&pod, inst); err != nil {
 		return corev1.Pod{}, err
 	}
-	return i.injectHealthWithContainer(ctx, inst, ns, pod, container)
+	return pod, nil
 }

@@ -18,6 +18,12 @@ priorityClassName: ""
 # -- Sets pod's dnsConfig. Can be configured also with `global.dnsConfig`
 dnsConfig: {}
 
+# -- Image pull secrets. Can be configured also with `global.images.pullSecrets`
+imagePullSecrets: []
+
+# -- HTTP/HTTPS proxy URL for Kubernetes API calls. Can be configured also with `global.proxy`
+proxy: ""
+
 # -- Sets all pods' node selector. Can be configured also with `global.nodeSelector`
 nodeSelector: {}
 # -- Sets all pods' tolerations to node taints. Can be configured also with `global.tolerations`
@@ -36,8 +42,9 @@ podSecurityContext:
 containerSecurityContext: {}
 
 # If hostNetwork is set to true, the webhook server will bind to the host network.
+# Can be configured also with `global.hostNetwork`
 # @default -- `false`
-hostNetwork: false
+hostNetwork:
 
 kubernetesClusterDomain: cluster.local
 
@@ -48,7 +55,21 @@ controllerManager:
   replicas: 1
 
   manager:
-    # -- Turns on debug logging
+    # -- Enable or disable verbose (debug) logging -- #
+    # -- This setting takes precedence over global.verboseLog
+    # -- Set to true to enable debug logging, false to use logLevel, or leave unset to use global.verboseLog
+    # -- Precedence (highest to lowest):
+    # --   1. controllerManager.manager.verboseLog (local override, highest)
+    # --   2. global.verboseLog (global setting)
+    # --   3. controllerManager.manager.logLevel (local setting)
+    # --   4. Default "info" (lowest)
+    # -- Enable or disable verbose (debug) logging
+    verboseLog:
+    # -- Log level for the manager -- #
+    # -- Possible values: debug, info, warn, error
+    # -- Used when verboseLog is false or unset AND global.verboseLog is not set
+    # -- Default: info
+    # -- Log level for the manager
     logLevel: info
     image:
       # -- Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images.
@@ -63,12 +84,16 @@ controllerManager:
       requests:
         cpu: 100m
         memory: 64Mi
-    # -- Sets security context (at container level) for the manager. Overrides `containerSecurityContext` and `global.containerSecurityContext`
+    # -- Sets security context (at container level) for the manager container. -- #
+    # -- Precedence (highest to lowest):
+    # --   1. controllerManager.manager.containerSecurityContext (component-specific, highest)
+    # --   2. containerSecurityContext (chart-local value)
+    # --   3. global.containerSecurityContext (global value)
+    # --   4. Secure defaults: allowPrivilegeEscalation=false, capabilities.drop=[ALL] (lowest)
+    # -- Values are merged, with higher precedence values overriding lower precedence values.
+    # -- To override defaults, set this value explicitly (e.g., allowPrivilegeEscalation: true)
+    # -- Sets security context (at container level) for the manager container. Overrides `containerSecurityContext` and `global.containerSecurityContext` (Type: object)
     containerSecurityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
     # -- Source: https://docs.openshift.com/container-platform/4.10/operators/operator_sdk/osdk-leader-election.html
     # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
     leaderElection:

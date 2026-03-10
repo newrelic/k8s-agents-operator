@@ -17,7 +17,7 @@ import (
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
 
 	// for installing chart
-	_ "helm.sh/helm/v3/cmd/helm"
+	_ "helm.sh/helm/v4/cmd/helm"
 
 	// for generating the helm chart from the manifests generated from kustomize
 	_ "github.com/arttor/helmify/cmd/helmify"

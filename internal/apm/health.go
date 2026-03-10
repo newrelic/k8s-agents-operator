@@ -18,21 +18,20 @@ package apm
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
+	"github.com/newrelic/k8s-agents-operator/internal/util"
 )
 
 const (
 	envAgentControlEnabled                = "NEW_RELIC_AGENT_CONTROL_ENABLED"
 	envAgentControlHealthDeliveryLocation = "NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION"
 	envHealthListenPort                   = "NEW_RELIC_SIDECAR_LISTEN_PORT"
-	HealthSidecarContainerName            = "newrelic-apm-health-sidecar"
-	healthVolumeName                      = "newrelic-apm-health-volume"
 
 	HealthInstrumentedAnnotation = "newrelic.com/apm-health"
 )
@@ -43,35 +42,79 @@ const (
 )
 
 var (
-	defaultHealthListenPort       = 6194
-	defaultHealthDeliveryLocation = "file:///newrelic/apm/health"
+	defaultHealthListenPort = 6194
 )
 
-var healthDefaultEnv = []corev1.EnvVar{
-	{Name: envAgentControlHealthDeliveryLocation, Value: defaultHealthDeliveryLocation},
-	{Name: envHealthListenPort, Value: fmt.Sprintf("%d", defaultHealthListenPort)},
+type HealthInjector struct {
+	baseInjector
 }
 
-// injectHealthWithContainer used to inject the health container (sidecar) and mounts requires, among other things
-func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, container *corev1.Container) (corev1.Pod, error) {
+func NewHealthInjector() *HealthInjector {
+	return &HealthInjector{baseInjector{lang: "health"}}
+}
+
+func (i *HealthInjector) Inject(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string, healthPort int, healthPath string) (corev1.Pod, error) {
 	if inst.Spec.HealthAgent.IsEmpty() {
 		return pod, nil
 	}
+	container, isTargetInitContainer := util.GetContainerByNameFromPod(&pod, containerName)
 	if container == nil {
-		return pod, nil
+		return corev1.Pod{}, fmt.Errorf("container %q not found", containerName)
+	}
+	if isTargetInitContainer {
+		return corev1.Pod{}, fmt.Errorf("container %q is a init container, which can't have a health sidecar", containerName)
 	}
 
-	var err error
-	if err = validateContainerEnv(container.Env, envAgentControlHealthDeliveryLocation); err != nil {
+	if err := validateContainerEnv(container.Env, envAgentControlHealthDeliveryLocation, envHealthListenPort); err != nil {
 		return corev1.Pod{}, err
+	}
+
+	healthSidecarContainerName := GenerateContainerName("nri-health--" + container.Name)
+	healthVolumeName := healthSidecarContainerName
+	healthMountPath := "/" + healthSidecarContainerName
+	if healthPath == "" {
+		healthPath = "file://" + healthMountPath
+	}
+
+	if healthPath != "" {
+		u, _ := url.Parse(healthPath)
+		parts := strings.SplitN(u.Path, "/", 3)
+		if len(parts) < 2 {
+			return corev1.Pod{}, fmt.Errorf("volume mount path is incorrect for container %q", containerName)
+		}
+		healthMountPath = "/" + parts[1]
+	}
+
+	if _, err := i.validateHealthFilepath(healthPath); err != nil {
+		return corev1.Pod{}, fmt.Errorf("invalid env value %q for %q > %w", healthPath, envAgentControlHealthDeliveryLocation, err)
+	}
+
+	if healthPort == 0 {
+		healthPort = defaultHealthListenPort
+	}
+	_, err := i.validateHealthListenPort(healthPort)
+	if err != nil {
+		return corev1.Pod{}, fmt.Errorf("invalid env value %d for %q > %w", healthPort, envHealthListenPort, err)
 	}
 
 	var sidecarContainerEnv []corev1.EnvVar
 
-	// copy the env var for the health filepath
 	if idx := getIndexOfEnv(container.Env, envAgentControlHealthDeliveryLocation); idx > -1 {
-		sidecarContainerEnv = append(sidecarContainerEnv, container.Env[idx])
+		container.Env[idx].Value = healthPath
+	} else {
+		container.Env = append(container.Env, corev1.EnvVar{Name: envAgentControlHealthDeliveryLocation, Value: healthPath})
 	}
+	if idx := getIndexOfEnv(sidecarContainerEnv, envAgentControlHealthDeliveryLocation); idx > -1 {
+		sidecarContainerEnv[idx].Value = healthPath
+	} else {
+		sidecarContainerEnv = append(sidecarContainerEnv, corev1.EnvVar{Name: envAgentControlHealthDeliveryLocation, Value: healthPath})
+	}
+	if idx := getIndexOfEnv(sidecarContainerEnv, envHealthListenPort); idx > -1 {
+		sidecarContainerEnv[idx].Value = fmt.Sprintf("%d", healthPort)
+	} else {
+		sidecarContainerEnv = append(sidecarContainerEnv, corev1.EnvVar{Name: envHealthListenPort, Value: fmt.Sprintf("%d", healthPort)})
+	}
+
 	// copy the env var for the health filepath
 	if idx := getIndexOfEnv(container.Env, envAgentControlEnabled); idx == -1 {
 		container.Env = append(container.Env, corev1.EnvVar{
@@ -80,41 +123,7 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 		})
 	}
 
-	container.Env = i.injectEnvVarsIntoTargetedEnvVars(inst.Spec.HealthAgent.Env, container.Env)
 	sidecarContainerEnv = i.injectEnvVarsIntoSidecarEnvVars(inst.Spec.HealthAgent.Env, sidecarContainerEnv)
-
-	// set defaults to sidecar and container env vars
-	for _, entry := range healthDefaultEnv {
-		if idx := getIndexOfEnv(sidecarContainerEnv, entry.Name); idx == -1 {
-			sidecarContainerEnv = append(sidecarContainerEnv, corev1.EnvVar{
-				Name:  entry.Name,
-				Value: entry.Value,
-			})
-		}
-		if entry.Name == envAgentControlHealthDeliveryLocation {
-			if idx := getIndexOfEnv(container.Env, entry.Name); idx == -1 {
-				container.Env = append(container.Env, corev1.EnvVar{
-					Name:  entry.Name,
-					Value: entry.Value,
-				})
-			}
-		}
-	}
-
-	healthMountPath := defaultHealthDeliveryLocation
-	if v, ok := getValueFromEnv(sidecarContainerEnv, envAgentControlHealthDeliveryLocation); ok && v != "" {
-		if healthMountPath, err = i.validateHealthFilepath(v); err != nil {
-			return corev1.Pod{}, fmt.Errorf("invalid env value %q for %q > %w", v, envAgentControlHealthDeliveryLocation, err)
-		}
-	}
-
-	sidecarListenPort := defaultHealthListenPort
-	if v, ok := getValueFromEnv(sidecarContainerEnv, envHealthListenPort); ok {
-		sidecarListenPort, err = i.validateHealthListenPort(v)
-		if err != nil {
-			return corev1.Pod{}, fmt.Errorf("invalid env value %q for %q > %w", v, envHealthListenPort, err)
-		}
-	}
 
 	if isContainerVolumeMissing(container, healthVolumeName) {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -124,7 +133,7 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 	}
 
 	// We just inject Volumes and init containers for the first processed container.
-	if isInitContainerMissing(&pod, HealthSidecarContainerName) {
+	if isInitContainerMissing(&pod, healthSidecarContainerName) {
 		if isPodVolumeMissing(&pod, healthVolumeName) {
 			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 				Name: healthVolumeName,
@@ -135,7 +144,7 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 
 		restartAlways := corev1.ContainerRestartPolicyAlways
 		sidecarContainer := corev1.Container{
-			Name:            HealthSidecarContainerName,
+			Name:            healthSidecarContainerName,
 			Image:           inst.Spec.HealthAgent.Image,
 			ImagePullPolicy: inst.Spec.HealthAgent.ImagePullPolicy,
 			RestartPolicy:   &restartAlways,
@@ -144,7 +153,7 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 				MountPath: healthMountPath,
 			}},
 			Ports: []corev1.ContainerPort{
-				{ContainerPort: int32(sidecarListenPort)},
+				{ContainerPort: int32(healthPort)},
 			},
 			Env:             sidecarContainerEnv,
 			Resources:       *inst.Spec.HealthAgent.Resources.DeepCopy(),
@@ -162,40 +171,20 @@ func (i *baseInjector) injectHealthWithContainer(ctx context.Context, inst curre
 	return pod, nil
 }
 
-func (i *baseInjector) injectEnvVarsIntoTargetedEnvVars(instEnvVars []corev1.EnvVar, containerEnvVars []corev1.EnvVar) []corev1.EnvVar {
-	for _, env := range instEnvVars {
-		if env.Name == envAgentControlHealthDeliveryLocation {
-			if idx := getIndexOfEnv(containerEnvVars, env.Name); idx == -1 {
-				if env.Value != "" {
-					containerEnvVars = append(containerEnvVars, env)
-				}
-			}
-			break
-		}
-	}
-	return containerEnvVars
-}
-
 func (i *baseInjector) injectEnvVarsIntoSidecarEnvVars(instEnvVars []corev1.EnvVar, sidecarEnvVars []corev1.EnvVar) []corev1.EnvVar {
 	for _, env := range instEnvVars {
 		if idx := getIndexOfEnv(sidecarEnvVars, env.Name); idx == -1 {
-			if env.Value != "" {
-				sidecarEnvVars = append(sidecarEnvVars, env)
-			}
+			sidecarEnvVars = append(sidecarEnvVars, env)
 		}
 	}
 	return sidecarEnvVars
 }
 
-func (i *baseInjector) validateHealthListenPort(value string) (int, error) {
-	healthListenPort, err := strconv.Atoi(value)
-	if err != nil {
-		return 0, fmt.Errorf("invalid health listen port %q > %w", value, err)
+func (i *baseInjector) validateHealthListenPort(value int) (int, error) {
+	if value > maxPort || value < minPort {
+		return 0, fmt.Errorf("invalid health listen port %d, must be between %d-%d (inclusive)", value, minPort, maxPort)
 	}
-	if healthListenPort > maxPort || healthListenPort < minPort {
-		return 0, fmt.Errorf("invalid health listen port %q, must be between %d-%d (inclusive)", value, minPort, maxPort)
-	}
-	return healthListenPort, nil
+	return value, nil
 }
 
 func (i *baseInjector) validateHealthFilepath(value string) (string, error) {
@@ -205,7 +194,7 @@ func (i *baseInjector) validateHealthFilepath(value string) (string, error) {
 	}
 	value = strings.TrimPrefix(value, "file://")
 	if value[0] != '/' {
-		return "", fmt.Errorf("invalid health path %q, hostname nmust be blank", originalValue)
+		return "", fmt.Errorf("invalid health path %q, hostname must be blank", originalValue)
 	}
 	if fileExtension := filepath.Ext(value); fileExtension != "" {
 		return "", fmt.Errorf("invalid mount path %q, cannot have a file extension", originalValue)

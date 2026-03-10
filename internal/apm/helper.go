@@ -300,3 +300,5 @@ func generateContainerName(namePrefix string) string {
 	}
 	return namePrefix
 }
+
+var GenerateContainerName = generateContainerName

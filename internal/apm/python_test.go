@@ -38,16 +38,6 @@ func TestPythonInjector_Inject(t *testing.T) {
 			},
 		},
 		{
-			name: "a container, instrumentation with env NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION already set using ValueFrom",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test", Env: []corev1.EnvVar{{Name: envAgentControlHealthDeliveryLocation, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: &corev1.ConfigMapKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "test"}}}}}},
-			}}},
-			expectedErrStr: "the container defines env var value via ValueFrom, envVar: NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION",
-			mutations: []mutation{
-				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python"}, LicenseKeySecret: "VALID", HealthAgent: current.HealthAgent{Image: "health"}}}},
-			},
-		},
-		{
 			name: "a container, instrumentation",
 			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
 				{Name: "test"},
@@ -72,7 +62,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-python--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-python--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -111,7 +101,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 					}},
 					InitContainers: []corev1.Container{{
 						Name:         "nri-python--test",
-						Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--test/"},
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--test/"},
 						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
 					}},
 					Volumes: []corev1.Volume{{Name: "nri-python--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
@@ -172,7 +162,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-python--init-python",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--init-python/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--init-python/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--init-python", MountPath: "/nri-python--init-python"}},
 						},
 						{
@@ -190,7 +180,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-python--any-python1",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--any-python1/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--any-python1/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--any-python1", MountPath: "/nri-python--any-python1"}},
 						},
 						{
@@ -208,12 +198,12 @@ func TestPythonInjector_Inject(t *testing.T) {
 						},
 						{
 							Name:         "nri-python--any-python2",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--any-python2/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--any-python2/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--any-python2", MountPath: "/nri-python--any-python2"}},
 						},
 						{
 							Name:         "nri-python--python",
-							Command:      []string{"cp", "-a", "/instrumentation/.", "/nri-python--python/"},
+							Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--python/"},
 							VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--python", MountPath: "/nri-python--python"}},
 						},
 					},

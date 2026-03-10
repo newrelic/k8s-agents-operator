@@ -22,6 +22,8 @@ func TestHealthInjector_Inject(t *testing.T) {
 		inst           current.Instrumentation
 		expectedPod    corev1.Pod
 		expectedErrStr string
+		healthPort     int
+		healthPath     string
 	}{
 		{
 			name: "nothing",
@@ -66,16 +68,16 @@ func TestHealthInjector_Inject(t *testing.T) {
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name:  HealthSidecarContainerName,
+						Name:  "nri-health--test",
 						Image: "health",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/newrelic/apm/health",
+							Name:      "nri-health--test",
+							MountPath: "/nri-health--test",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: "test", Value: "test"},
-							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///nri-health--test"},
 							{Name: envHealthListenPort, Value: "6194"},
+							{Name: "test", Value: "test"},
 						},
 						RestartPolicy: &restartAlways,
 						Ports:         []corev1.ContainerPort{{ContainerPort: 6194}},
@@ -83,16 +85,16 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/newrelic/apm/health",
+							Name:      "nri-health--test",
+							MountPath: "/nri-health--test",
 						}},
 						Env: []corev1.EnvVar{
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///nri-health--test"},
 							{Name: envAgentControlEnabled, Value: "true"},
-							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
-						Name:         healthVolumeName,
+						Name:         "nri-health--test",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}},
 				}},
@@ -113,6 +115,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					},
 				},
 			},
+			healthPath: "file:///test/health/path",
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -121,16 +124,16 @@ func TestHealthInjector_Inject(t *testing.T) {
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name:  HealthSidecarContainerName,
+						Name:  "nri-health--test",
 						Image: "health",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/test/health/path",
+							Name:      "nri-health--test",
+							MountPath: "/test",
 						}},
 						Env: []corev1.EnvVar{
 							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///test/health/path"},
-							{Name: "test", Value: "test"},
 							{Name: envHealthListenPort, Value: "6194"},
+							{Name: "test", Value: "test"},
 						},
 						RestartPolicy: &restartAlways,
 						Ports:         []corev1.ContainerPort{{ContainerPort: 6194}},
@@ -138,8 +141,8 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/test/health/path",
+							Name:      "nri-health--test",
+							MountPath: "/test",
 						}},
 						Env: []corev1.EnvVar{
 							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///test/health/path"},
@@ -147,7 +150,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 						},
 					}},
 					Volumes: []corev1.Volume{{
-						Name:         healthVolumeName,
+						Name:         "nri-health--test",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}},
 				}},
@@ -165,6 +168,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					},
 				},
 			},
+			healthPath: "file:///health/this",
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -173,11 +177,11 @@ func TestHealthInjector_Inject(t *testing.T) {
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name:  HealthSidecarContainerName,
+						Name:  "nri-health--test",
 						Image: "health",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/health/this",
+							Name:      "nri-health--test",
+							MountPath: "/health",
 						}},
 						Env: []corev1.EnvVar{
 							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
@@ -189,16 +193,16 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/health/this",
+							Name:      "nri-health--test",
+							MountPath: "/health",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlEnabled, Value: "true"},
 							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
+							{Name: envAgentControlEnabled, Value: "true"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
-						Name:         healthVolumeName,
+						Name:         "nri-health--test",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}},
 				}},
@@ -219,15 +223,16 @@ func TestHealthInjector_Inject(t *testing.T) {
 					},
 				},
 			},
+			healthPath: "file:///health/this",
 			expectedPod: corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"newrelic.com/apm-health": "true"}},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name:  HealthSidecarContainerName,
+						Name:  "nri-health--test",
 						Image: "health",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/health/this",
+							Name:      "nri-health--test",
+							MountPath: "/health",
 						}},
 						Env: []corev1.EnvVar{
 							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
@@ -239,16 +244,16 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/health/this",
+							Name:      "nri-health--test",
+							MountPath: "/health",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlEnabled, Value: "true"},
 							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///health/this"},
+							{Name: envAgentControlEnabled, Value: "true"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
-						Name:         healthVolumeName,
+						Name:         "nri-health--test",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}},
 				}},
@@ -273,14 +278,14 @@ func TestHealthInjector_Inject(t *testing.T) {
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
-						Name:  HealthSidecarContainerName,
+						Name:  "nri-health--test",
 						Image: "health",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/newrelic/apm/health",
+							Name:      "nri-health--test",
+							MountPath: "/nri-health--test",
 						}},
 						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///nri-health--test"},
 							{Name: envHealthListenPort, Value: "6194"},
 						},
 						RestartPolicy: &restartAlways,
@@ -289,37 +294,19 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/newrelic/apm/health",
+							Name:      "nri-health--test",
+							MountPath: "/nri-health--test",
 						}},
 						Env: []corev1.EnvVar{
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///nri-health--test"},
 							{Name: envAgentControlEnabled, Value: "true"},
-							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
-						Name:         healthVolumeName,
+						Name:         "nri-health--test",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}},
 				}},
-		},
-		{
-			name: "a container, instrumentation, invalid port",
-			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
-				{Name: "test"},
-			}}},
-			inst: current.Instrumentation{
-				Spec: current.InstrumentationSpec{
-					HealthAgent: current.HealthAgent{
-						Image: "health",
-						Env: []corev1.EnvVar{
-							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///a/b"},
-							{Name: envHealthListenPort, Value: "not a port"},
-						},
-					},
-				},
-			},
-			expectedErrStr: "invalid env value \"not a port\" for \"NEW_RELIC_SIDECAR_LISTEN_PORT\" > invalid health listen port \"not a port\" > strconv.Atoi: parsing \"not a port\": invalid syntax",
 		},
 		{
 			name: "a container, instrumentation, invalid file path",
@@ -336,6 +323,7 @@ func TestHealthInjector_Inject(t *testing.T) {
 					},
 				},
 			},
+			healthPath:     "/a/b",
 			expectedErrStr: "invalid env value \"/a/b\" for \"NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION\" > invalid health path \"/a/b\", must be file URI",
 		},
 		{
@@ -362,14 +350,14 @@ func TestHealthInjector_Inject(t *testing.T) {
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
 						{
-							Name:  HealthSidecarContainerName,
+							Name:  "nri-health--test",
 							Image: "health",
 							VolumeMounts: []corev1.VolumeMount{{
-								Name:      healthVolumeName,
-								MountPath: "/newrelic/apm/health",
+								Name:      "nri-health--test",
+								MountPath: "/nri-health--test",
 							}},
 							Env: []corev1.EnvVar{
-								{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
+								{Name: envAgentControlHealthDeliveryLocation, Value: "file:///nri-health--test"},
 								{Name: envHealthListenPort, Value: "6194"},
 							},
 							RestartPolicy: &restartAlways,
@@ -379,16 +367,16 @@ func TestHealthInjector_Inject(t *testing.T) {
 					Containers: []corev1.Container{{
 						Name: "test",
 						VolumeMounts: []corev1.VolumeMount{{
-							Name:      healthVolumeName,
-							MountPath: "/newrelic/apm/health",
+							Name:      "nri-health--test",
+							MountPath: "/nri-health--test",
 						}},
 						Env: []corev1.EnvVar{
+							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///nri-health--test"},
 							{Name: envAgentControlEnabled, Value: "true"},
-							{Name: envAgentControlHealthDeliveryLocation, Value: "file:///newrelic/apm/health"},
 						},
 					}},
 					Volumes: []corev1.Volume{{
-						Name:         healthVolumeName,
+						Name:         "nri-health--test",
 						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
 					}},
 				}},
@@ -408,18 +396,19 @@ func TestHealthInjector_Inject(t *testing.T) {
 					},
 				},
 			},
+			healthPath:     "file:///file.yml",
 			expectedErrStr: "invalid env value \"file:///file.yml\" for \"NEW_RELIC_AGENT_CONTROL_HEALTH_DELIVERY_LOCATION\" > invalid mount path \"file:///file.yml\", cannot have a file extension",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			i := &baseInjector{}
-			var container *corev1.Container
+			i := NewHealthInjector()
+			containerName := ""
 			if len(test.pod.Spec.Containers) > 0 {
-				container = &test.pod.Spec.Containers[0]
+				containerName = test.pod.Spec.Containers[0].Name
 			}
-			actualPod, err := i.injectHealthWithContainer(ctx, test.inst, test.ns, test.pod, container)
+			actualPod, err := i.Inject(ctx, test.inst, test.ns, test.pod, containerName, test.healthPort, test.healthPath)
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()

@@ -7,11 +7,16 @@ Returns if the template should render, it checks if the required values are set.
 {{- end -}}
 
 {{- define "k8s-agents-operator.manager.image" -}}
-{{- $managerVersion := .Values.controllerManager.manager.image.version | default .Chart.AppVersion -}}
-{{- if eq (substr 0 7 $managerVersion) "sha256:" -}}
-{{- printf "%s@%s" .Values.controllerManager.manager.image.repository $managerVersion -}}
+{{- $imageRoot := .Values.controllerManager.manager.image -}}
+{{- /* Create a normalized imageRoot with .tag field for common-library compatibility */ -}}
+{{- $normalizedImageRoot := dict "registry" $imageRoot.registry "repository" $imageRoot.repository "tag" $imageRoot.version -}}
+{{- $registry := include "newrelic.common.images.registry" ( dict "imageRoot" $normalizedImageRoot "context" .) -}}
+{{- $repository := include "newrelic.common.images.repository" $normalizedImageRoot -}}
+{{- $tag := include "newrelic.common.images.tag" ( dict "imageRoot" $normalizedImageRoot "context" .) -}}
+{{- if eq (substr 0 7 $tag) "sha256:" -}}
+{{- printf "%s/%s@%s" $registry $repository $tag -}}
 {{- else -}}
-{{- printf "%s:%s" .Values.controllerManager.manager.image.repository $managerVersion -}}
+{{- printf "%s/%s:%s" $registry $repository $tag -}}
 {{- end -}}
 {{- end -}}
 

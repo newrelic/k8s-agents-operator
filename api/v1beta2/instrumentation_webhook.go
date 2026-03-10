@@ -51,7 +51,7 @@ type InstrumentationDefaulter struct {
 // Default to set the default values for Instrumentation
 func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	inst := obj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Setting defaults for v1beta1.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Setting defaults for v1beta2.Instrumentation", "name", inst.GetName())
 	if inst.Labels == nil {
 		inst.Labels = map[string]string{}
 	}
@@ -74,14 +74,18 @@ var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
 var _ webhook.CustomValidator = (*InstrumentationValidator)(nil)
 
+// +k8s:deepcopy-gen=false
+// InstrumentationSpecValidator is used to validate the instrumentation spec
 type InstrumentationSpecValidator func(instrumentation *Instrumentation) error
 
+// +k8s:deepcopy-gen=false
 // InstrumentationValidator is used to validate instrumentations
 type InstrumentationValidator struct {
 	OperatorNamespace         string
 	InstrumentationValidators []InstrumentationSpecValidator
 }
 
+// NewInstrumentationValidator is used to crate a new validator
 func NewInstrumentationValidator(operatorNamespace string) *InstrumentationValidator {
 	v := &InstrumentationValidator{
 		OperatorNamespace:         operatorNamespace,
@@ -148,7 +152,7 @@ var acceptableLangs = []string{
 	"go",
 	"java",
 	"nodejs",
-	"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "php-8.4",
+	"php-7.2", "php-7.3", "php-7.4", "php-8.0", "php-8.1", "php-8.2", "php-8.3", "php-8.4", "php-8.5",
 	"python",
 	"ruby",
 }
