@@ -9,6 +9,11 @@ metadata:
     {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controllerManager.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       {{- include "newrelic.common.labels.selectorLabels" . | nindent 6 }}
