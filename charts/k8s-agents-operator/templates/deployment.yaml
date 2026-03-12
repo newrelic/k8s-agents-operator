@@ -1,3 +1,4 @@
+{{- $tls := fromYaml (include "k8s-agents-operator.webhookCert" .) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,10 +18,11 @@ spec:
       labels:
         control-plane: controller-manager
         {{- include "newrelic.common.labels.podLabels" . | nindent 8 }}
-      {{- with .Values.podAnnotations }}
       annotations:
+        checksum/serving-ca: {{ $tls.caCert | sha256sum }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
       {{- $hostNetwork := false }}
       {{- if not (kindIs "invalid" .Values.hostNetwork) }}
