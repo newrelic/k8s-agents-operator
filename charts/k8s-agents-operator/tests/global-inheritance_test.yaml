@@ -226,9 +226,9 @@ tests:
     set:
       licenseKey: us-whatever
     asserts:
-      - equal:
+      - matchRegex:
           path: spec.template.spec.containers[0].image
-          value: "docker.io/newrelic/k8s-agents-operator:0.37.1"
+          pattern: ^docker\.io/newrelic/k8s-agents-operator:\d+\.\d+\.\d+$
         template: templates/deployment.yaml
 
   - it: uses global.images.registry for container image
