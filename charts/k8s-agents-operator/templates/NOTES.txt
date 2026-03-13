@@ -32,3 +32,5 @@ Instrumentation custom resource definition required by the Operator.
 
 This deployment will be incomplete until you get your ingest license key from New Relic.
 {{- end -}}
+
+//FIXME: Test that chart changed
