@@ -65,9 +65,16 @@ jobs:
       - name: Lint charts
         run: ct --config .github/ct.yaml lint --debug
 
+      - name: Verify ct config exists
+        run: |
+          if [ ! -f .github/ct.yaml ]; then
+            echo "Error: .github/ct.yaml config file not found"
+            exit 1
+          fi
+
       - name: Run unit tests
         run: |
-          for chart in $(ct list-changed --config .github/ct-lint.yaml); do
+          for chart in $(ct list-changed --config .github/ct.yaml); do
             if [ -d "$chart/tests/" ]; then
               helm unittest $chart
             else
