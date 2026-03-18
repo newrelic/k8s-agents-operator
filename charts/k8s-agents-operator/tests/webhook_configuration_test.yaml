@@ -33,7 +33,7 @@ tests:
       licenseKey: us-whatever
     asserts:
       - equal:
-          path: webhooks[3].failurePolicy
+          path: webhooks[4].failurePolicy
           value: Ignore
         documentSelector:
           path: kind
@@ -162,7 +162,7 @@ tests:
           value: MutatingWebhookConfiguration
       # Pod webhook uses podFailurePolicy
       - equal:
-          path: webhooks[3].failurePolicy
+          path: webhooks[4].failurePolicy
           value: Fail
         documentSelector:
           path: kind
@@ -199,24 +199,30 @@ tests:
     asserts:
       - equal:
           path: webhooks[0].name
-          value: minstrumentation-v1beta2.kb.io
+          value: minstrumentation-v1beta3.kb.io
         documentSelector:
           path: kind
           value: MutatingWebhookConfiguration
       - equal:
           path: webhooks[1].name
-          value: minstrumentation-v1beta1.kb.io
-        documentSelector:
-          path: kind
-          value: MutatingWebhookConfiguration
-      - equal:
-          path: webhooks[2].name
           value: minstrumentation-v1alpha2.kb.io
         documentSelector:
           path: kind
           value: MutatingWebhookConfiguration
       - equal:
+          path: webhooks[2].name
+          value: minstrumentation-v1beta1.kb.io
+        documentSelector:
+          path: kind
+          value: MutatingWebhookConfiguration
+      - equal:
           path: webhooks[3].name
+          value: minstrumentation-v1beta2.kb.io
+        documentSelector:
+          path: kind
+          value: MutatingWebhookConfiguration
+      - equal:
+          path: webhooks[4].name
           value: mpod.kb.io
         documentSelector:
           path: kind
@@ -228,24 +234,30 @@ tests:
     asserts:
       - equal:
           path: webhooks[0].clientConfig.service.path
-          value: /mutate-newrelic-com-v1beta2-instrumentation
+          value: /mutate-newrelic-com-v1beta3-instrumentation
         documentSelector:
           path: kind
           value: MutatingWebhookConfiguration
       - equal:
           path: webhooks[1].clientConfig.service.path
-          value: /mutate-newrelic-com-v1beta1-instrumentation
-        documentSelector:
-          path: kind
-          value: MutatingWebhookConfiguration
-      - equal:
-          path: webhooks[2].clientConfig.service.path
           value: /mutate-newrelic-com-v1alpha2-instrumentation
         documentSelector:
           path: kind
           value: MutatingWebhookConfiguration
       - equal:
+          path: webhooks[2].clientConfig.service.path
+          value: /mutate-newrelic-com-v1beta1-instrumentation
+        documentSelector:
+          path: kind
+          value: MutatingWebhookConfiguration
+      - equal:
           path: webhooks[3].clientConfig.service.path
+          value: /mutate-newrelic-com-v1beta2-instrumentation
+        documentSelector:
+          path: kind
+          value: MutatingWebhookConfiguration
+      - equal:
+          path: webhooks[4].clientConfig.service.path
           value: /mutate-v1-pod
         documentSelector:
           path: kind
