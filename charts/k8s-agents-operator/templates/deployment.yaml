@@ -25,9 +25,7 @@ spec:
         {{- include "newrelic.common.labels.podLabels" . | nindent 8 }}
       annotations:
         checksum/serving-ca: {{ $tls.caCert | sha256sum }}
-        {{- with .Values.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- toYaml .Values.podAnnotations | replace "{}" "" | nindent 8 }}
     spec:
       {{- $hostNetwork := false }}
       {{- if not (kindIs "invalid" .Values.hostNetwork) }}
