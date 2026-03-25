@@ -119,9 +119,9 @@ all-e2e-tests: ## Run e2e tests with all k8s versions specified by $ALL_E2E_K8S_
 	done
 
 .PHONY: run-helm-unittest
-run-helm-unittest: $(CT) ## Run helm unit tests based on changes
-	@if ! test -f ./.github/ct-lint.yaml; then echo "missing .github/ct-lint.yaml" >&2; exit 1; fi
-	@for chart in $$($(CT) list-changed --config ./.github/ct-lint.yaml); do \
+run-helm-unittest: $(CT) $(HELM_UNITTEST) ## Run helm unit tests based on changes
+	@if ! test -f ./.github/ct.yaml; then echo "missing .github/ct.yaml" >&2; exit 1; fi
+	@for chart in $$($(CT) list-changed --config ./.github/ct.yaml); do \
 	  if test -d "$$chart/tests/"; then \
 	    $(HELM_UNITTEST) $$chart; \
 	  else \

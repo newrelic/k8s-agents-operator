@@ -1,3 +1,4 @@
+{{- $tls := fromYaml (include "k8s-agents-operator.webhookCert" .) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,6 +9,11 @@ metadata:
     {{- include "newrelic.common.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controllerManager.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       {{- include "newrelic.common.labels.selectorLabels" . | nindent 6 }}
@@ -17,10 +23,9 @@ spec:
       labels:
         control-plane: controller-manager
         {{- include "newrelic.common.labels.podLabels" . | nindent 8 }}
-      {{- with .Values.podAnnotations }}
       annotations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        checksum/serving-ca: {{ $tls.caCert | sha256sum }}
+        {{- toYaml .Values.podAnnotations | replace "{}" "" | nindent 8 }}
     spec:
       {{- $hostNetwork := false }}
       {{- if not (kindIs "invalid" .Values.hostNetwork) }}
