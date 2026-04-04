@@ -1,6 +1,6 @@
 module github.com/newrelic/k8s-agents-operator/tools
 
-go 1.25.6
+go 1.26.0
 
 require (
 	github.com/arttor/helmify v0.4.19
@@ -10,7 +10,7 @@ require (
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.42.0
 	helm.sh/helm/v4 v4.1.1
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20260126224948-cf2e741fe0fd
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20260404204528-885e77d7d9fc
 	sigs.k8s.io/controller-tools v0.20.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.8.0
 )
@@ -310,9 +310,9 @@ require (
 	golang.org/x/telemetry v0.0.0-20260209163413-e7419c687ee4 // indirect
 	golang.org/x/term v0.40.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
-	golang.org/x/time v0.13.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
-	google.golang.org/protobuf v1.36.9 // indirect
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -321,17 +321,17 @@ require (
 	honnef.co/go/tools v0.6.1 // indirect
 	k8s.io/api v0.35.0 // indirect
 	k8s.io/apiextensions-apiserver v0.35.0 // indirect
-	k8s.io/apimachinery v0.35.0 // indirect
+	k8s.io/apimachinery v0.36.0-beta.0 // indirect
 	k8s.io/apiserver v0.35.0 // indirect
 	k8s.io/cli-runtime v0.35.0 // indirect
 	k8s.io/client-go v0.35.0 // indirect
 	k8s.io/code-generator v0.35.0 // indirect
 	k8s.io/component-base v0.35.0 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
-	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
+	k8s.io/klog/v2 v2.140.0 // indirect
+	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
 	k8s.io/kubectl v0.35.0 // indirect
-	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4 // indirect
+	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect
 	mvdan.cc/gofumpt v0.9.2 // indirect
 	mvdan.cc/unparam v0.0.0-20251027182757-5beb8c8f8f15 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
@@ -341,6 +341,6 @@ require (
 	sigs.k8s.io/kustomize/cmd/config v0.21.0 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.0 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
