@@ -78,7 +78,7 @@ func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrum
 		container, _ = util.GetContainerByNameFromPod(&pod, containerName)
 	}
 
-	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container); err != nil {
+	if err := i.setContainerEnvAppName(ctx, &ns, &pod, container, inst); err != nil {
 		return corev1.Pod{}, err
 	}
 	setContainerEnvInjectionDefaults(container)

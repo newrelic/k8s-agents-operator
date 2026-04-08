@@ -49,7 +49,7 @@ func TestEncodeDecodeAttributes(t *testing.T) {
 	}
 }
 
-func TestGetAppName(t *testing.T) {
+func TestGetRootResourceName(t *testing.T) {
 	tests := []struct {
 		name            string
 		podName         string
@@ -220,6 +220,45 @@ func TestGetAppName(t *testing.T) {
 				t.Errorf("got error %q, want error %q", errStr, test.expectedErrStr)
 			}
 		})
+	}
+}
+
+func TestGetAppName(t *testing.T) {
+
+	// Container name used as app name
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: ""}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-name"}}}}
+	checkAppName(t, pod, &pod.Spec.Containers[0], current.Instrumentation{}, "container-name")
+
+	// Pod name used as app name
+	pod = &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-name"}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-name"}}}}
+	checkAppName(t, pod, &pod.Spec.Containers[0], current.Instrumentation{}, "pod-name")
+
+	// pre-existing env var is not overridden
+	pod = &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-name"}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-name", Env: []corev1.EnvVar{{Name: EnvNewRelicAppName, Value: "pre-existing-app-name"}}}}}}
+	checkAppName(t, pod, &pod.Spec.Containers[0], current.Instrumentation{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{NewRelicAppNameAnnotation: "app_name_via_annotations"}}}, "pre-existing-app-name")
+
+	// App name from instrumentation annotation
+	pod = &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-name"}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-name"}}}}
+	checkAppName(t, pod, &pod.Spec.Containers[0], current.Instrumentation{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{NewRelicAppNameAnnotation: "app_name_via_annotations"}}}, "app_name_via_annotations")
+
+	// ErrorPath: Error is expected if root resource name retrieval fails
+	pod = &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-name", OwnerReferences: []metav1.OwnerReference{{Kind: "Job", Name: "not-existing", APIVersion: "appsv1", UID: "1"}}}, Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "container-name"}}}}
+	err := (&baseInjector{client: k8sClient}).setContainerEnvAppName(context.Background(), &corev1.Namespace{}, pod, &pod.Spec.Containers[0], current.Instrumentation{})
+	if err == nil {
+		t.Fatalf("An error was expected when root resource name retrieval fails, but got nil")
+	}
+}
+
+func checkAppName(t *testing.T, pod *corev1.Pod, container *corev1.Container, inst current.Instrumentation, appName string) {
+	ctx := context.Background()
+	ns := &corev1.Namespace{}
+
+	err := (&baseInjector{client: k8sClient}).setContainerEnvAppName(ctx, ns, pod, container, inst)
+	if err != nil {
+		t.Fatalf("failed to fetch app name, %s", err.Error())
+	}
+	if container.Env[getIndexOfEnv(container.Env, EnvNewRelicAppName)].Value != appName {
+		t.Fatalf("failed to fetch app name, %s", err.Error())
 	}
 }
 
