@@ -1,0 +1,261 @@
+# Namespace Filtering Examples
+#
+# This file demonstrates the three ways to control which namespaces
+# receive metadata injection:
+# 1. Ignore list (skip specific namespaces)
+# 2. Opt-out annotation (namespace opts out)
+# 3. Label selector (only labeled namespaces receive injection)
+
+---
+# Example 1: Ignore List
+#
+# Configure the operator to skip specific namespaces.
+# Useful for system namespaces or namespaces that don't need metadata.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-agents-operator-controller-manager
+  namespace: newrelic
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: METADATA_INJECTION_ENABLED
+          value: "true"
+        - name: K8S_CLUSTER_NAME
+          value: "production"
+
+        # Ignore these namespaces (they will NOT receive metadata)
+        - name: METADATA_INJECTION_IGNORED_NAMESPACES
+          value: "kube-system,kube-public,kube-node-lease,istio-system,cert-manager"
+
+---
+# Example 2: Namespace Opt-Out Annotation
+#
+# Individual namespaces can opt out of metadata injection
+# by adding an annotation.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: no-metadata-namespace
+  annotations:
+    # This annotation disables metadata injection for this namespace
+    newrelic.com/metadata-injection: "false"
+    description: "This namespace will not receive metadata injection"
+
+---
+# Example: Normal namespace (will receive metadata)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: with-metadata-namespace
+  annotations:
+    description: "This namespace will receive metadata injection"
+  # No opt-out annotation, so metadata injection will happen
+
+---
+# Example 3: Label Selector (Opt-In Model)
+#
+# Only inject metadata into namespaces with specific labels.
+# Useful for gradual rollout or strict control.
+
+# Operator configuration:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-agents-operator-controller-manager
+  namespace: newrelic
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: METADATA_INJECTION_ENABLED
+          value: "true"
+        - name: K8S_CLUSTER_NAME
+          value: "production"
+
+        # Only inject into namespaces with this label
+        - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+          value: "newrelic-metadata=enabled"
+
+---
+# Namespace WITH required label (will receive metadata)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production-app
+  labels:
+    newrelic-metadata: enabled  # Matches the label selector
+    environment: production
+
+---
+# Namespace WITHOUT required label (will NOT receive metadata)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging-app
+  labels:
+    environment: staging
+  # Missing "newrelic-metadata: enabled" label
+
+---
+# Example 4: Complex Label Selector
+#
+# Use more complex label selectors for fine-grained control
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-agents-operator-controller-manager
+  namespace: newrelic
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: METADATA_INJECTION_ENABLED
+          value: "true"
+        - name: K8S_CLUSTER_NAME
+          value: "production"
+
+        # Only production or staging namespaces with metadata enabled
+        - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+          value: "newrelic-metadata=enabled,environment in (production,staging)"
+
+---
+# Example 5: Combining Filters
+#
+# Filters are applied in order:
+# 1. Ignore list (checked first)
+# 2. Opt-out annotation (checked second)
+# 3. Label selector (checked third)
+
+# Operator config:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-agents-operator-controller-manager
+  namespace: newrelic
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: METADATA_INJECTION_ENABLED
+          value: "true"
+        - name: K8S_CLUSTER_NAME
+          value: "production"
+
+        # 1. Always ignore these (even if they have the label)
+        - name: METADATA_INJECTION_IGNORED_NAMESPACES
+          value: "kube-system,kube-public"
+
+        # 3. Only inject into labeled namespaces (unless ignored or opted-out)
+        - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+          value: "newrelic-metadata=enabled"
+
+---
+# Scenario A: Namespace in ignore list (NO metadata)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-system
+  labels:
+    newrelic-metadata: enabled  # Doesn't matter, still ignored
+# Result: NO metadata injection (in ignore list)
+
+---
+# Scenario B: Namespace with opt-out annotation (NO metadata)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sensitive-namespace
+  labels:
+    newrelic-metadata: enabled  # Has the label
+  annotations:
+    newrelic.com/metadata-injection: "false"  # But opted out
+# Result: NO metadata injection (opted out)
+
+---
+# Scenario C: Namespace without required label (NO metadata)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: development-app
+  labels:
+    environment: development
+  # Missing "newrelic-metadata: enabled" label
+# Result: NO metadata injection (doesn't match label selector)
+
+---
+# Scenario D: Namespace with label and not ignored (YES metadata)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production-app
+  labels:
+    newrelic-metadata: enabled  # Has the label
+    environment: production
+  # Not in ignore list, no opt-out annotation
+# Result: YES metadata injection (passes all filters)
+
+---
+# Testing Namespace Filtering
+#
+# To test namespace filtering:
+
+# 1. Create test namespaces
+# kubectl apply -f namespace-filtering.yaml
+
+# 2. Create test pods in each namespace
+# kubectl run test-pod --image=busybox --command -n <namespace> -- sleep 3600
+
+# 3. Check for metadata in each pod
+# kubectl exec test-pod -n <namespace> -- env | grep NEW_RELIC_METADATA
+
+# 4. Expected results:
+#   - production-app namespace: Should have metadata
+#   - staging-app namespace: Should NOT have metadata (no label)
+#   - no-metadata-namespace: Should NOT have metadata (opted out)
+#   - kube-system: Should NOT have metadata (in ignore list)
+
+---
+# Gradual Rollout Strategy
+#
+# Use label selector for gradual rollout:
+
+# Phase 1: Test in one namespace
+# kubectl label namespace test-app newrelic-metadata=enabled
+
+# Phase 2: Add more namespaces gradually
+# kubectl label namespace staging newrelic-metadata=enabled
+# kubectl label namespace production newrelic-metadata=enabled
+
+# Phase 3: Make it the default for all (remove label selector)
+# kubectl set env deployment/k8s-agents-operator-controller-manager \
+#   METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR="" -n newrelic
+
+---
+# Troubleshooting Commands
+
+# Check namespace labels:
+# kubectl get namespace --show-labels
+
+# Check namespace annotations:
+# kubectl get namespace <name> -o jsonpath='{.metadata.annotations}'
+
+# Check if namespace is in ignore list:
+# kubectl get deployment k8s-agents-operator-controller-manager -n newrelic \
+#   -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="METADATA_INJECTION_IGNORED_NAMESPACES")].value}'
+
+# Check operator's label selector:
+# kubectl get deployment k8s-agents-operator-controller-manager -n newrelic \
+#   -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR")].value}'
