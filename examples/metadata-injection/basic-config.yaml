@@ -1,0 +1,78 @@
+# Basic Metadata Injection Configuration
+#
+# This example shows the minimal configuration needed to enable
+# Kubernetes metadata injection in the k8s-agents-operator.
+#
+# Apply this by editing your operator deployment:
+#   kubectl edit deployment k8s-agents-operator-controller-manager -n <operator-namespace>
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-agents-operator-controller-manager
+  namespace: newrelic  # Replace with your operator namespace
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        # Existing env vars...
+        - name: OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ENABLE_WEBHOOKS
+          value: "true"
+
+        # Metadata injection configuration (add these)
+        - name: METADATA_INJECTION_ENABLED
+          value: "true"
+
+        - name: K8S_CLUSTER_NAME
+          value: "my-cluster"  # REQUIRED: Replace with your cluster name
+
+        # Optional: Customize ignored namespaces (defaults shown)
+        - name: METADATA_INJECTION_IGNORED_NAMESPACES
+          value: "kube-system,kube-public,kube-node-lease"
+
+        # Optional: Only inject into labeled namespaces (empty = inject into all)
+        - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+          value: ""
+
+---
+# Test Pod to Verify Metadata Injection
+#
+# After enabling metadata injection, create this test pod to verify it works:
+#   kubectl apply -f basic-config.yaml
+#
+# Then check for metadata env vars:
+#   kubectl exec metadata-test -- env | grep NEW_RELIC_METADATA
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: metadata-test
+  namespace: default
+  labels:
+    app: metadata-test
+spec:
+  containers:
+  - name: test
+    image: busybox:latest
+    command: ["sh", "-c", "env | grep NEW_RELIC_METADATA && sleep 3600"]
+  restartPolicy: Never
+
+---
+# Expected Output
+#
+# When you check the test pod logs, you should see:
+#
+# NEW_RELIC_METADATA_KUBERNETES_CLUSTER_NAME=my-cluster
+# NEW_RELIC_METADATA_KUBERNETES_NODE_NAME=<node-name>
+# NEW_RELIC_METADATA_KUBERNETES_NAMESPACE_NAME=default
+# NEW_RELIC_METADATA_KUBERNETES_POD_NAME=metadata-test
+# NEW_RELIC_METADATA_KUBERNETES_CONTAINER_NAME=test
+# NEW_RELIC_METADATA_KUBERNETES_CONTAINER_IMAGE_NAME=busybox:latest
+#
+# Note: DEPLOYMENT_NAME will only appear if the pod is owned by a ReplicaSet
