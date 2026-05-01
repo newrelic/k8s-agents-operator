@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 
         with:
           ref: ${{ github.event.release.tag_name }}
 
@@ -34,10 +34,11 @@ jobs:
 
       - name: Upload agent metadata to New Relic
         if: steps.validate.outputs.valid == 'true'
-        uses: newrelic/agent-metadata-action@67f86b847bfe1c35b2856c57b454674c4767f885 # v1.0.6
+        uses: newrelic/agent-metadata-action@v1.0.8
         with:
           agent-type: NRApmOperator
           version: ${{ steps.validate.outputs.version }}
+          git-ref: ${{ github.event.release.tag_name }}
           newrelic-client-id: ${{ secrets.NEWRELIC_CLIENT_ID }}
           newrelic-private-key: ${{ secrets.NEWRELIC_PRIVATE_KEY }}
-          newrelic-license-key: ${{ secrets.APM_CONTROL_NR_LICENSE_KEY_STAGING }}
+          apm-control-nr-license-key: ${{ secrets.APM_CONTROL_NR_LICENSE_KEY_STAGING }}

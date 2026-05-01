@@ -1,6 +1,6 @@
 # k8s-agents-operator
 
-![Version: 0.38.0](https://img.shields.io/badge/Version-0.38.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.38.0](https://img.shields.io/badge/AppVersion-0.38.0-informational?style=flat-square)
+![Version: 0.41.0](https://img.shields.io/badge/Version-0.41.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.41.0](https://img.shields.io/badge/AppVersion-0.41.0-informational?style=flat-square)
 
 A Helm chart for the Kubernetes Agents Operator
 
@@ -312,18 +312,22 @@ If you want to see a list of all available charts and releases, check [index.yam
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| admissionWebhooks | object | `{"autoGenerateCert":{"certPeriodDays":365,"enabled":true,"recreate":true},"caFile":"","certFile":"","certManager":{"enabled":false},"create":true,"keyFile":""}` | Admission webhooks make sure only requests with correctly formatted rules will get into the Operator |
+| admissionWebhooks | object | `{"autoGenerateCert":{"certPeriodDays":365,"enabled":true,"recreate":true},"caFile":"","certFile":"","certManager":{"enabled":false},"create":true,"failurePolicy":"Fail","ignoreNamespaces":["kube-system","kube-public","kube-node-lease"],"keyFile":"","podFailurePolicy":"Ignore","timeoutSeconds":null}` | Admission webhooks make sure only requests with correctly formatted rules will get into the Operator |
 | admissionWebhooks.autoGenerateCert.certPeriodDays | int | `365` | Cert validity period time in days. |
 | admissionWebhooks.autoGenerateCert.enabled | bool | `true` | If true and certManager.enabled is false, Helm will automatically create a self-signed cert and secret for you. |
 | admissionWebhooks.autoGenerateCert.recreate | bool | `true` | If set to true, new webhook key/certificate is generated on helm upgrade. |
 | admissionWebhooks.caFile | string | `""` | Path to the CA cert. |
 | admissionWebhooks.certFile | string | `""` | Path to your own PEM-encoded certificate. |
 | admissionWebhooks.certManager.enabled | bool | `false` | If true and autoGenerateCert.enabled is false, cert-manager will create a self-signed cert and secret for you. |
+| admissionWebhooks.failurePolicy | string | `"Fail"` | Failure policy for Instrumentation webhooks (v1alpha2, v1beta1, v1beta2). Valid values: Fail, Ignore. Default: Fail. Fail: Rejects CREATE/UPDATE operations on Instrumentation resources if the webhook is unavailable,       ensuring strict validation and enforcement of instrumentation configuration. Ignore: Allows operations to proceed even if the webhook is unavailable, providing resilience         but potentially allowing misconfigured Instrumentation resources. |
+| admissionWebhooks.ignoreNamespaces | list | `["kube-system","kube-public","kube-node-lease"]` | a system namespace, remove it from this list. |
 | admissionWebhooks.keyFile | string | `""` | Path to your own PEM-encoded private key. |
+| admissionWebhooks.podFailurePolicy | string | `"Ignore"` | Failure policy for Pod mutation webhook. Valid values: Fail, Ignore. Default: Ignore. Fail: Rejects pod creation if the webhook is unavailable, ensuring all pods are properly instrumented       but potentially blocking pod deployments if the operator is down. Ignore: Allows pod creation to proceed even if the webhook is unavailable (default behavior),         providing resilience and preventing the operator from blocking critical workloads. Note: This is intentionally separate from failurePolicy to allow different behavior for pod mutations. |
+| admissionWebhooks.timeoutSeconds | string | `nil` | Timeout in seconds for all webhook calls (applies to all 4 webhooks). If not set, defaults to Kubernetes API server default (typically 10s). Valid range: 1-30 seconds. Increase this value if you experience timeout issues due to network latency or slow webhook responses. Example: Set to 15 for environments with high network latency. |
 | affinity | object | `{}` | Sets all pods' affinities. Can be configured also with `global.affinity` |
 | containerSecurityContext | object | `{}` | Sets all security context (at container level). Can be configured also with `global.securityContext.container` |
 | controllerManager.manager.containerSecurityContext | string | `nil` | Sets security context (at container level) for the manager container. Overrides `containerSecurityContext` and `global.containerSecurityContext` (Type: object) |
-| controllerManager.manager.image.pullPolicy | string | `nil` |  |
+| controllerManager.manager.image.pullPolicy | string | `nil` | Sets the image pull policy for the manager container. Can be configured also with `global.images.pullPolicy` |
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` | Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images. |
 | controllerManager.manager.image.version | string | `nil` | Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e" |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
