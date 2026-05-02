@@ -161,10 +161,9 @@ func TestMain(m *testing.M) {
 	v1alpha2InstValidator := &v1alpha2.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.Instrumentation{}).
-		WithValidator(v1alpha2InstValidator).
-		WithDefaulter(v1alpha2InstDefaulter).
+	err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.Instrumentation{}).
+		WithCustomValidator(v1alpha2InstValidator).
+		WithCustomDefaulter(v1alpha2InstDefaulter).
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register v1alpha2.instrumentation webhook: %v", err)
@@ -175,10 +174,9 @@ func TestMain(m *testing.M) {
 	v1beta1InstValidator := &v1beta1.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1beta1.Instrumentation{}).
-		WithValidator(v1beta1InstValidator).
-		WithDefaulter(v1beta1InstDefaulter).
+	err = ctrl.NewWebhookManagedBy(mgr, &v1beta1.Instrumentation{}).
+		WithCustomValidator(v1beta1InstValidator).
+		WithCustomDefaulter(v1beta1InstDefaulter).
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register v1beta1.instrumentation webhook: %v", err)
@@ -189,10 +187,9 @@ func TestMain(m *testing.M) {
 	v1beta2InstValidator := &v1beta2.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1beta2.Instrumentation{}).
-		WithValidator(v1beta2InstValidator).
-		WithDefaulter(v1beta2InstDefaulter).
+	err = ctrl.NewWebhookManagedBy(mgr, &v1beta2.Instrumentation{}).
+		WithCustomValidator(v1beta2InstValidator).
+		WithCustomDefaulter(v1beta2InstDefaulter).
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register v1beta2.instrumentation webhook: %v", err)
@@ -203,10 +200,9 @@ func TestMain(m *testing.M) {
 	currentInstValidator := &current.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&current.Instrumentation{}).
-		WithValidator(currentInstValidator).
-		WithDefaulter(currentInstDefaulter).
+	err = ctrl.NewWebhookManagedBy(mgr, &current.Instrumentation{}).
+		WithCustomValidator(currentInstValidator).
+		WithCustomDefaulter(currentInstDefaulter).
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register current.instrumentation webhook: %v", err)

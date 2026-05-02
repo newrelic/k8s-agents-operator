@@ -33,10 +33,9 @@ import (
 
 // SetupWebhookWithManager will setup the manager to manage the webhooks
 func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&Instrumentation{}).
-		WithValidator(&InstrumentationValidator{OperatorNamespace: operatorNamespace}).
-		WithDefaulter(&InstrumentationDefaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &Instrumentation{}).
+		WithCustomValidator(&InstrumentationValidator{OperatorNamespace: operatorNamespace}).
+		WithCustomDefaulter(&InstrumentationDefaulter{}).
 		Complete()
 }
 
