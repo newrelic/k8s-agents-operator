@@ -162,8 +162,8 @@ func TestMain(m *testing.M) {
 		OperatorNamespace: operatorNamespace,
 	}
 	err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.Instrumentation{}).
-		WithCustomValidator(v1alpha2InstValidator).
-		WithCustomDefaulter(v1alpha2InstDefaulter).
+		WithValidator(v1alpha2InstValidator).
+		WithDefaulter(v1alpha2InstDefaulter).
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register v1alpha2.instrumentation webhook: %v", err)
