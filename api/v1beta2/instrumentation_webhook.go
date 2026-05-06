@@ -24,32 +24,25 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // SetupWebhookWithManager will setup the manager to manage the webhooks
 func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string) error {
 	return ctrl.NewWebhookManagedBy(mgr, &Instrumentation{}).
-		WithCustomValidator(NewInstrumentationValidator(operatorNamespace)).
-		WithCustomDefaulter(&InstrumentationDefaulter{}).
+		WithValidator(NewInstrumentationValidator(operatorNamespace)).
+		WithDefaulter(&InstrumentationDefaulter{}).
 		Complete()
 }
-
-// +kubebuilder:webhook:path=/mutate-newrelic-com-v1beta2-instrumentation,mutating=true,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1beta2,name=minstrumentation-v1beta2.kb.io,admissionReviewVersions=v1
-
-var _ webhook.CustomDefaulter = (*InstrumentationDefaulter)(nil)
 
 // InstrumentationDefaulter is used to set defaults for instrumentation
 type InstrumentationDefaulter struct {
 }
 
 // Default to set the default values for Instrumentation
-func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	inst := obj.(*Instrumentation)
+func (r *InstrumentationDefaulter) Default(ctx context.Context, inst *Instrumentation) error {
 	log.FromContext(ctx).V(1).Info("Setting defaults for v1beta2.Instrumentation", "name", inst.GetName())
 	if inst.Labels == nil {
 		inst.Labels = map[string]string{}
@@ -70,8 +63,6 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, obj runtime.Obje
 
 var validEnvPrefixes = []string{"NEW_RELIC_", "NEWRELIC_"}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
-
-var _ webhook.CustomValidator = (*InstrumentationValidator)(nil)
 
 // +k8s:deepcopy-gen=false
 // InstrumentationSpecValidator is used to validate the instrumentation spec
@@ -94,23 +85,20 @@ func NewInstrumentationValidator(operatorNamespace string) *InstrumentationValid
 }
 
 // ValidateCreate to validate the creation operation
-func (r *InstrumentationValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	inst := obj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating creation of v1beta2.Instrumentation", "name", inst.GetName())
+func (r *InstrumentationValidator) ValidateCreate(ctx context.Context, inst *Instrumentation) (admission.Warnings, error) {
+	log.FromContext(ctx).V(1).Info("Validating creation of v1alpha2.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // ValidateUpdate to validate the update operation
-func (r *InstrumentationValidator) ValidateUpdate(ctx context.Context, oldObj runtime.Object, newObj runtime.Object) (admission.Warnings, error) {
-	inst := newObj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating update of v1beta2.Instrumentation", "name", inst.GetName())
-	return r.validate(inst)
+func (r *InstrumentationValidator) ValidateUpdate(ctx context.Context, oldInst, newInst *Instrumentation) (admission.Warnings, error) {
+	log.FromContext(ctx).V(1).Info("Validating update of v1alpha2.Instrumentation", "name", newInst.GetName())
+	return r.validate(newInst)
 }
 
 // ValidateDelete to validate the deletion operation
-func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	inst := obj.(*Instrumentation)
-	log.FromContext(ctx).V(1).Info("Validating deletion of v1beta2.Instrumentation", "name", inst.GetName())
+func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, inst *Instrumentation) (admission.Warnings, error) {
+	log.FromContext(ctx).V(1).Info("Validating deletion of v1alpha2.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 

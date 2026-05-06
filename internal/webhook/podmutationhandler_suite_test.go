@@ -175,8 +175,8 @@ func TestMain(m *testing.M) {
 		OperatorNamespace: operatorNamespace,
 	}
 	err = ctrl.NewWebhookManagedBy(mgr, &v1beta1.Instrumentation{}).
-		WithCustomValidator(v1beta1InstValidator).
-		WithCustomDefaulter(v1beta1InstDefaulter).
+		WithValidator(v1beta1InstValidator).
+		WithDefaulter(v1beta1InstDefaulter).
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register v1beta1.instrumentation webhook: %v", err)
@@ -188,8 +188,8 @@ func TestMain(m *testing.M) {
 		OperatorNamespace: operatorNamespace,
 	}
 	err = ctrl.NewWebhookManagedBy(mgr, &v1beta2.Instrumentation{}).
-		WithCustomValidator(v1beta2InstValidator).
-		WithCustomDefaulter(v1beta2InstDefaulter).
+		WithValidator(v1beta2InstValidator).
+		WithDefaulter(v1beta2InstDefaulter).
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register v1beta2.instrumentation webhook: %v", err)
@@ -201,8 +201,8 @@ func TestMain(m *testing.M) {
 		OperatorNamespace: operatorNamespace,
 	}
 	err = ctrl.NewWebhookManagedBy(mgr, &current.Instrumentation{}).
-		WithCustomValidator(currentInstValidator).
-		WithCustomDefaulter(currentInstDefaulter).
+		WithValidator(currentInstValidator).
+		WithDefaulter(currentInstDefaulter).
 		Complete()
 	if err != nil {
 		fmt.Printf("failed to register current.instrumentation webhook: %v", err)
