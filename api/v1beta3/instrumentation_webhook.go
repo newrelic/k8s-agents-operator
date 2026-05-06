@@ -43,7 +43,7 @@ type InstrumentationDefaulter struct {
 
 // Default to set the default values for Instrumentation
 func (r *InstrumentationDefaulter) Default(ctx context.Context, inst *Instrumentation) error {
-	log.FromContext(ctx).V(1).Info("Setting defaults for v1alpha2.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Setting defaults for v1beta3.Instrumentation", "name", inst.GetName())
 	if inst.Labels == nil {
 		inst.Labels = map[string]string{}
 	}
@@ -86,19 +86,19 @@ func NewInstrumentationValidator(operatorNamespace string) *InstrumentationValid
 
 // ValidateCreate to validate the creation operation
 func (r *InstrumentationValidator) ValidateCreate(ctx context.Context, inst *Instrumentation) (admission.Warnings, error) {
-	log.FromContext(ctx).V(1).Info("Validating creation of v1alpha2.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating creation of v1beta3.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 
 // ValidateUpdate to validate the update operation
 func (r *InstrumentationValidator) ValidateUpdate(ctx context.Context, oldInst, newInst *Instrumentation) (admission.Warnings, error) {
-	log.FromContext(ctx).V(1).Info("Validating update of v1alpha2.Instrumentation", "name", newInst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating update of v1beta3.Instrumentation", "name", newInst.GetName())
 	return r.validate(newInst)
 }
 
 // ValidateDelete to validate the deletion operation
 func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, inst *Instrumentation) (admission.Warnings, error) {
-	log.FromContext(ctx).V(1).Info("Validating deletion of v1alpha2.Instrumentation", "name", inst.GetName())
+	log.FromContext(ctx).V(1).Info("Validating deletion of v1beta3.Instrumentation", "name", inst.GetName())
 	return r.validate(inst)
 }
 
