@@ -20,7 +20,7 @@ func TestInstrumentationDefaulter(t *testing.T) {
 			LicenseKeySecret: "newrelic-key-secret",
 		},
 	}
-	var actualObj runtime.Object = &Instrumentation{}
+	actualObj := &Instrumentation{}
 	err := (&InstrumentationDefaulter{}).Default(context.Background(), actualObj)
 	if err != nil {
 		t.Fatalf("Unexpected error %v", err)
