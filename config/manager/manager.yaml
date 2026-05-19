@@ -74,5 +74,14 @@ spec:
                   fieldPath: metadata.namespace
             - name: ENABLE_WEBHOOKS
               value: "true"
+            # Metadata injection configuration
+            - name: METADATA_INJECTION_ENABLED
+              value: "false"  # Opt-in model - must be explicitly enabled
+            - name: K8S_CLUSTER_NAME
+              value: ""  # Required when METADATA_INJECTION_ENABLED=true
+            - name: METADATA_INJECTION_IGNORED_NAMESPACES
+              value: "kube-system,kube-public,kube-node-lease"
+            - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+              value: ""  # Optional: e.g., "newrelic-metadata-injection=enabled"
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

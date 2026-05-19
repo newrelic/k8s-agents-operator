@@ -17,6 +17,7 @@ import (
 
 	"github.com/newrelic/k8s-agents-operator/internal/apm"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
+	"github.com/newrelic/k8s-agents-operator/internal/metadata"
 )
 
 // compile time type assertion
@@ -103,6 +104,27 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 
 // SetupWebhookWithManager registers the pod mutation webhook
 func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger logr.Logger) error {
+	mutators := []PodMutator{}
+
+	// Setup MetadataInjectionMutator (runs first, before agent injection)
+	metadataConfig, err := metadata.LoadConfigFromEnv()
+	if err != nil {
+		logger.Error(err, "failed to load metadata injection config - metadata injection will be disabled")
+	} else if metadataConfig.Enabled {
+		logger.Info("metadata injection enabled",
+			"clusterName", metadataConfig.ClusterName,
+			"ignoredNamespaces", metadataConfig.IgnoredNamespaces,
+			"namespaceLabelSelector", metadataConfig.NamespaceLabelSelector,
+		)
+		mutators = append(mutators, metadata.NewMetadataInjectionPodMutator(
+			mgr.GetClient(),
+			metadataConfig,
+			logger.WithName("metadata-injection"),
+		))
+	} else {
+		logger.Info("metadata injection disabled")
+	}
+
 	// Setup InstrumentationMutator
 	mgrClient := mgr.GetClient()
 	injectorRegistry := apm.DefaultInjectorRegistry
@@ -111,21 +133,21 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(mgrClient)
 	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(mgrClient, operatorNamespace)
 
+	mutators = append(mutators, instrumentation.NewMutator(
+		mgrClient,
+		injector,
+		secretReplicator,
+		configMapReplicator,
+		instrumentationLocator,
+		operatorNamespace,
+	))
+
 	hookServer := mgr.GetWebhookServer()
 	hookServer.Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodMutationHandler{
-		Client:  mgr.GetClient(),
-		Decoder: admission.NewDecoder(mgr.GetScheme()),
-		Mutators: []PodMutator{
-			instrumentation.NewMutator(
-				mgrClient,
-				injector,
-				secretReplicator,
-				configMapReplicator,
-				instrumentationLocator,
-				operatorNamespace,
-			),
-		},
-		Logger: logger,
+		Client:   mgr.GetClient(),
+		Decoder:  admission.NewDecoder(mgr.GetScheme()),
+		Mutators: mutators,
+		Logger:   logger,
 	}})
 
 	return nil

@@ -1,0 +1,365 @@
+# Combined Metadata Injection + APM Agent Auto-Instrumentation
+#
+# This example shows how to use both metadata injection and
+# APM agent auto-instrumentation together.
+#
+# The operator will:
+# 1. Inject Kubernetes metadata env vars (runs first)
+# 2. Inject APM agent init containers and configuration (runs second)
+
+---
+# Step 1: Enable Both Features in Operator
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-agents-operator-controller-manager
+  namespace: newrelic
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        # Existing configuration
+        - name: OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: ENABLE_WEBHOOKS
+          value: "true"
+
+        # Enable metadata injection
+        - name: METADATA_INJECTION_ENABLED
+          value: "true"
+        - name: K8S_CLUSTER_NAME
+          value: "production-cluster"
+        - name: METADATA_INJECTION_IGNORED_NAMESPACES
+          value: "kube-system,kube-public,kube-node-lease"
+
+---
+# Step 2: Create New Relic License Key Secret
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: newrelic-license-key
+  namespace: newrelic  # Operator namespace
+type: Opaque
+stringData:
+  new_relic_license_key: "YOUR_NEW_RELIC_LICENSE_KEY"  # Replace with your actual key
+
+---
+# Step 3: Create Instrumentation CRD for APM Agent
+
+apiVersion: newrelic.com/v1beta3
+kind: Instrumentation
+metadata:
+  name: java-instrumentation
+  namespace: newrelic  # Operator namespace
+spec:
+  # Agent configuration
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:latest
+
+  # License key reference
+  licenseKeySecret: newrelic-license-key
+
+  # Target pods with these labels
+  podLabelSelector:
+    matchLabels:
+      instrumentation: java
+
+  # Optional: Custom agent configuration
+  agent:
+    env:
+      - name: NEW_RELIC_APP_NAME
+        value: "my-java-app"
+      - name: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
+        value: "true"
+      - name: NEW_RELIC_LOG_LEVEL
+        value: "info"
+
+---
+# Step 4: Deploy Application with Instrumentation Label
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-app
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: java-app
+  template:
+    metadata:
+      labels:
+        app: java-app
+        instrumentation: java  # This label triggers APM agent injection
+    spec:
+      containers:
+      - name: app
+        image: openjdk:11-jre-slim
+        ports:
+        - containerPort: 8080
+        # Your application configuration...
+
+---
+# What Happens:
+#
+# When the java-app pod is created, the operator will:
+#
+# 1. METADATA INJECTION (runs first):
+#    - Add 7 Kubernetes metadata environment variables
+#    - NEW_RELIC_METADATA_KUBERNETES_CLUSTER_NAME=production-cluster
+#    - NEW_RELIC_METADATA_KUBERNETES_NODE_NAME=<node> (downward API)
+#    - NEW_RELIC_METADATA_KUBERNETES_NAMESPACE_NAME=default (downward API)
+#    - NEW_RELIC_METADATA_KUBERNETES_POD_NAME=<pod> (downward API)
+#    - NEW_RELIC_METADATA_KUBERNETES_DEPLOYMENT_NAME=java-app (derived)
+#    - NEW_RELIC_METADATA_KUBERNETES_CONTAINER_NAME=app (static)
+#    - NEW_RELIC_METADATA_KUBERNETES_CONTAINER_IMAGE_NAME=openjdk:11-jre-slim (static)
+#
+# 2. APM AGENT INJECTION (runs second):
+#    - Add init container to copy Java agent
+#    - Add volume for agent files
+#    - Add JAVA_TOOL_OPTIONS env var to load agent
+#    - Add NEW_RELIC_LICENSE_KEY from secret
+#    - Add NEW_RELIC_APP_NAME
+#    - Add other agent configuration
+#
+# The result: Your application will have both Kubernetes metadata
+# AND be instrumented with the New Relic Java APM agent!
+
+---
+# Verify Combined Injection
+
+# After deploying, check the pod:
+# kubectl get pod -n default -l app=java-app -o yaml
+
+# You should see:
+# 1. Init container: nri-java--app
+# 2. Volume: nri-java--app (EmptyDir)
+# 3. Environment variables from metadata injection (7 vars)
+# 4. Environment variables from agent injection (NEW_RELIC_*, JAVA_TOOL_OPTIONS)
+
+# Check env vars in running pod:
+# kubectl exec <pod-name> -n default -- env | grep -E "(NEW_RELIC|JAVA_TOOL)"
+
+---
+# Example: Multi-Language Application
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microservices
+  labels:
+    newrelic-metadata: enabled  # Enable metadata injection
+
+---
+# Java Instrumentation
+apiVersion: newrelic.com/v1beta3
+kind: Instrumentation
+metadata:
+  name: java-instrumentation
+  namespace: newrelic
+spec:
+  agent:
+    language: java
+    image: newrelic/newrelic-java-init:latest
+  licenseKeySecret: newrelic-license-key
+  podLabelSelector:
+    matchLabels:
+      language: java
+
+---
+# Node.js Instrumentation
+apiVersion: newrelic.com/v1beta3
+kind: Instrumentation
+metadata:
+  name: nodejs-instrumentation
+  namespace: newrelic
+spec:
+  agent:
+    language: nodejs
+    image: newrelic/newrelic-node-init:latest
+  licenseKeySecret: newrelic-license-key
+  podLabelSelector:
+    matchLabels:
+      language: nodejs
+
+---
+# Python Instrumentation
+apiVersion: newrelic.com/v1beta3
+kind: Instrumentation
+metadata:
+  name: python-instrumentation
+  namespace: newrelic
+spec:
+  agent:
+    language: python
+    image: newrelic/newrelic-python-init:latest
+  licenseKeySecret: newrelic-license-key
+  podLabelSelector:
+    matchLabels:
+      language: python
+
+---
+# Java Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: microservices
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+        language: java  # Triggers Java agent injection
+    spec:
+      containers:
+      - name: app
+        image: user-service:latest
+        ports:
+        - containerPort: 8080
+
+---
+# Node.js Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: microservices
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        language: nodejs  # Triggers Node.js agent injection
+    spec:
+      containers:
+      - name: app
+        image: api-gateway:latest
+        ports:
+        - containerPort: 3000
+
+---
+# Python Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: microservices
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+        language: python  # Triggers Python agent injection
+    spec:
+      containers:
+      - name: app
+        image: analytics-service:latest
+        ports:
+        - containerPort: 5000
+
+---
+# Result:
+#
+# All three services will have:
+# 1. Kubernetes metadata (cluster, node, namespace, pod, deployment names)
+# 2. Language-specific APM agent (Java, Node.js, or Python)
+# 3. Automatic instrumentation
+# 4. Linked APM → Infrastructure visibility in New Relic
+
+---
+# Metadata-Only Deployment (No Agent Injection)
+#
+# If you want metadata without agent injection, simply don't add
+# the instrumentation label:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legacy-app
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: legacy-app
+  template:
+    metadata:
+      labels:
+        app: legacy-app
+        # No "instrumentation: java" label = metadata only
+    spec:
+      containers:
+      - name: app
+        image: legacy-app:latest
+        # This pod will get metadata env vars but no APM agent
+
+---
+# Benefits of Combined Usage:
+#
+# 1. Automatic Correlation:
+#    - APM traces are automatically linked to Kubernetes infrastructure
+#    - See which nodes, pods, deployments are related to performance issues
+#
+# 2. Zero Code Changes:
+#    - No manual instrumentation needed
+#    - No hardcoded metadata in application code
+#
+# 3. Unified Management:
+#    - Single operator for both features
+#    - Consistent configuration via CRDs
+#
+# 4. Flexible Deployment:
+#    - Use both together or independently
+#    - Different languages in same cluster
+#    - Gradual rollout per namespace or label
+
+---
+# Troubleshooting Combined Usage
+
+# Check if both mutators are running:
+# kubectl logs -n newrelic deployment/k8s-agents-operator-controller-manager \
+#   | grep -E "(metadata injection|instrumentation mutator)"
+
+# Expected logs:
+# - "metadata injection enabled"
+# - "instrumentation mutator initialized"
+
+# Verify pod has both:
+# kubectl get pod <pod-name> -o yaml
+
+# Should have:
+# - Metadata env vars (NEW_RELIC_METADATA_KUBERNETES_*)
+# - Agent env vars (NEW_RELIC_APP_NAME, NEW_RELIC_LICENSE_KEY, etc.)
+# - Init container (nri-<language>--<container>)
+# - Volume mount for agent
+
+# If metadata is missing but agent works:
+# - Check METADATA_INJECTION_ENABLED=true
+# - Check K8S_CLUSTER_NAME is set
+# - Check namespace isn't filtered
+
+# If agent is missing but metadata works:
+# - Check Instrumentation CRD exists in operator namespace
+# - Check pod has matching label selector
+# - Check license key secret exists

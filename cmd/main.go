@@ -56,6 +56,7 @@ import (
 	instrumentationupgrade "github.com/newrelic/k8s-agents-operator/internal/migrate/upgrade"
 	"github.com/newrelic/k8s-agents-operator/internal/version"
 	"github.com/newrelic/k8s-agents-operator/internal/webhook"
+	"github.com/newrelic/k8s-agents-operator/internal/metadata"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -267,6 +268,20 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	// Validate metadata injection configuration at startup
+	metadataConfig, err := metadata.LoadConfigFromEnv()
+	if err != nil {
+		setupLog.Error(err, "metadata injection config validation failed - metadata injection will be disabled")
+	} else if metadataConfig.Enabled {
+		setupLog.Info("metadata injection enabled",
+			"clusterName", metadataConfig.ClusterName,
+			"ignoredNamespaces", metadataConfig.IgnoredNamespaces,
+			"namespaceLabelSelector", metadataConfig.NamespaceLabelSelector,
+		)
+	} else {
+		setupLog.Info("metadata injection disabled")
 	}
 
 	// TODO: Use controller paradigm & investigate below
