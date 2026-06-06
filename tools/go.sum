@@ -106,6 +106,8 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/arttor/helmify v0.4.19 h1:s4qZhciMG9h3W4BsNPWtcxReiOp0tAGgRZyiALXU02Q=
 github.com/arttor/helmify v0.4.19/go.mod h1:jHLtbiOoxmUIIZYLGtGnZWAzjhR6NkMPED/WA2loCVc=
+github.com/arttor/helmify v0.4.20 h1:J1x8pPSRkplyc68AXGFkzx3Y9ncXGxL/sdT9I6vuWDQ=
+github.com/arttor/helmify v0.4.20/go.mod h1:jHLtbiOoxmUIIZYLGtGnZWAzjhR6NkMPED/WA2loCVc=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/ashanbrown/forbidigo/v2 v2.3.0 h1:OZZDOchCgsX5gvToVtEBoV2UWbFfI6RKQTir2UZzSxo=
