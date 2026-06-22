@@ -364,7 +364,7 @@ func TestMutatePod(t *testing.T) {
 			}
 			instrumentationLocator := test.instrumentationLocator
 			if instrumentationLocator == nil {
-				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
+				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient)
 			}
 			//nolint:staticcheck
 			var secretReplicator SecretsReplicator = test.secretReplicator
@@ -1194,7 +1194,7 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 				}
 			}()
 
-			locator := NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
+			locator := NewNewRelicInstrumentationLocator(k8sClient)
 			insts, err := locator.GetInstrumentations(ctx, test.ns, test.pod)
 			errStr := ""
 			if err != nil {
