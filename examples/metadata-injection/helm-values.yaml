@@ -1,0 +1,313 @@
+# Helm Chart Values for Metadata Injection
+#
+# This file shows how to configure metadata injection when installing
+# k8s-agents-operator via Helm.
+#
+# Usage:
+#   helm install k8s-agents-operator newrelic/k8s-agents-operator \
+#     --namespace newrelic \
+#     --create-namespace \
+#     --values helm-values.yaml
+
+---
+# Basic Configuration - Metadata Injection Only
+
+# Enable metadata injection with minimal configuration
+env:
+  - name: METADATA_INJECTION_ENABLED
+    value: "true"
+
+  - name: K8S_CLUSTER_NAME
+    value: "production-cluster"  # REQUIRED: Your cluster name
+
+  # Optional: Default ignored namespaces (can be omitted)
+  - name: METADATA_INJECTION_IGNORED_NAMESPACES
+    value: "kube-system,kube-public,kube-node-lease"
+
+  # Optional: Label selector (empty = inject into all non-ignored namespaces)
+  - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+    value: ""
+
+---
+# Advanced Configuration - Label-Based Filtering
+
+# Only inject metadata into namespaces with specific labels
+env:
+  - name: METADATA_INJECTION_ENABLED
+    value: "true"
+
+  - name: K8S_CLUSTER_NAME
+    value: "production-cluster"
+
+  # Only inject into labeled namespaces
+  - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+    value: "newrelic-metadata=enabled"
+
+  # Still ignore system namespaces (even if labeled)
+  - name: METADATA_INJECTION_IGNORED_NAMESPACES
+    value: "kube-system,kube-public,kube-node-lease"
+
+---
+# Production Configuration - Metadata + Agent Injection
+
+# Full configuration for production use with APM agents
+env:
+  # Operator configuration
+  - name: OPERATOR_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+
+  - name: ENABLE_WEBHOOKS
+    value: "true"
+
+  # Metadata injection
+  - name: METADATA_INJECTION_ENABLED
+    value: "true"
+
+  - name: K8S_CLUSTER_NAME
+    value: "production-cluster"
+
+  - name: METADATA_INJECTION_IGNORED_NAMESPACES
+    value: "kube-system,kube-public,kube-node-lease,istio-system,cert-manager"
+
+  # Optional: Restrict to production namespaces
+  - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+    value: "environment in (production,staging)"
+
+# Resource limits for production
+resources:
+  limits:
+    cpu: 500m
+    memory: 192Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# High availability
+replicaCount: 2
+
+---
+# Multi-Cluster Configuration
+
+# When managing multiple clusters, use unique cluster names
+env:
+  - name: METADATA_INJECTION_ENABLED
+    value: "true"
+
+  # Unique cluster name per cluster
+  - name: K8S_CLUSTER_NAME
+    value: "us-west-2-production"  # or "eu-central-1-staging", etc.
+
+  - name: METADATA_INJECTION_IGNORED_NAMESPACES
+    value: "kube-system,kube-public,kube-node-lease"
+
+---
+# Development Configuration - Disabled by Default
+
+# For development, you might want to disable metadata injection
+# or enable it only in specific namespaces
+env:
+  - name: METADATA_INJECTION_ENABLED
+    value: "false"  # Disabled
+
+  - name: K8S_CLUSTER_NAME
+    value: "dev-cluster"
+
+# Or enable only for development namespaces
+# env:
+#   - name: METADATA_INJECTION_ENABLED
+#     value: "true"
+#   - name: K8S_CLUSTER_NAME
+#     value: "dev-cluster"
+#   - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+#     value: "environment=development"
+
+---
+# Complete Production Example with All Options
+
+# This is a comprehensive example showing all available options
+# and recommended production settings
+
+# Metadata injection configuration
+env:
+  # Required: Enable metadata injection
+  - name: METADATA_INJECTION_ENABLED
+    value: "true"
+
+  # Required: Cluster name (must be unique per cluster)
+  - name: K8S_CLUSTER_NAME
+    value: "us-east-1-production"
+
+  # Ignore system and infrastructure namespaces
+  - name: METADATA_INJECTION_IGNORED_NAMESPACES
+    value: "kube-system,kube-public,kube-node-lease,istio-system,cert-manager,monitoring,logging"
+
+  # Only inject into production and staging namespaces
+  - name: METADATA_INJECTION_NAMESPACE_LABEL_SELECTOR
+    value: "environment in (production,staging)"
+
+# High availability configuration
+replicaCount: 2
+
+# Pod anti-affinity (spread replicas across nodes)
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchLabels:
+            control-plane: controller-manager
+        topologyKey: kubernetes.io/hostname
+
+# Resource configuration
+resources:
+  limits:
+    cpu: 500m
+    memory: 192Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Pod security context
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+# Node selector (optional - schedule on specific nodes)
+nodeSelector:
+  workload-type: system
+
+# Tolerations (optional - tolerate specific taints)
+tolerations:
+- key: "workload-type"
+  operator: "Equal"
+  value: "system"
+  effect: "NoSchedule"
+
+---
+# Installation Commands
+
+# Basic installation:
+# helm install k8s-agents-operator newrelic/k8s-agents-operator \
+#   --namespace newrelic \
+#   --create-namespace \
+#   --set env[0].name=METADATA_INJECTION_ENABLED \
+#   --set env[0].value="true" \
+#   --set env[1].name=K8S_CLUSTER_NAME \
+#   --set env[1].value="my-cluster"
+
+# Using values file:
+# helm install k8s-agents-operator newrelic/k8s-agents-operator \
+#   --namespace newrelic \
+#   --create-namespace \
+#   --values helm-values.yaml
+
+# Upgrade existing installation:
+# helm upgrade k8s-agents-operator newrelic/k8s-agents-operator \
+#   --namespace newrelic \
+#   --values helm-values.yaml
+
+# Dry-run to verify changes:
+# helm upgrade k8s-agents-operator newrelic/k8s-agents-operator \
+#   --namespace newrelic \
+#   --values helm-values.yaml \
+#   --dry-run --debug
+
+---
+# Environment-Specific Values Files
+
+# You can maintain separate values files per environment:
+#
+# values-dev.yaml:
+#   env:
+#     - name: METADATA_INJECTION_ENABLED
+#       value: "false"
+#     - name: K8S_CLUSTER_NAME
+#       value: "dev-cluster"
+#
+# values-staging.yaml:
+#   env:
+#     - name: METADATA_INJECTION_ENABLED
+#       value: "true"
+#     - name: K8S_CLUSTER_NAME
+#       value: "staging-cluster"
+#
+# values-production.yaml:
+#   env:
+#     - name: METADATA_INJECTION_ENABLED
+#       value: "true"
+#     - name: K8S_CLUSTER_NAME
+#       value: "production-cluster"
+#   replicaCount: 2
+
+# Then deploy to each environment:
+# helm install k8s-agents-operator newrelic/k8s-agents-operator \
+#   --namespace newrelic \
+#   --values values-production.yaml
+
+---
+# Verification After Installation
+
+# Check operator is running:
+# kubectl get pods -n newrelic -l control-plane=controller-manager
+
+# Check metadata injection is enabled:
+# kubectl logs -n newrelic deployment/k8s-agents-operator-controller-manager \
+#   | grep "metadata injection enabled"
+
+# Expected output:
+# {"level":"info","msg":"metadata injection enabled","clusterName":"production-cluster",...}
+
+# Create test pod:
+# kubectl run test-pod --image=busybox --command -- sleep 3600
+
+# Verify metadata:
+# kubectl exec test-pod -- env | grep NEW_RELIC_METADATA
+
+# Clean up:
+# kubectl delete pod test-pod
+
+---
+# Uninstall
+
+# To completely remove the operator:
+# helm uninstall k8s-agents-operator -n newrelic
+
+# Note: This does NOT remove CRDs or existing instrumentation resources
+# To remove CRDs:
+# kubectl delete crd instrumentations.newrelic.com
+
+---
+# Troubleshooting Helm Installation
+
+# Check current values:
+# helm get values k8s-agents-operator -n newrelic
+
+# Check all resources:
+# helm get manifest k8s-agents-operator -n newrelic
+
+# Check Helm release status:
+# helm status k8s-agents-operator -n newrelic
+
+# Check for errors in operator:
+# kubectl logs -n newrelic deployment/k8s-agents-operator-controller-manager --tail=50
+
+---
+# Additional Resources
+
+# Helm chart documentation:
+# https://github.com/newrelic/k8s-agents-operator/tree/main/charts/k8s-agents-operator
+
+# Configuration reference:
+# https://github.com/newrelic/k8s-agents-operator/blob/main/README.md
+
+# New Relic documentation:
+# https://docs.newrelic.com/docs/kubernetes-pixie/kubernetes-integration/
