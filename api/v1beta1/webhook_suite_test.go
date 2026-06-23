@@ -103,7 +103,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = ctrl.NewWebhookManagedBy(mgr).For(&Instrumentation{}).Complete()
+	err = ctrl.NewWebhookManagedBy(mgr, &Instrumentation{}).Complete()
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:webhook

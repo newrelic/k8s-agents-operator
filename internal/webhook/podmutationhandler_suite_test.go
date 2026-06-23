@@ -161,8 +161,7 @@ func TestMain(m *testing.M) {
 	v1alpha2InstValidator := &v1alpha2.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.Instrumentation{}).
+	err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.Instrumentation{}).
 		WithValidator(v1alpha2InstValidator).
 		WithDefaulter(v1alpha2InstDefaulter).
 		Complete()
@@ -175,8 +174,7 @@ func TestMain(m *testing.M) {
 	v1beta1InstValidator := &v1beta1.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1beta1.Instrumentation{}).
+	err = ctrl.NewWebhookManagedBy(mgr, &v1beta1.Instrumentation{}).
 		WithValidator(v1beta1InstValidator).
 		WithDefaulter(v1beta1InstDefaulter).
 		Complete()
@@ -189,8 +187,7 @@ func TestMain(m *testing.M) {
 	v1beta2InstValidator := &v1beta2.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1beta2.Instrumentation{}).
+	err = ctrl.NewWebhookManagedBy(mgr, &v1beta2.Instrumentation{}).
 		WithValidator(v1beta2InstValidator).
 		WithDefaulter(v1beta2InstDefaulter).
 		Complete()
@@ -203,8 +200,7 @@ func TestMain(m *testing.M) {
 	currentInstValidator := &current.InstrumentationValidator{
 		OperatorNamespace: operatorNamespace,
 	}
-	err = ctrl.NewWebhookManagedBy(mgr).
-		For(&current.Instrumentation{}).
+	err = ctrl.NewWebhookManagedBy(mgr, &current.Instrumentation{}).
 		WithValidator(currentInstValidator).
 		WithDefaulter(currentInstDefaulter).
 		Complete()
