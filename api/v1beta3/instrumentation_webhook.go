@@ -39,7 +39,7 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string) error {
 
 // +kubebuilder:webhook:path=/mutate-newrelic-com-v1beta3-instrumentation,mutating=true,failurePolicy=fail,sideEffects=None,groups=newrelic.com,resources=instrumentations,verbs=create;update,versions=v1beta3,name=minstrumentation-v1beta3.kb.io,admissionReviewVersions=v1
 
-var _ admission.Defaulter[*Instrumentation] = &InstrumentationDefaulter{}
+var _ admission.Defaulter[*Instrumentation] = (*InstrumentationDefaulter)(nil)
 
 // InstrumentationDefaulter is used to set defaults for instrumentation
 type InstrumentationDefaulter struct {
@@ -68,7 +68,7 @@ func (r *InstrumentationDefaulter) Default(ctx context.Context, inst *Instrument
 var validEnvPrefixes = []string{"NEW_RELIC_", "NEWRELIC_"}
 var validEnvPrefixesStr = strings.Join(validEnvPrefixes, ", ")
 
-var _ admission.Validator[*Instrumentation] = &InstrumentationValidator{}
+var _ admission.Validator[*Instrumentation] = (*InstrumentationValidator)(nil)
 
 // +k8s:deepcopy-gen=false
 // InstrumentationValidator is used to validate instrumentations
