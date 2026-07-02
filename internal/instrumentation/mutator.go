@@ -344,10 +344,9 @@ type NewrelicInstrumentationLocator struct {
 }
 
 // NewNewRelicInstrumentationLocator is the constructor for getting instrumentations
-func NewNewRelicInstrumentationLocator(client client.Client, operatorNamespace string) *NewrelicInstrumentationLocator {
+func NewNewRelicInstrumentationLocator(client client.Client) *NewrelicInstrumentationLocator {
 	return &NewrelicInstrumentationLocator{
-		client:            client,
-		operatorNamespace: operatorNamespace,
+		client: client,
 	}
 }
 
@@ -364,14 +363,6 @@ func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Contex
 	//nolint:prealloc
 	var candidates []*current.Instrumentation
 	for _, inst := range listInst.Items {
-		if inst.Namespace != il.operatorNamespace {
-			logger.Info("ignoring instrumentation not in operator namespace",
-				"instrumentation_name", inst.Name,
-				"instrumentation_namespace", inst.Namespace,
-				"operator_namespace", il.operatorNamespace,
-			)
-			continue
-		}
 		podSelector, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector)
 		if err != nil {
 			logger.Error(err, "failed to parse pod label selector",

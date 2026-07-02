@@ -364,7 +364,7 @@ func TestMutatePod(t *testing.T) {
 			}
 			instrumentationLocator := test.instrumentationLocator
 			if instrumentationLocator == nil {
-				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
+				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient)
 			}
 			//nolint:staticcheck
 			var secretReplicator SecretsReplicator = test.secretReplicator
@@ -917,6 +917,13 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1"}},
 			pod:        corev1.Pod{},
 			operatorNs: "operator1",
+			insts: []*current.Instrumentation{
+				{
+					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
+					ObjectMeta: metav1.ObjectMeta{Name: "inst1", Namespace: "other1"},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
+				},
+			},
 		},
 		{
 			name: "1 in operator ns, pod selector has error, error is logged and ignored",
@@ -971,6 +978,11 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 				{
 					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
 					ObjectMeta: metav1.ObjectMeta{Name: "inst4-1", Namespace: "operator4-1"},
+					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
+				},
+				{
+					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
+					ObjectMeta: metav1.ObjectMeta{Name: "inst4-2", Namespace: "operator4-2"},
 					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
 				},
 			},
@@ -1194,7 +1206,7 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 				}
 			}()
 
-			locator := NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
+			locator := NewNewRelicInstrumentationLocator(k8sClient)
 			insts, err := locator.GetInstrumentations(ctx, test.ns, test.pod)
 			errStr := ""
 			if err != nil {
