@@ -45,7 +45,7 @@ jobs:
         with:
           # To achive consistent results with different branches
           # Source: https://github.com/release-drafter/release-drafter/issues/1061#issuecomment-1032888355
-          commitish: "${{ github.ref_name }}"
+          commitish: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name }}
           config-name: draft-image-release-config.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
