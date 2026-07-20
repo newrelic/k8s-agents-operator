@@ -110,7 +110,7 @@ func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger 
 	injector := instrumentation.NewNewrelicSdkInjector(mgrClient, injectorRegistry)
 	secretReplicator := instrumentation.NewNewrelicSecretReplicator(mgrClient)
 	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(mgrClient)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(mgrClient)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(mgrClient, operatorNamespace)
 
 	hookServer := mgr.GetWebhookServer()
 	hookServer.Register("/mutate-v1-pod", &webhook.Admission{Handler: &PodMutationHandler{

@@ -41,6 +41,7 @@ func TestHealthMonitor(t *testing.T) {
 		name                           string
 		fnHealthCheck                  HealthCheck
 		fnInstrumentationStatusUpdater InstrumentationStatusUpdater
+		operatorNs                     string
 		namespaces                     map[string]*corev1.Namespace
 		pods                           map[string]*corev1.Pod
 		instrumentations               map[string]*current.Instrumentation
@@ -442,7 +443,12 @@ func TestHealthMonitor(t *testing.T) {
 				instrumentationStatus = instrumentation.Status
 				return nil
 			})
-			hm := NewHealthMonitor(waitForUpdateInstrumentationStatus, test.fnHealthCheck, time.Millisecond*3, 50, 50, 2)
+			operatorNs := test.operatorNs
+			if operatorNs == "" {
+				// existing cases keep their instrumentations in the operator namespace
+				operatorNs = "newrelic"
+			}
+			hm := NewHealthMonitor(waitForUpdateInstrumentationStatus, test.fnHealthCheck, operatorNs, time.Millisecond*3, 50, 50, 2)
 			toCtx, toCtxCancel := context.WithTimeout(ctx, time.Millisecond*5000)
 			defer toCtxCancel()
 			for _, namespace := range test.namespaces {
@@ -463,6 +469,69 @@ func TestHealthMonitor(t *testing.T) {
 			}
 			if diff := cmp.Diff(test.expectedInstrumentationStatus, instrumentationStatus, cmpopts.IgnoreFields(current.InstrumentationStatus{}, "LastUpdated")); diff != "" {
 				t.Errorf("unexpected status, got, want: %v", diff)
+			}
+		})
+	}
+}
+
+func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
+	const operatorNs = "newrelic"
+
+	healthAgent := current.HealthAgent{Image: "health"}
+	podA := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-a", Namespace: "team-a"}}
+	podB := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-b", Namespace: "team-b"}}
+
+	tests := []struct {
+		name            string
+		instrumentation *current.Instrumentation
+		expectedPods    []string
+	}{
+		{
+			name: "namespace-scoped instrumentation with empty selector matches only its own namespace",
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{Name: "inst", Namespace: "team-a"},
+				Spec:       current.InstrumentationSpec{HealthAgent: healthAgent},
+			},
+			expectedPods: []string{"team-a/pod-a"},
+		},
+		{
+			name: "operator-namespace instrumentation with empty selector matches all namespaces",
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{Name: "inst", Namespace: operatorNs},
+				Spec:       current.InstrumentationSpec{HealthAgent: healthAgent},
+			},
+			expectedPods: []string{"team-a/pod-a", "team-b/pod-b"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &HealthMonitor{
+				operatorNamespace: operatorNs,
+				instrumentations: map[string]*current.Instrumentation{
+					tt.instrumentation.Namespace + "/" + tt.instrumentation.Name: tt.instrumentation,
+				},
+				namespaces: map[string]*corev1.Namespace{
+					"team-a":   {ObjectMeta: metav1.ObjectMeta{Name: "team-a"}},
+					"team-b":   {ObjectMeta: metav1.ObjectMeta{Name: "team-b"}},
+					operatorNs: {ObjectMeta: metav1.ObjectMeta{Name: operatorNs}},
+				},
+			}
+			podMetrics := []*podMetric{
+				{pod: podA, podID: "team-a/pod-a"},
+				{pod: podB, podID: "team-b/pod-b"},
+			}
+
+			metrics := m.getInstrumentationMetrics(context.Background(), podMetrics)
+			if len(metrics) != 1 {
+				t.Fatalf("expected 1 instrumentation metric, got %d", len(metrics))
+			}
+			var gotPods []string
+			for _, pm := range metrics[0].podMetrics {
+				gotPods = append(gotPods, pm.podID)
+			}
+			if diff := cmp.Diff(tt.expectedPods, gotPods, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("unexpected matched pods (-want +got): %s", diff)
 			}
 		})
 	}

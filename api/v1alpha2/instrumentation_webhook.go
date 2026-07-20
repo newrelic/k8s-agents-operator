@@ -107,8 +107,14 @@ var acceptableLangs = []string{
 
 // validate to validate all the fields
 func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Warnings, error) {
-	if r.OperatorNamespace != inst.Namespace {
-		return nil, fmt.Errorf("instrumentation must be in operator namespace")
+	// only permit instrumentation CRs in the operator namespace to have namespace selectors
+	canHaveNamespaceSelector := r.OperatorNamespace == inst.Namespace
+	if !canHaveNamespaceSelector {
+		namespaceSelector := inst.Spec.NamespaceLabelSelector
+		hasNamespaceSelector := len(namespaceSelector.MatchLabels) > 0 || len(namespaceSelector.MatchExpressions) > 0
+		if hasNamespaceSelector {
+			return nil, fmt.Errorf("instrumentation with a namespaceLabelSelector must be in the operator namespace %q", r.OperatorNamespace)
+		}
 	}
 
 	if agentLang := inst.Spec.Agent.Language; !slices.Contains(acceptableLangs, agentLang) {

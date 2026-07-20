@@ -213,7 +213,7 @@ func TestMain(m *testing.M) {
 	injector := instrumentation.NewNewrelicSdkInjector(client, injectorRegistry)
 	secretReplicator := instrumentation.NewNewrelicSecretReplicator(client)
 	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(client)
-	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(client)
+	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(client, operatorNamespace)
 	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhookruntime.Admission{
 		Handler: &webhook.PodMutationHandler{
 			Client:  client,

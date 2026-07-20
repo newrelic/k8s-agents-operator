@@ -364,7 +364,7 @@ func TestMutatePod(t *testing.T) {
 			}
 			instrumentationLocator := test.instrumentationLocator
 			if instrumentationLocator == nil {
-				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient)
+				instrumentationLocator = NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
 			}
 			//nolint:staticcheck
 			var secretReplicator SecretsReplicator = test.secretReplicator
@@ -907,23 +907,41 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			name: "none",
 		},
 		{
-			name: "not in operator ns",
+			name: "not in operator ns, empty selector matches its own namespace",
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "other1"}},
 			},
 			initInsts: []*current.Instrumentation{
 				{ObjectMeta: metav1.ObjectMeta{Name: "inst1", Namespace: "other1"}},
 			},
-			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1"}},
+			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1", Labels: map[string]string{corev1.LabelMetadataName: "other1"}}},
 			pod:        corev1.Pod{},
 			operatorNs: "operator1",
 			insts: []*current.Instrumentation{
 				{
 					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
 					ObjectMeta: metav1.ObjectMeta{Name: "inst1", Namespace: "other1"},
-					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
+					Spec: current.InstrumentationSpec{
+						// empty selector was implicitly scoped to the CR's own namespace
+						NamespaceLabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{corev1.LabelMetadataName: "other1"},
+						},
+						LicenseKeySecret: DefaultLicenseKeySecretName,
+					},
 				},
 			},
+		},
+		{
+			name: "not in operator ns, empty selector does not match a different namespace",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "other1-a"}},
+			},
+			initInsts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "inst1a", Namespace: "other1-a"}},
+			},
+			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1-b", Labels: map[string]string{corev1.LabelMetadataName: "other1-b"}}},
+			pod:        corev1.Pod{},
+			operatorNs: "operator1",
 		},
 		{
 			name: "1 in operator ns, pod selector has error, error is logged and ignored",
@@ -974,15 +992,13 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			},
 			operatorNs: "operator4-1",
 			pod:        corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod4"}},
+			// inst4-1 is in the operator namespace, so its empty selector stays cluster-wide and
+			// matches. inst4-2 is namespace-scoped to operator4-2, so it does not match a pod in
+			// another namespace.
 			insts: []*current.Instrumentation{
 				{
 					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
 					ObjectMeta: metav1.ObjectMeta{Name: "inst4-1", Namespace: "operator4-1"},
-					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
-				},
-				{
-					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
-					ObjectMeta: metav1.ObjectMeta{Name: "inst4-2", Namespace: "operator4-2"},
 					Spec:       current.InstrumentationSpec{LicenseKeySecret: DefaultLicenseKeySecretName},
 				},
 			},
@@ -1206,7 +1222,7 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 				}
 			}()
 
-			locator := NewNewRelicInstrumentationLocator(k8sClient)
+			locator := NewNewRelicInstrumentationLocator(k8sClient, test.operatorNs)
 			insts, err := locator.GetInstrumentations(ctx, test.ns, test.pod)
 			errStr := ""
 			if err != nil {
