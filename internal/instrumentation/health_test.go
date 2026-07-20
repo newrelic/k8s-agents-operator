@@ -512,9 +512,9 @@ func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
 					tt.instrumentation.Namespace + "/" + tt.instrumentation.Name: tt.instrumentation,
 				},
 				namespaces: map[string]*corev1.Namespace{
-					"team-a":   {ObjectMeta: metav1.ObjectMeta{Name: "team-a"}},
-					"team-b":   {ObjectMeta: metav1.ObjectMeta{Name: "team-b"}},
-					operatorNs: {ObjectMeta: metav1.ObjectMeta{Name: operatorNs}},
+					"team-a":   {ObjectMeta: metav1.ObjectMeta{Name: "team-a", Labels: map[string]string{corev1.LabelMetadataName: "team-a"}}},
+					"team-b":   {ObjectMeta: metav1.ObjectMeta{Name: "team-b", Labels: map[string]string{corev1.LabelMetadataName: "team-b"}}},
+					operatorNs: {ObjectMeta: metav1.ObjectMeta{Name: operatorNs, Labels: map[string]string{corev1.LabelMetadataName: operatorNs}}},
 				},
 			}
 			podMetrics := []*podMetric{
