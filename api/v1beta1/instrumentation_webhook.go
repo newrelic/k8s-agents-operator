@@ -109,13 +109,12 @@ var acceptLangsForAgentConfigMap = []string{"java"}
 
 // validate to validate all the fields
 func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Warnings, error) {
-	// only permit instrumentation CRs in the operator namespace to have namespace selectors
 	canHaveNamespaceSelector := r.OperatorNamespace == inst.Namespace
 	if !canHaveNamespaceSelector {
 		namespaceSelector := inst.Spec.NamespaceLabelSelector
 		hasNamespaceSelector := len(namespaceSelector.MatchLabels) > 0 || len(namespaceSelector.MatchExpressions) > 0
 		if hasNamespaceSelector {
-			return nil, fmt.Errorf("instrumentation with a namespaceLabelSelector must be in the operator namespace %q", r.OperatorNamespace)
+			return nil, fmt.Errorf("instrumentation CR (%s) outside the operator namespace cannot have a namespace selector", inst.Name)
 		}
 	}
 
