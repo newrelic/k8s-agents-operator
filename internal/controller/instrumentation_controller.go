@@ -85,9 +85,6 @@ func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 // SetupWithManager sets up the controller with the Manager.
 func (r *InstrumentationReconciler) SetupWithManager(mgr ctrl.Manager, healthMonitor *instrumentation.HealthMonitor) error {
 	r.healthMonitor = healthMonitor
-	// Instrumentations in any namespace are reconciled into the health monitor. Namespace-scoped
-	// instrumentations (outside the operator namespace) are matched to pods in their own namespace
-	// at health-check time; see HealthMonitor.getInstrumentationMetrics.
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 100}).
 		For(&current.Instrumentation{}).
