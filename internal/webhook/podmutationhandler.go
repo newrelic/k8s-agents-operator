@@ -3,10 +3,9 @@ package webhook
 import (
 	"context"
 	"encoding/json"
-	"net/http"
-
 	"github.com/newrelic/k8s-agents-operator/internal/util/svcctx"
 	"k8s.io/apimachinery/pkg/types"
+	"net/http"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
