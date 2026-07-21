@@ -43,7 +43,7 @@ func TestReconcileInstrumentation(t *testing.T) {
 			resourceNamespace: "default",
 		},
 		{
-			name:              "non existent resource in another namespace",
+			name:              "not in operator namespace",
 			resourceName:      "nothing",
 			resourceNamespace: "other",
 		},
