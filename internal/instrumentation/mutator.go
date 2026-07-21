@@ -365,13 +365,23 @@ func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Contex
 	var candidates []*current.Instrumentation
 	for _, inst := range listInst.Items {
 		if inst.Namespace != il.operatorNamespace {
-			logger.Info("ignoring instrumentation not in operator namespace",
-				"instrumentation_name", inst.Name,
-				"instrumentation_namespace", inst.Namespace,
-				"operator_namespace", il.operatorNamespace,
-			)
-			continue
+			nsSelector := inst.Spec.NamespaceLabelSelector
+			// an instrumentation CR outside the operator namespace selects its own namespace implicitly and must have an empty namespace selector
+			if len(nsSelector.MatchLabels) == 0 && len(nsSelector.MatchExpressions) == 0 {
+				nsToSelect := inst.Namespace
+				inst.Spec.NamespaceLabelSelector = metav1.LabelSelector{
+					MatchLabels: map[string]string{corev1.LabelMetadataName: nsToSelect},
+				}
+			} else {
+				logger.Info(
+					"skipping instrumentation CR outside the operator namespace because it is not allowed to have a namespace selector",
+					"instrumentation_name", inst.Name,
+					"instrumentation_namespace", inst.Namespace,
+				)
+				continue
+			}
 		}
+
 		podSelector, err := metav1.LabelSelectorAsSelector(&inst.Spec.PodLabelSelector)
 		if err != nil {
 			logger.Error(err, "failed to parse pod label selector",
