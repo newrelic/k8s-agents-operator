@@ -502,6 +502,19 @@ func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
 			},
 			expectedPods: []string{"team-a/pod-a", "team-b/pod-b"},
 		},
+		{
+			name: "operator-namespace instrumentation with a namespace selector matches only the selected namespace",
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{Name: "inst", Namespace: operatorNs},
+				Spec: current.InstrumentationSpec{
+					HealthAgent: healthAgent,
+					NamespaceLabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{corev1.LabelMetadataName: "team-b"},
+					},
+				},
+			},
+			expectedPods: []string{"team-b/pod-b"},
+		},
 	}
 
 	for _, tt := range tests {
