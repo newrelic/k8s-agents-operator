@@ -992,9 +992,6 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			},
 			operatorNs: "operator4-1",
 			pod:        corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod4"}},
-			// inst4-1 is in the operator namespace, so its empty selector stays cluster-wide and
-			// matches. inst4-2 is namespace-scoped to operator4-2, so it does not match a pod in
-			// another namespace.
 			insts: []*current.Instrumentation{
 				{
 					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
