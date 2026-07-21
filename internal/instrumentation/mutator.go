@@ -364,11 +364,20 @@ func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Contex
 	//nolint:prealloc
 	var candidates []*current.Instrumentation
 	for _, inst := range listInst.Items {
-		// if an instrumentation CR outside the operator namespace has an empty namespace selector, it implicitly selects its own namespace
-		nsSelector := inst.Spec.NamespaceLabelSelector
-		if inst.Namespace != il.operatorNamespace && len(nsSelector.MatchLabels) == 0 && len(nsSelector.MatchExpressions) == 0 {
-			inst.Spec.NamespaceLabelSelector = metav1.LabelSelector{
-				MatchLabels: map[string]string{corev1.LabelMetadataName: inst.Namespace},
+		if inst.Namespace != il.operatorNamespace {
+			nsSelector := inst.Spec.NamespaceLabelSelector
+			if len(nsSelector.MatchLabels) == 0 && len(nsSelector.MatchExpressions) == 0 {
+				// if an instrumentation CR outside the operator namespace has an empty namespace selector, it implicitly selects its own namespace
+				inst.Spec.NamespaceLabelSelector = metav1.LabelSelector{
+					MatchLabels: map[string]string{corev1.LabelMetadataName: inst.Namespace},
+				}
+			} else {
+				logger.Info(
+					"skipping instrumentation CR outside the operator namespace because it is not allowed to have a namespace selector",
+					"instrumentation_name", inst.Name,
+					"instrumentation_namespace", inst.Namespace,
+				)
+				continue
 			}
 		}
 
