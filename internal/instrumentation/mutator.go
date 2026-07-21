@@ -366,8 +366,8 @@ func (il *NewrelicInstrumentationLocator) GetInstrumentations(ctx context.Contex
 	for _, inst := range listInst.Items {
 		if inst.Namespace != il.operatorNamespace {
 			nsSelector := inst.Spec.NamespaceLabelSelector
+			// an instrumentation CR outside the operator namespace always selects its own namespace and must have an empty namespace selector
 			if len(nsSelector.MatchLabels) == 0 && len(nsSelector.MatchExpressions) == 0 {
-				// if an instrumentation CR outside the operator namespace has an empty namespace selector, it implicitly selects its own namespace
 				inst.Spec.NamespaceLabelSelector = metav1.LabelSelector{
 					MatchLabels: map[string]string{corev1.LabelMetadataName: inst.Namespace},
 				}
