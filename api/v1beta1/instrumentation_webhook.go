@@ -114,7 +114,7 @@ func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Wa
 		namespaceSelector := inst.Spec.NamespaceLabelSelector
 		hasNamespaceSelector := len(namespaceSelector.MatchLabels) > 0 || len(namespaceSelector.MatchExpressions) > 0
 		if hasNamespaceSelector {
-			return nil, fmt.Errorf("instrumentation CR (%s) outside the operator namespace cannot have a namespace selector", inst.Name)
+			return nil, fmt.Errorf("instrumentation CR (%s) cannot have a namespace selector because it is outside the operator namespace", inst.Name)
 		}
 	}
 
