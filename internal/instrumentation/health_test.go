@@ -41,7 +41,6 @@ func TestHealthMonitor(t *testing.T) {
 		name                           string
 		fnHealthCheck                  HealthCheck
 		fnInstrumentationStatusUpdater InstrumentationStatusUpdater
-		operatorNs                     string
 		namespaces                     map[string]*corev1.Namespace
 		pods                           map[string]*corev1.Pod
 		instrumentations               map[string]*current.Instrumentation
@@ -443,12 +442,7 @@ func TestHealthMonitor(t *testing.T) {
 				instrumentationStatus = instrumentation.Status
 				return nil
 			})
-			operatorNs := test.operatorNs
-			if operatorNs == "" {
-				// existing cases keep their instrumentations in the operator namespace
-				operatorNs = "newrelic"
-			}
-			hm := NewHealthMonitor(waitForUpdateInstrumentationStatus, test.fnHealthCheck, operatorNs, time.Millisecond*3, 50, 50, 2)
+			hm := NewHealthMonitor(waitForUpdateInstrumentationStatus, test.fnHealthCheck, "newrelic", time.Millisecond*3, 50, 50, 2)
 			toCtx, toCtxCancel := context.WithTimeout(ctx, time.Millisecond*5000)
 			defer toCtxCancel()
 			for _, namespace := range test.namespaces {
