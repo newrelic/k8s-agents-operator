@@ -540,7 +540,7 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 				}
 			} else {
 				logger.Info(
-					"skipping instrumentation CR outside the operator namespace because it is not allowed to select another namespace",
+					"skipping instrumentation CR outside the operator namespace because it is not allowed to have a namespace selector",
 					"instrumentation", types.NamespacedName{Namespace: instrumentation.Namespace, Name: instrumentation.Name}.String(),
 				)
 				continue
