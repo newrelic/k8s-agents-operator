@@ -482,7 +482,7 @@ func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
 		expectedPods        []string
 	}{
 		{
-			name: "namespace-scoped instrumentation with empty selector matches only its own namespace",
+			name: "instrumentation outside the operator namespace with empty selector matches only its own namespace",
 			instrumentation: &current.Instrumentation{
 				ObjectMeta: metav1.ObjectMeta{Name: "inst", Namespace: "team-a"},
 				Spec:       current.InstrumentationSpec{HealthAgent: healthAgent},
