@@ -531,12 +531,19 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 		}
 
 		nsLabelSelector := instrumentation.Spec.NamespaceLabelSelector
-
-		// if an instrumentation CR outside the operator namespace has an empty namespace selector, it implicitly selects its own namespace
 		isNsSelectorEmpty := len(nsLabelSelector.MatchLabels) == 0 && len(nsLabelSelector.MatchExpressions) == 0
-		if instrumentation.Namespace != m.operatorNamespace && isNsSelectorEmpty {
-			nsLabelSelector = metav1.LabelSelector{
-				MatchLabels: map[string]string{corev1.LabelMetadataName: instrumentation.Namespace},
+		if instrumentation.Namespace != m.operatorNamespace {
+			if isNsSelectorEmpty {
+				// an instrumentation CR outside the operator namespace with an empty namespace selector implicitly selects its own namespace
+				nsLabelSelector = metav1.LabelSelector{
+					MatchLabels: map[string]string{corev1.LabelMetadataName: instrumentation.Namespace},
+				}
+			} else {
+				logger.Info(
+					"skipping instrumentation CR outside the operator namespace because it is not allowed to select another namespace",
+					"instrumentation", types.NamespacedName{Namespace: instrumentation.Namespace, Name: instrumentation.Name}.String(),
+				)
+				continue
 			}
 		}
 

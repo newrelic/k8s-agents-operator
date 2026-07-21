@@ -482,9 +482,10 @@ func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
 	podB := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-b", Namespace: "team-b"}}
 
 	tests := []struct {
-		name            string
-		instrumentation *current.Instrumentation
-		expectedPods    []string
+		name                string
+		instrumentation     *current.Instrumentation
+		expectedMetricCount int
+		expectedPods        []string
 	}{
 		{
 			name: "namespace-scoped instrumentation with empty selector matches only its own namespace",
@@ -492,7 +493,8 @@ func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "inst", Namespace: "team-a"},
 				Spec:       current.InstrumentationSpec{HealthAgent: healthAgent},
 			},
-			expectedPods: []string{"team-a/pod-a"},
+			expectedMetricCount: 1,
+			expectedPods:        []string{"team-a/pod-a"},
 		},
 		{
 			name: "operator-namespace instrumentation with empty selector matches all namespaces",
@@ -500,7 +502,8 @@ func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "inst", Namespace: operatorNs},
 				Spec:       current.InstrumentationSpec{HealthAgent: healthAgent},
 			},
-			expectedPods: []string{"team-a/pod-a", "team-b/pod-b"},
+			expectedMetricCount: 1,
+			expectedPods:        []string{"team-a/pod-a", "team-b/pod-b"},
 		},
 		{
 			name: "operator-namespace instrumentation with a namespace selector matches only the selected namespace",
@@ -513,7 +516,22 @@ func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
 					},
 				},
 			},
-			expectedPods: []string{"team-b/pod-b"},
+			expectedMetricCount: 1,
+			expectedPods:        []string{"team-b/pod-b"},
+		},
+		{
+			name: "instrumentation outside the operator namespace with a namespace selector is skipped entirely",
+			instrumentation: &current.Instrumentation{
+				ObjectMeta: metav1.ObjectMeta{Name: "inst", Namespace: "team-a"},
+				Spec: current.InstrumentationSpec{
+					HealthAgent: healthAgent,
+					NamespaceLabelSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{corev1.LabelMetadataName: "team-b"},
+					},
+				},
+			},
+			expectedMetricCount: 0,
+			expectedPods:        nil,
 		},
 	}
 
@@ -536,12 +554,14 @@ func TestGetInstrumentationMetricsNamespaceScoping(t *testing.T) {
 			}
 
 			metrics := m.getInstrumentationMetrics(context.Background(), podMetrics)
-			if len(metrics) != 1 {
-				t.Fatalf("expected 1 instrumentation metric, got %d", len(metrics))
+			if len(metrics) != tt.expectedMetricCount {
+				t.Fatalf("expected %d instrumentation metric(s), got %d", tt.expectedMetricCount, len(metrics))
 			}
 			var gotPods []string
-			for _, pm := range metrics[0].podMetrics {
-				gotPods = append(gotPods, pm.podID)
+			for _, metric := range metrics {
+				for _, pm := range metric.podMetrics {
+					gotPods = append(gotPods, pm.podID)
+				}
 			}
 			if diff := cmp.Diff(tt.expectedPods, gotPods, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("unexpected matched pods (-want +got): %s", diff)
