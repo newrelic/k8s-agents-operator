@@ -944,6 +944,26 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			operatorNs: "operator1",
 		},
 		{
+			name: "not in operator ns, namespace selector targeting a different namespace is skipped",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "other1-c", Labels: map[string]string{corev1.LabelMetadataName: "other1-c"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "other1-d", Labels: map[string]string{corev1.LabelMetadataName: "other1-d"}}},
+			},
+			initInsts: []*current.Instrumentation{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "inst1c", Namespace: "other1-c"},
+					Spec: current.InstrumentationSpec{
+						NamespaceLabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{corev1.LabelMetadataName: "other1-d"},
+						},
+					},
+				},
+			},
+			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1-d", Labels: map[string]string{corev1.LabelMetadataName: "other1-d"}}},
+			pod:        corev1.Pod{},
+			operatorNs: "operator1",
+		},
+		{
 			name: "1 in operator ns, pod selector has error, error is logged and ignored",
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "operator2"}},
