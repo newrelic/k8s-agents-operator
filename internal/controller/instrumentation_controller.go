@@ -24,9 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
 	"github.com/newrelic/k8s-agents-operator/internal/instrumentation"
@@ -40,7 +38,6 @@ type InstrumentationReconciler struct {
 		InstrumentationSet(instrumentation *current.Instrumentation)
 		InstrumentationRemove(instrumentation *current.Instrumentation)
 	}
-	operatorNamespace string
 }
 
 //+kubebuilder:rbac:groups=newrelic.com,resources=instrumentations,verbs=get;list;watch;create;update;patch;delete
@@ -59,10 +56,6 @@ type InstrumentationReconciler struct {
 func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name).V(2)
 	logger.Info("start instrumentation reconciliation")
-
-	if req.Namespace != r.operatorNamespace {
-		return ctrl.Result{}, nil
-	}
 
 	inst := current.Instrumentation{}
 	err := r.Get(ctx, client.ObjectKey{Name: req.Name, Namespace: req.Namespace}, &inst)
@@ -90,35 +83,10 @@ func (r *InstrumentationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *InstrumentationReconciler) SetupWithManager(mgr ctrl.Manager, healthMonitor *instrumentation.HealthMonitor, operatorNamespace string) error {
+func (r *InstrumentationReconciler) SetupWithManager(mgr ctrl.Manager, healthMonitor *instrumentation.HealthMonitor) error {
 	r.healthMonitor = healthMonitor
-	r.operatorNamespace = operatorNamespace
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 100}).
 		For(&current.Instrumentation{}).
-		WithEventFilter(
-			predicate.Funcs{
-				DeleteFunc: func(e event.DeleteEvent) bool {
-					return r.isInOperatorNamespace(e.Object)
-				},
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					return r.isInOperatorNamespace(e.ObjectNew)
-				},
-				GenericFunc: func(e event.GenericEvent) bool {
-					return r.isInOperatorNamespace(e.Object)
-				},
-				CreateFunc: func(e event.CreateEvent) bool {
-					return r.isInOperatorNamespace(e.Object)
-				},
-			},
-		).
 		Complete(r)
-}
-
-func (r *InstrumentationReconciler) isInOperatorNamespace(object client.Object) bool {
-	inst, ok := object.(*current.Instrumentation)
-	if !ok {
-		return false
-	}
-	return inst.Namespace == r.operatorNamespace
 }

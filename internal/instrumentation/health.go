@@ -253,6 +253,8 @@ type HealthMonitor struct {
 	pods             map[string]*corev1.Pod
 	namespaces       map[string]*corev1.Namespace
 
+	operatorNamespace string
+
 	healthCheckTimeout time.Duration
 	tickInterval       time.Duration
 }
@@ -261,6 +263,7 @@ type HealthMonitor struct {
 func NewHealthMonitor(
 	instrumentationStatusUpdater InstrumentationStatusUpdater,
 	healthCheck HealthCheck,
+	operatorNamespace string,
 	tickInterval time.Duration,
 	podMetricWorkers int,
 	instrumentationsMetricWorkers int,
@@ -269,6 +272,7 @@ func NewHealthMonitor(
 	m := &HealthMonitor{
 		healthApi:                    healthCheck,
 		instrumentationStatusUpdater: instrumentationStatusUpdater,
+		operatorNamespace:            operatorNamespace,
 
 		instrumentations: make(map[string]*current.Instrumentation),
 		pods:             make(map[string]*corev1.Pod),
@@ -525,7 +529,25 @@ func (m *HealthMonitor) getInstrumentationMetrics(ctx context.Context, podMetric
 			)
 			continue
 		}
-		namespaceSelector, err := metav1.LabelSelectorAsSelector(&instrumentation.Spec.NamespaceLabelSelector)
+
+		nsSelector := instrumentation.Spec.NamespaceLabelSelector
+		if instrumentation.Namespace != m.operatorNamespace {
+			// an instrumentation CR outside the operator namespace selects its own namespace implicitly and must have an empty namespace selector
+			if len(nsSelector.MatchLabels) == 0 && len(nsSelector.MatchExpressions) == 0 {
+				nsToSelect := instrumentation.Namespace
+				nsSelector = metav1.LabelSelector{
+					MatchLabels: map[string]string{corev1.LabelMetadataName: nsToSelect},
+				}
+			} else {
+				logger.Info(
+					"skipping instrumentation CR outside the operator namespace because it is not allowed to have a namespace selector",
+					"instrumentation", types.NamespacedName{Namespace: instrumentation.Namespace, Name: instrumentation.Name}.String(),
+				)
+				continue
+			}
+		}
+
+		namespaceSelector, err := metav1.LabelSelectorAsSelector(&nsSelector)
 		if err != nil {
 			logger.Error(err, "failed to parse instrumentation namespace selector",
 				"instrumentation", types.NamespacedName{Namespace: instrumentation.Namespace, Name: instrumentation.Name}.String(),

@@ -280,7 +280,7 @@ func main() {
 	instrumentationStatusUpdater := instrumentation.NewInstrumentationStatusUpdater(mgr.GetClient())
 	healthApi := instrumentation.NewHealthCheckApi(http.DefaultClient)
 	healthMonitor := instrumentation.NewHealthMonitor(
-		instrumentationStatusUpdater, healthApi, healthCheckTickInterval, 50, 50, 2,
+		instrumentationStatusUpdater, healthApi, operatorNamespace, healthCheckTickInterval, 50, 50, 2,
 	)
 	go func() {
 		<-ctx.Done()
@@ -381,7 +381,7 @@ func setupReconcilers(mgr manager.Manager, healthMonitor *instrumentation.Health
 	if err = (&controller.InstrumentationReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr, healthMonitor, operatorNamespace); err != nil {
+	}).SetupWithManager(mgr, healthMonitor); err != nil {
 		return fmt.Errorf("unable to create instrumentation controller: %w", err)
 	}
 	return nil

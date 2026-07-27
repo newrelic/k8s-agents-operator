@@ -110,8 +110,13 @@ func (r *InstrumentationValidator) ValidateDelete(ctx context.Context, inst *Ins
 
 // validate to validate all the fields
 func (r *InstrumentationValidator) validate(inst *Instrumentation) (admission.Warnings, error) {
-	if r.OperatorNamespace != inst.Namespace {
-		return nil, fmt.Errorf("instrumentation must be in operator namespace")
+	canHaveNamespaceSelector := r.OperatorNamespace == inst.Namespace
+	if !canHaveNamespaceSelector {
+		namespaceSelector := inst.Spec.NamespaceLabelSelector
+		hasNamespaceSelector := len(namespaceSelector.MatchLabels) > 0 || len(namespaceSelector.MatchExpressions) > 0
+		if hasNamespaceSelector {
+			return nil, fmt.Errorf("instrumentation CR (%s) cannot have a namespace selector because it is outside the operator namespace", inst.Name)
+		}
 	}
 	for _, v := range r.InstrumentationValidators {
 		if err := v(inst); err != nil {

@@ -26,9 +26,8 @@ func (t *TestHealthMonitorForInstrumentation) InstrumentationRemove(instrumentat
 func TestReconcileInstrumentation(t *testing.T) {
 	ctx := context.Background()
 	ir := InstrumentationReconciler{
-		Client:            k8sClient,
-		operatorNamespace: "default",
-		healthMonitor:     &TestHealthMonitorForInstrumentation{set: func(instrumentation *current.Instrumentation) {}, remove: func(instrumentation *current.Instrumentation) {}},
+		Client:        k8sClient,
+		healthMonitor: &TestHealthMonitorForInstrumentation{set: func(instrumentation *current.Instrumentation) {}, remove: func(instrumentation *current.Instrumentation) {}},
 	}
 
 	tests := []struct {

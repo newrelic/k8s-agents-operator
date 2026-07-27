@@ -907,14 +907,59 @@ func TestNewrelicInstrumentationLocator_GetInstrumentations(t *testing.T) {
 			name: "none",
 		},
 		{
-			name: "not in operator ns",
+			name: "not in operator ns, empty selector matches its own namespace",
 			initNs: []*corev1.Namespace{
 				{ObjectMeta: metav1.ObjectMeta{Name: "other1"}},
 			},
 			initInsts: []*current.Instrumentation{
 				{ObjectMeta: metav1.ObjectMeta{Name: "inst1", Namespace: "other1"}},
 			},
-			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1"}},
+			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1", Labels: map[string]string{corev1.LabelMetadataName: "other1"}}},
+			pod:        corev1.Pod{},
+			operatorNs: "operator1",
+			insts: []*current.Instrumentation{
+				{
+					TypeMeta:   metav1.TypeMeta{Kind: "Instrumentation"},
+					ObjectMeta: metav1.ObjectMeta{Name: "inst1", Namespace: "other1"},
+					Spec: current.InstrumentationSpec{
+						// empty selector was implicitly scoped to the CR's own namespace
+						NamespaceLabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{corev1.LabelMetadataName: "other1"},
+						},
+						LicenseKeySecret: DefaultLicenseKeySecretName,
+					},
+				},
+			},
+		},
+		{
+			name: "not in operator ns, empty selector does not match a different namespace",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "other1-a"}},
+			},
+			initInsts: []*current.Instrumentation{
+				{ObjectMeta: metav1.ObjectMeta{Name: "inst1a", Namespace: "other1-a"}},
+			},
+			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1-b", Labels: map[string]string{corev1.LabelMetadataName: "other1-b"}}},
+			pod:        corev1.Pod{},
+			operatorNs: "operator1",
+		},
+		{
+			name: "not in operator ns, namespace selector targeting a different namespace is skipped",
+			initNs: []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "other1-c", Labels: map[string]string{corev1.LabelMetadataName: "other1-c"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "other1-d", Labels: map[string]string{corev1.LabelMetadataName: "other1-d"}}},
+			},
+			initInsts: []*current.Instrumentation{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "inst1c", Namespace: "other1-c"},
+					Spec: current.InstrumentationSpec{
+						NamespaceLabelSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{corev1.LabelMetadataName: "other1-d"},
+						},
+					},
+				},
+			},
+			ns:         corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other1-d", Labels: map[string]string{corev1.LabelMetadataName: "other1-d"}}},
 			pod:        corev1.Pod{},
 			operatorNs: "operator1",
 		},
