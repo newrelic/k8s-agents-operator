@@ -929,6 +929,8 @@ k8s.io/apiextensions-apiserver v0.36.3 h1:dPmOAPhwTtqb1bTxbFPsy18KHPhktQeO3WUPXu
 k8s.io/apiextensions-apiserver v0.36.3/go.mod h1:KTXFqgXiuw2pRoL+Wpmttqc+up9Xt/GohadPWeLLOa4=
 k8s.io/apimachinery v0.36.3 h1:PkzMRBRG8joFD8EhCuQAtNPvJlxb82FwplP26HIzvAM=
 k8s.io/apimachinery v0.36.3/go.mod h1:cTSjBWgPe/6CQyBKzY/hDIRWCQQQeK0mfLbml0UYFHE=
+k8s.io/apimachinery v0.37.0 h1:Np2AbDtf8x6RDHiD8T9LbKJ9gaegeVNa8yNm5FuGKm0=
+k8s.io/apimachinery v0.37.0/go.mod h1:RN3nhprFSCxOi5Selxd7oMTXOe/c+ZbcE7Im+TS2zkE=
 k8s.io/apiserver v0.36.3 h1:MGSg2SkdfuytiDEcRylT5mQFmmSsbx90XFUO67Y4bsQ=
 k8s.io/apiserver v0.36.3/go.mod h1:fVH7zv9EUNUA7Fl7LtDKh8aB9W7u1VQPSGtWV5SjUxg=
 k8s.io/cli-runtime v0.36.2 h1:CconTvEeV4DJs4ZX3HQKCFbFRGsm6OtuBM9yjmMP2VM=
@@ -961,6 +963,8 @@ sigs.k8s.io/controller-runtime v0.24.1 h1:miPEwrmirImAvgME1L9qebGHrOnGJoVmVdtOU9
 sigs.k8s.io/controller-runtime v0.24.1/go.mod h1:vFkfY5fGt5xAC/sKb8IBFKgWPNKG9OUG29dR8Y2wImw=
 sigs.k8s.io/controller-runtime/tools/setup-envtest v0.24.1 h1:l2AjyGE/PWub6EB165ij4/bpCK0TlY5NlhzIHfmGvmg=
 sigs.k8s.io/controller-runtime/tools/setup-envtest v0.24.1/go.mod h1:wpkYufRHTSw9ABET21/PkEL7kdGnmiZJ6o72t9p/1I8=
+sigs.k8s.io/controller-runtime/tools/setup-envtest v0.25.0 h1:P/fGuSapw13MrCE45zaTc3aC3BQbkk66u7slHxApd1k=
+sigs.k8s.io/controller-runtime/tools/setup-envtest v0.25.0/go.mod h1:q4i4kLTq6J6o29RUAQieHH8LS5knNkpgalnBhvrLp/8=
 sigs.k8s.io/controller-tools v0.21.0 h1:KXDQza3bgjlPY6xLR63tI/40gzjhyUAvkCrwzd2/6cs=
 sigs.k8s.io/controller-tools v0.21.0/go.mod h1:DLIypi3Q2+azVAP8jr/mHXJgveYYHFjhnNOUuBJ10JE=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=
