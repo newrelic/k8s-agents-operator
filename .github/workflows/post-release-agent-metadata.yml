@@ -34,11 +34,11 @@ jobs:
 
       - name: Upload agent metadata to New Relic
         if: steps.validate.outputs.valid == 'true'
-        uses: newrelic/agent-metadata-action@v1.5.1
+        uses: newrelic/agent-metadata-action@v1.6.0
         with:
           agent-type: NRApmOperator
           version: ${{ steps.validate.outputs.version }}
           git-ref: ${{ github.event.release.tag_name }}
           newrelic-client-id: ${{ secrets.NEWRELIC_CLIENT_ID }}
           newrelic-private-key: ${{ secrets.NEWRELIC_PRIVATE_KEY }}
-          apm-control-nr-license-key: ${{ secrets.APM_CONTROL_NR_LICENSE_KEY_STAGING }}
+          newrelic-license-key: ${{ secrets.AGENT_METADATA_ACTION_LICENSE_KEY }}
