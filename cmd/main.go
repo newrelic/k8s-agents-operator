@@ -177,6 +177,7 @@ type mainFlags struct {
 	enableLeaderElection bool
 	secureMetrics        bool
 	enableHTTP2          bool
+	apmCollector         string
 }
 
 func parseArgs() (mainFlags, zap.Options) {
@@ -187,6 +188,7 @@ func parseArgs() (mainFlags, zap.Options) {
 	flag.BoolVar(&flags.enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.  Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&flags.secureMetrics, "metrics-secure", true, "If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&flags.enableHTTP2, "enable-http2", true, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&flags.apmCollector, "apm-collector", "https://collector.newrelic.com", "The New Relic collector for APM to send data to. Defaults to 'https://collector.newrelic.com'.")
 
 	zapOpts := zap.Options{}
 	zapOpts.BindFlags(flag.CommandLine)
@@ -201,6 +203,8 @@ func main() {
 	logger := zap.New(zap.UseFlagOptions(&opts))
 	ctrl.SetLogger(logger)
 	klog.SetLogger(logger)
+
+	setupLog.Info(fmt.Sprintf("Using New Relic collector: %s", flags.apmCollector))
 
 	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
 	if operatorNamespace == "" {
@@ -299,7 +303,7 @@ func main() {
 		os.Exit(1)
 	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = setupWebhooks(mgr, operatorNamespace); err != nil {
+		if err = setupWebhooks(mgr, operatorNamespace, flags.apmCollector); err != nil {
 			setupLog.Error(err, "failed to setup webhooks")
 			os.Exit(1)
 		}
@@ -330,11 +334,11 @@ func registerApiHealth(mgr manager.Manager) error {
 	return nil
 }
 
-func setupWebhooks(mgr manager.Manager, operatorNamespace string) error {
+func setupWebhooks(mgr manager.Manager, operatorNamespace string, apmCollector string) error {
 	if err := setupInstrumentationWebhooks(mgr, operatorNamespace); err != nil {
 		return err
 	}
-	return setupPodMutationWebhook(mgr, operatorNamespace, ctrl.Log.WithName("mutation-webhook"))
+	return setupPodMutationWebhook(mgr, operatorNamespace, apmCollector, ctrl.Log.WithName("mutation-webhook"))
 }
 
 func setupInstrumentationWebhooks(mgr manager.Manager, operatorNamespace string) error {
@@ -356,9 +360,9 @@ func setupInstrumentationWebhooks(mgr manager.Manager, operatorNamespace string)
 	return nil
 }
 
-func setupPodMutationWebhook(mgr manager.Manager, operatorNamespace string, logger logr.Logger) error {
+func setupPodMutationWebhook(mgr manager.Manager, operatorNamespace string, apmCollector string, logger logr.Logger) error {
 	// Register the Pod mutation webhook
-	if err := webhook.SetupWebhookWithManager(mgr, operatorNamespace, logger); err != nil {
+	if err := webhook.SetupWebhookWithManager(mgr, operatorNamespace, apmCollector, logger); err != nil {
 		return fmt.Errorf("unable to register pod mutation webhook: %w", err)
 	}
 	return nil
