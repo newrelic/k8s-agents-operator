@@ -204,8 +204,6 @@ func main() {
 	ctrl.SetLogger(logger)
 	klog.SetLogger(logger)
 
-	setupLog.Info(fmt.Sprintf("Using New Relic collector: %s", flags.apmCollector))
-
 	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
 	if operatorNamespace == "" {
 		setupLog.Info("env var OPERATOR_NAMESPACE is required")
@@ -221,6 +219,8 @@ func main() {
 		"go-arch", runtime.GOARCH,
 		"go-os", runtime.GOOS,
 	)
+
+	setupLog.Info(fmt.Sprintf("Using New Relic collector: %s", flags.apmCollector))
 
 	restConfig := ctrl.GetConfigOrDie()
 	// builds the operator's configuration

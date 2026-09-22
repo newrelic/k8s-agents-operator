@@ -18,6 +18,7 @@ package apm
 import (
 	"context"
 	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/newrelic/k8s-agents-operator/api/current"
@@ -25,7 +26,8 @@ import (
 )
 
 const (
-	envRubyOpt = "RUBYOPT"
+	envRubyOpt       = "RUBYOPT"
+	envRubyCollector = "NEW_RELIC_HOST"
 )
 
 var _ ContainerInjector = (*RubyInjector)(nil)
@@ -55,6 +57,7 @@ func (i *RubyInjector) InjectContainer(ctx context.Context, inst current.Instrum
 	setEnvVar(container, envRubyOpt, rubyOptRequire, true, " ")
 	setContainerEnvFromInst(container, inst)
 
+	setEnvVar(container, envRubyCollector, i.apmCollector, false, "")
 	addPodVolumeIfMissing(&pod, volumeName)
 	addContainerVolumeIfMissing(container, volumeName, mountPath)
 
