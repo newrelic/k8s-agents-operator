@@ -28,7 +28,7 @@ jobs:
       matrix:
         # Latest patch version can be found in https://github.com/kubernetes/website/blob/main/content/en/releases/patch-releases.md
         # Some versions might not be available yet in https://storage.googleapis.com/kubernetes-release/release/v1.X.Y/bin/linux/amd64/kubelet
-        k8sVersion: [ "v1.35.0", "v1.34.3", "v1.33.7", "v1.32.11", "v1.31.14" ]
+        k8sVersion: [ "v1.36.0", "v1.35.0", "v1.34.3", "v1.33.7", "v1.32.11" ]
     steps:
       - name: Checkout GitHub Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
