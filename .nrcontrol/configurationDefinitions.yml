@@ -1,0 +1,12 @@
+configurationDefinitions:
+  - platform: KUBERNETESCLUSTER
+    description: k8s agent operator agent config 
+    type: AgentConfig
+    version: 1.0.0
+    format: yml
+    bindings:
+      - type: CONFIGURES
+        targetType: AGENT
+        target: NRApmOperator
+        versions:
+          - ">=0.35.1"
