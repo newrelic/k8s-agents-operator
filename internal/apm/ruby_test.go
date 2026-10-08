@@ -52,6 +52,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "RUBYOPT", Value: "-r /nri-ruby--test/lib/boot/strap"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -86,6 +87,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						Name: "test--container-with-a-really-long-name-that-might-just-be-over-descriptive",
 						Env: []corev1.EnvVar{
 							{Name: "RUBYOPT", Value: "-r /nri-ruby--test--container-with-a-really-long-name-that-ee75c2a/lib/boot/strap"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test--container-with-a-really-long-name-that-might-just-be-over-descriptive"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -122,6 +124,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						Name: "test-2",
 						Env: []corev1.EnvVar{
 							{Name: "RUBYOPT", Value: "-r /nri-ruby--test-2/lib/boot/strap"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test-2"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -167,6 +170,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-test",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-test/lib/boot/strap"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-test"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -211,6 +215,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-b",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-b/lib/boot/strap"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-b"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -255,6 +260,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-a",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-a/lib/boot/strap"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-a"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -271,6 +277,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-b",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-b/lib/boot/strap"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-b"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -287,6 +294,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-c",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-c/lib/boot/strap"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-c"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -340,6 +348,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "RUBYOPT", Value: "-r fakelib -r /nri-ruby--test/lib/boot/strap"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},

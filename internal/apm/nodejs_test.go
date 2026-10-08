@@ -53,6 +53,7 @@ func TestNodejsInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "NODE_OPTIONS", Value: "--require /nri-nodejs--test/newrelicinstrumentation.js"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -93,6 +94,7 @@ func TestNodejsInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "NODE_OPTIONS", Value: "--require somelib --require /nri-nodejs--test/newrelicinstrumentation.js"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},

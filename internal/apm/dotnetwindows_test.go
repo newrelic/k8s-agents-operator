@@ -156,7 +156,7 @@ func TestDotnetWindows2022Injector_Inject(t *testing.T) {
 							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 							{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netcore\\NewRelic.Profiler.dll"},
 							{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netcore"},
-
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -229,7 +229,7 @@ func TestDotnetWindows2022Injector_Inject(t *testing.T) {
 								{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 								{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--init\\netcore\\NewRelic.Profiler.dll"},
 								{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--init\\netcore"},
-
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -445,7 +445,7 @@ func TestDotnetWindows2025Injector_Inject(t *testing.T) {
 							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 							{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netcore\\NewRelic.Profiler.dll"},
 							{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netcore"},
-
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -518,7 +518,7 @@ func TestDotnetWindows2025Injector_Inject(t *testing.T) {
 								{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 								{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--init\\netcore\\NewRelic.Profiler.dll"},
 								{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--init\\netcore"},
-
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},

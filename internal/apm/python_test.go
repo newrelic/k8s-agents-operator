@@ -53,6 +53,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "PYTHONPATH", Value: "/nri-python--test"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -92,6 +93,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "PYTHONPATH", Value: "fakepath:/nri-python--test"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -171,6 +173,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 
 								{Name: "PYTHONPATH", Value: "/nri-python--init-python"},
 								{Name: "NEW_RELIC_TARGET_INIT", Value: "C"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "pod-thing"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -189,6 +192,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 
 								{Name: "PYTHONPATH", Value: "/nri-python--any-python1"},
 								{Name: "NEW_RELIC_TARGET_ANY", Value: "A"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "pod-thing"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -217,6 +221,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 
 								{Name: "PYTHONPATH", Value: "/nri-python--any-python2"},
 								{Name: "NEW_RELIC_TARGET_ANY", Value: "A"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "pod-thing"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -230,6 +235,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 
 								{Name: "PYTHONPATH", Value: "/nri-python--python"},
 								{Name: "NEW_RELIC_TARGET_CONTAINER", Value: "B"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "pod-thing"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},

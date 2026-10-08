@@ -64,6 +64,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 						Env: []corev1.EnvVar{
 							{Name: "a", Value: "a"},
 							{Name: "PHP_INI_SCAN_DIR", Value: ":/nri-php--test/php-agent/ini"},
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -73,6 +74,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "nri-php--test",
 						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -123,6 +125,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 						Env: []corev1.EnvVar{
 							{Name: "a", Value: "a"},
 							{Name: "PHP_INI_SCAN_DIR", Value: "fakepath:/nri-php--test/php-agent/ini"},
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -132,6 +135,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "nri-php--test",
 						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},

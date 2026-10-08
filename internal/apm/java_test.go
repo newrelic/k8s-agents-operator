@@ -53,6 +53,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/nri-java--test/newrelic-agent.jar"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -97,6 +98,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:someagent.jar -javaagent:/nri-java--test/newrelic-agent.jar"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -142,6 +144,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 						Env: []corev1.EnvVar{
 							{Name: "NEW_RELIC_LABELS", Value: "app:java-injected;operator:auto-injection"},
 							{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/nri-java--test/newrelic-agent.jar"},
+							{Name: "NEW_RELIC_HOST"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
 							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
@@ -182,6 +185,7 @@ func TestJavaInjector_Inject(t *testing.T) {
 							Env: []corev1.EnvVar{
 								{Name: "JAVA_TOOL_OPTIONS", Value: "-javaagent:/nri-java--test/newrelic-agent.jar"},
 								{Name: "NEWRELIC_FILE", Value: "/nri-cfg--test/newrelic.yaml"},
+								{Name: "NEW_RELIC_HOST"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
