@@ -1,6 +1,0 @@
-configurationDefinitions:
-  - platform: KUBERNETESCLUSTER
-    description: k8s agent operator agent config 
-    type: agent-config
-    version: 1.0.0
-    format: yml

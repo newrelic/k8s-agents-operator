@@ -1,6 +1,6 @@
 module github.com/newrelic/k8s-agents-operator/tools
 
-go 1.27.0
+go 1.27.1
 
 require (
 	github.com/arttor/helmify v0.4.20
@@ -10,7 +10,7 @@ require (
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.48.0
 	helm.sh/helm/v4 v4.2.4
-	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.24.1
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.25.1
 	sigs.k8s.io/controller-tools v0.21.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.8.1
 )
@@ -315,7 +315,7 @@ require (
 	honnef.co/go/tools v0.7.0 // indirect
 	k8s.io/api v0.36.3 // indirect
 	k8s.io/apiextensions-apiserver v0.36.3 // indirect
-	k8s.io/apimachinery v0.36.3 // indirect
+	k8s.io/apimachinery v0.37.0 // indirect
 	k8s.io/apiserver v0.36.3 // indirect
 	k8s.io/cli-runtime v0.36.2 // indirect
 	k8s.io/client-go v0.36.3 // indirect
