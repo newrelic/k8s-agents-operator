@@ -1,0 +1,50 @@
+suite: affinity
+templates:
+  - templates/deployment.yaml
+release:
+  name: my-release
+  namespace: my-namespace
+tests:
+  - it: sets collector to default endpoint when a US license key is provided
+    set:
+      licenseKey: us-whatever
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--apm-collector=https://collector.newrelic.com"
+        template: templates/deployment.yaml
+  - it: sets collector to staging endpoint when nrStaging is set
+    set:
+      nrStaging: true
+      licenseKey: us-whatever
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--apm-collector=https://staging-collector.newrelic.com"
+        template: templates/deployment.yaml
+  - it: sets collector to eu endpoint when EU license key is set
+    set:
+      licenseKey: eu-whatever
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--apm-collector=https://collector.eu.newrelic.com"
+        template: templates/deployment.yaml
+  - it: sets collector to jp endpoint when JP region is set
+    set:
+      region: jp
+      licenseKey: whatever
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--apm-collector=https://collector.jp.nr-data.net"
+        template: templates/deployment.yaml
+  - it: sets collector to gov endpoint when gov region is set
+    set:
+      region: gov
+      licenseKey: whatever
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "--apm-collector=https://gov-collector.newrelic.com"
+        template: templates/deployment.yaml
