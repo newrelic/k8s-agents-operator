@@ -43,6 +43,7 @@ const (
 
 	envWinDotnetAgentLogPath    = "NEWRELIC_LOG_DIRECTORY"
 	envWinDotnetProfilerLogPath = "NEWRELIC_PROFILER_LOG_DIRECTORY"
+	envWinDotnetCollector       = "NEW_RELIC_HOST"
 )
 
 var errUnableToConfigureEnvWindows = errors.New("unable to configure environment variables, they've already been set to different values")
@@ -123,6 +124,7 @@ func (i *DotnetWindowsInjector) InjectContainer(ctx context.Context, inst curren
 
 	setContainerEnvFromInst(container, inst)
 
+	setEnvVar(container, envWinDotnetCollector, i.apmCollector, false, "")
 	addPodVolumeIfMissing(&pod, volumeName)
 	addContainerVolumeIfMissing(container, volumeName, mountPath)
 

@@ -360,7 +360,7 @@ func TestMutatePod(t *testing.T) {
 				for _, apmInjector := range apmInjectors {
 					injectorRegistry.MustRegister(apmInjector)
 				}
-				injector = NewNewrelicSdkInjector(k8sClient, injectorRegistry)
+				injector = NewNewrelicSdkInjector(k8sClient, injectorRegistry, "https://collector.test.com")
 			}
 			instrumentationLocator := test.instrumentationLocator
 			if instrumentationLocator == nil {

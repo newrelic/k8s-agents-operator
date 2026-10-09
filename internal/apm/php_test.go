@@ -64,6 +64,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 						Env: []corev1.EnvVar{
 							{Name: "a", Value: "a"},
 							{Name: "PHP_INI_SCAN_DIR", Value: ":/nri-php--test/php-agent/ini"},
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -73,6 +74,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "nri-php--test",
 						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -123,6 +125,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 						Env: []corev1.EnvVar{
 							{Name: "a", Value: "a"},
 							{Name: "PHP_INI_SCAN_DIR", Value: "fakepath:/nri-php--test/php-agent/ini"},
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -132,6 +135,7 @@ func TestPhpInjector_Inject(t *testing.T) {
 					InitContainers: []corev1.Container{{
 						Name: "nri-php--test",
 						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -155,11 +159,133 @@ func TestPhpInjector_Inject(t *testing.T) {
 				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3"}, LicenseKeySecret: "newrelic-key-secret"}}},
 			},
 		},
+		{
+			name: "a container, instrumentation, with existing env NEW_RELIC_DAEMON_COLLECTOR_HOST, apm collector is not applied",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"}},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{
+					{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "a", Value: "a"},
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "custom-collector.example.com"},
+						},
+					},
+				}},
+			},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"instrumentation.newrelic.com/php-version": "8.3",
+						"newrelic.com/instrumentation-versions":    `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "a", Value: "a"},
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "custom-collector.example.com"},
+							{Name: "PHP_INI_SCAN_DIR", Value: ":/nri-php--test/php-agent/ini"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "nri-php--test",
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "custom-collector.example.com"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						Command: []string{"/bin/sh"},
+						Args: []string{"-c", strings.Join([]string{
+							"cp -r /instrumentation/. /nri-php--test/",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/php-agent/ini/newrelic.ini",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/k8s-php-install.sh",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/nr_env_to_ini.sh",
+							"/nri-php--test/k8s-php-install.sh 20230831",
+							"/nri-php--test/nr_env_to_ini.sh",
+						}, " && ")},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-php--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "php-8.3"}, LicenseKeySecret: "newrelic-key-secret"}}},
+			},
+		},
+		{
+			name: "a container, instrumentation with env NEW_RELIC_DAEMON_COLLECTOR_HOST, apm collector is not applied",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"instrumentation.newrelic.com/php-version": "8.3"}},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{
+					{Name: "test"},
+				}},
+			},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"instrumentation.newrelic.com/php-version": "8.3",
+						"newrelic.com/instrumentation-versions":    `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "PHP_INI_SCAN_DIR", Value: ":/nri-php--test/php-agent/ini"},
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "inst-collector.example.com"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name: "nri-php--test",
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "inst-collector.example.com"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						Command: []string{"/bin/sh"},
+						Args: []string{"-c", strings.Join([]string{
+							"cp -r /instrumentation/. /nri-php--test/",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/php-agent/ini/newrelic.ini",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/k8s-php-install.sh",
+							"sed -i 's@/newrelic-instrumentation@/nri-php--test@g' /nri-php--test/nr_env_to_ini.sh",
+							"/nri-php--test/k8s-php-install.sh 20230831",
+							"/nri-php--test/nr_env_to_ini.sh",
+						}, " && ")},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-php--test", MountPath: "/nri-php--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-php--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{
+					Agent: current.Agent{
+						Language: "php-8.3",
+						Env:      []corev1.EnvVar{{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "inst-collector.example.com"}},
+					},
+					LicenseKeySecret: "newrelic-key-secret",
+				}}},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &PhpInjector{baseInjector{lang: "php-8.3"}}
+			i.WithAPMCollector("https://collector.test.com")
 			// inject multiple times to assert that it's idempotent. validate it's correct each time
 			var err error
 			var actualPod corev1.Pod

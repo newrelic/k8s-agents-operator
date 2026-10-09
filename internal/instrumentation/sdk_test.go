@@ -34,6 +34,8 @@ func (ei *ErrorInjector) Accepts(inst current.Instrumentation, ns corev1.Namespa
 
 func (ei *ErrorInjector) ConfigureClient(client client.Client) {}
 
+func (ei *ErrorInjector) WithAPMCollector(apmCollector string) {}
+
 var _ apm.ContainerInjector = (*AnnotationInjector)(nil)
 
 type AnnotationInjector struct {
@@ -57,6 +59,8 @@ func (ai *AnnotationInjector) Accepts(inst current.Instrumentation, ns corev1.Na
 }
 
 func (ai *AnnotationInjector) ConfigureClient(client client.Client) {}
+
+func (ai *AnnotationInjector) WithAPMCollector(apmCollector string) {}
 
 var (
 	_ apm.ContainerInjector = (*ContainerInjector)(nil)
@@ -91,6 +95,8 @@ func (i *ContainerInjector) Accepts(inst current.Instrumentation, ns corev1.Name
 }
 
 func (ai *ContainerInjector) ConfigureClient(client client.Client) {}
+
+func (ai *ContainerInjector) WithAPMCollector(apmCollector string) {}
 
 func TestNewrelicSdkInjector_Inject(t *testing.T) {
 	vtrue, vzero := true, int64(0)
@@ -221,7 +227,7 @@ func TestNewrelicSdkInjector_Inject(t *testing.T) {
 			for _, langInst := range test.langInsts {
 				_ = defaulter.Default(ctx, langInst)
 			}
-			injector := NewNewrelicSdkInjector(k8sClient, injectorRegistry)
+			injector := NewNewrelicSdkInjector(k8sClient, injectorRegistry, "https://collector.test.com")
 			pod := injector.InjectContainers(ctx, map[string][]*current.Instrumentation{test.containerName: test.langInsts}, test.ns, test.pod)
 			if diff := cmp.Diff(test.expectedPod, pod); diff != "" {
 				t.Errorf("Unexpected diff (-want +got): %s", diff)

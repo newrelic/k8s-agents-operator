@@ -19,8 +19,9 @@ import (
 )
 
 type baseInjector struct {
-	client client.Client
-	lang   string
+	client       client.Client
+	lang         string
+	apmCollector string
 }
 
 func (i *baseInjector) ConfigureClient(client client.Client) {
@@ -42,6 +43,10 @@ func (i *baseInjector) Accepts(inst current.Instrumentation, ns corev1.Namespace
 
 func (i *baseInjector) Language() string {
 	return i.lang
+}
+
+func (i *baseInjector) WithAPMCollector(apmCollector string) {
+	i.apmCollector = apmCollector
 }
 
 func (i *baseInjector) setContainerEnvAppName(ctx context.Context, ns *corev1.Namespace, pod *corev1.Pod, container *corev1.Container) error {
