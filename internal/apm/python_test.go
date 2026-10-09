@@ -53,7 +53,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "PYTHONPATH", Value: "/nri-python--test"},
-							{Name: "NEW_RELIC_HOST"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -93,7 +93,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "PYTHONPATH", Value: "fakepath:/nri-python--test"},
-							{Name: "NEW_RELIC_HOST"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -173,7 +173,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 
 								{Name: "PYTHONPATH", Value: "/nri-python--init-python"},
 								{Name: "NEW_RELIC_TARGET_INIT", Value: "C"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "pod-thing"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -192,7 +192,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 
 								{Name: "PYTHONPATH", Value: "/nri-python--any-python1"},
 								{Name: "NEW_RELIC_TARGET_ANY", Value: "A"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "pod-thing"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -221,7 +221,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 
 								{Name: "PYTHONPATH", Value: "/nri-python--any-python2"},
 								{Name: "NEW_RELIC_TARGET_ANY", Value: "A"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "pod-thing"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -235,7 +235,7 @@ func TestPythonInjector_Inject(t *testing.T) {
 
 								{Name: "PYTHONPATH", Value: "/nri-python--python"},
 								{Name: "NEW_RELIC_TARGET_CONTAINER", Value: "B"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "pod-thing"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -309,11 +309,90 @@ func TestPythonInjector_Inject(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "a container, instrumentation, with existing env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"}}},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"},
+							{Name: "PYTHONPATH", Value: "/nri-python--test"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-python--test",
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-python--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "python"}, LicenseKeySecret: "newrelic-key-secret"}}},
+			},
+		},
+		{
+			name: "a container, instrumentation with env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "PYTHONPATH", Value: "/nri-python--test"},
+							{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-python--test",
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-python--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-python--test", MountPath: "/nri-python--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-python--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{
+					Agent: current.Agent{
+						Language: "python",
+						Env:      []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"}},
+					},
+					LicenseKeySecret: "newrelic-key-secret",
+				}}},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &PythonInjector{baseInjector{lang: "python"}}
+			i.WithAPMCollector("https://collector.test.com")
 			// inject multiple times to assert that it's idempotent. validate it's correct each time
 			var err error
 			var actualPod corev1.Pod

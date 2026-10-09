@@ -52,7 +52,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "RUBYOPT", Value: "-r /nri-ruby--test/lib/boot/strap"},
-							{Name: "NEW_RELIC_HOST"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -87,7 +87,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						Name: "test--container-with-a-really-long-name-that-might-just-be-over-descriptive",
 						Env: []corev1.EnvVar{
 							{Name: "RUBYOPT", Value: "-r /nri-ruby--test--container-with-a-really-long-name-that-ee75c2a/lib/boot/strap"},
-							{Name: "NEW_RELIC_HOST"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test--container-with-a-really-long-name-that-might-just-be-over-descriptive"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -124,7 +124,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						Name: "test-2",
 						Env: []corev1.EnvVar{
 							{Name: "RUBYOPT", Value: "-r /nri-ruby--test-2/lib/boot/strap"},
-							{Name: "NEW_RELIC_HOST"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test-2"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -170,7 +170,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-test",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-test/lib/boot/strap"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-test"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -215,7 +215,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-b",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-b/lib/boot/strap"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-b"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -260,7 +260,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-a",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-a/lib/boot/strap"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-a"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -277,7 +277,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-b",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-b/lib/boot/strap"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-b"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -294,7 +294,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 							Name: "init-c",
 							Env: []corev1.EnvVar{
 								{Name: "RUBYOPT", Value: "-r /nri-ruby--init-c/lib/boot/strap"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init-c"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -348,7 +348,7 @@ func TestRubyInjector_Inject(t *testing.T) {
 						Name: "test",
 						Env: []corev1.EnvVar{
 							{Name: "RUBYOPT", Value: "-r fakelib -r /nri-ruby--test/lib/boot/strap"},
-							{Name: "NEW_RELIC_HOST"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -368,11 +368,88 @@ func TestRubyInjector_Inject(t *testing.T) {
 				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "newrelic-key-secret"}}},
 			},
 		},
+		{
+			name: "a container, instrumentation, with existing env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"}}},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				}, Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"},
+							{Name: "RUBYOPT", Value: "-r /nri-ruby--test/lib/boot/strap"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test", MountPath: "/nri-ruby--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-ruby--test",
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test", MountPath: "/nri-ruby--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-ruby--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "ruby"}, LicenseKeySecret: "newrelic-key-secret"}}},
+			},
+		},
+		{
+			name: "a container, instrumentation with env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				}, Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "RUBYOPT", Value: "-r /nri-ruby--test/lib/boot/strap"},
+							{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test", MountPath: "/nri-ruby--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-ruby--test",
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-ruby--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-ruby--test", MountPath: "/nri-ruby--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-ruby--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{
+					Agent: current.Agent{
+						Language: "ruby",
+						Env:      []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"}},
+					},
+					LicenseKeySecret: "newrelic-key-secret",
+				}}},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &RubyInjector{baseInjector{lang: "ruby"}}
+			i.WithAPMCollector("https://collector.test.com")
 			// inject multiple times to assert that it's idempotent. validate it's correct each time
 			var err error
 			var actualPod corev1.Pod

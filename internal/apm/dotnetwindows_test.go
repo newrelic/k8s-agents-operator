@@ -156,7 +156,7 @@ func TestDotnetWindows2022Injector_Inject(t *testing.T) {
 							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 							{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netcore\\NewRelic.Profiler.dll"},
 							{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netcore"},
-							{Name: "NEW_RELIC_HOST"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -229,7 +229,7 @@ func TestDotnetWindows2022Injector_Inject(t *testing.T) {
 								{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 								{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--init\\netcore\\NewRelic.Profiler.dll"},
 								{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--init\\netcore"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -263,11 +263,108 @@ func TestDotnetWindows2022Injector_Inject(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "a container, instrumentation, with existing env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"}}},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"},
+							{Name: "NEWRELIC_LOG_DIRECTORY", Value: "c:\\nri-dotnet--test\\Logs"},
+							{Name: "NEWRELIC_PROFILER_LOG_DIRECTORY", Value: "c:\\nri-dotnet--test\\Logs"},
+							{Name: "COR_ENABLE_PROFILING", Value: "1"},
+							{Name: "COR_PROFILER", Value: "{71DA0A04-7777-4EC6-9643-7D28B46A8A41}"},
+							{Name: "COR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netframework\\NewRelic.Profiler.dll"},
+							{Name: "NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netframework"},
+							{Name: "CORECLR_ENABLE_PROFILING", Value: "1"},
+							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
+							{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netcore\\NewRelic.Profiler.dll"},
+							{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netcore"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "c:\\nri-dotnet--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-dotnet--test",
+						Command:      []string{"cmd", "/C", "xcopy C:\\instrumentation c:\\nri-dotnet--test /E /I /H /Y /F"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "c:\\nri-dotnet--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-dotnet--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2022"}, LicenseKeySecret: "newrelic-key-secret"}}},
+			},
+		},
+		{
+			name: "a container, instrumentation with env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "NEWRELIC_LOG_DIRECTORY", Value: "c:\\nri-dotnet--test\\Logs"},
+							{Name: "NEWRELIC_PROFILER_LOG_DIRECTORY", Value: "c:\\nri-dotnet--test\\Logs"},
+							{Name: "COR_ENABLE_PROFILING", Value: "1"},
+							{Name: "COR_PROFILER", Value: "{71DA0A04-7777-4EC6-9643-7D28B46A8A41}"},
+							{Name: "COR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netframework\\NewRelic.Profiler.dll"},
+							{Name: "NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netframework"},
+							{Name: "CORECLR_ENABLE_PROFILING", Value: "1"},
+							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
+							{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netcore\\NewRelic.Profiler.dll"},
+							{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netcore"},
+							{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "c:\\nri-dotnet--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-dotnet--test",
+						Command:      []string{"cmd", "/C", "xcopy C:\\instrumentation c:\\nri-dotnet--test /E /I /H /Y /F"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "c:\\nri-dotnet--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-dotnet--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{
+					Agent: current.Agent{
+						Language: "dotnet-windows2022",
+						Env:      []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"}},
+					},
+					LicenseKeySecret: "newrelic-key-secret",
+				}}},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &DotnetWindowsInjector{baseInjector{lang: "dotnet-windows2022"}}
+			i.WithAPMCollector("https://collector.test.com")
 			// inject multiple times to assert that it's idempotent. validate it's correct each time
 			var err error
 			var actualPod corev1.Pod
@@ -445,7 +542,7 @@ func TestDotnetWindows2025Injector_Inject(t *testing.T) {
 							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 							{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netcore\\NewRelic.Profiler.dll"},
 							{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netcore"},
-							{Name: "NEW_RELIC_HOST"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -518,7 +615,7 @@ func TestDotnetWindows2025Injector_Inject(t *testing.T) {
 								{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 								{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--init\\netcore\\NewRelic.Profiler.dll"},
 								{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--init\\netcore"},
-								{Name: "NEW_RELIC_HOST"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -552,11 +649,108 @@ func TestDotnetWindows2025Injector_Inject(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "a container, instrumentation, with existing env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"}}},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"},
+							{Name: "NEWRELIC_LOG_DIRECTORY", Value: "c:\\nri-dotnet--test\\Logs"},
+							{Name: "NEWRELIC_PROFILER_LOG_DIRECTORY", Value: "c:\\nri-dotnet--test\\Logs"},
+							{Name: "COR_ENABLE_PROFILING", Value: "1"},
+							{Name: "COR_PROFILER", Value: "{71DA0A04-7777-4EC6-9643-7D28B46A8A41}"},
+							{Name: "COR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netframework\\NewRelic.Profiler.dll"},
+							{Name: "NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netframework"},
+							{Name: "CORECLR_ENABLE_PROFILING", Value: "1"},
+							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
+							{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netcore\\NewRelic.Profiler.dll"},
+							{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netcore"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "c:\\nri-dotnet--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-dotnet--test",
+						Command:      []string{"cmd", "/C", "xcopy C:\\instrumentation c:\\nri-dotnet--test /E /I /H /Y /F"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "c:\\nri-dotnet--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-dotnet--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet-windows2025"}, LicenseKeySecret: "newrelic-key-secret"}}},
+			},
+		},
+		{
+			name: "a container, instrumentation with env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "NEWRELIC_LOG_DIRECTORY", Value: "c:\\nri-dotnet--test\\Logs"},
+							{Name: "NEWRELIC_PROFILER_LOG_DIRECTORY", Value: "c:\\nri-dotnet--test\\Logs"},
+							{Name: "COR_ENABLE_PROFILING", Value: "1"},
+							{Name: "COR_PROFILER", Value: "{71DA0A04-7777-4EC6-9643-7D28B46A8A41}"},
+							{Name: "COR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netframework\\NewRelic.Profiler.dll"},
+							{Name: "NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netframework"},
+							{Name: "CORECLR_ENABLE_PROFILING", Value: "1"},
+							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
+							{Name: "CORECLR_PROFILER_PATH", Value: "c:\\nri-dotnet--test\\netcore\\NewRelic.Profiler.dll"},
+							{Name: "CORECLR_NEWRELIC_HOME", Value: "c:\\nri-dotnet--test\\netcore"},
+							{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "c:\\nri-dotnet--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-dotnet--test",
+						Command:      []string{"cmd", "/C", "xcopy C:\\instrumentation c:\\nri-dotnet--test /E /I /H /Y /F"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "c:\\nri-dotnet--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-dotnet--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{
+					Agent: current.Agent{
+						Language: "dotnet-windows2025",
+						Env:      []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"}},
+					},
+					LicenseKeySecret: "newrelic-key-secret",
+				}}},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &DotnetWindowsInjector{baseInjector{lang: "dotnet-windows2025"}}
+			i.WithAPMCollector("https://collector.test.com")
 			// inject multiple times to assert that it's idempotent. validate it's correct each time
 			var err error
 			var actualPod corev1.Pod
