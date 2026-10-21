@@ -50,13 +50,15 @@ type SdkContainerInjector interface {
 type NewrelicSdkInjector struct {
 	client           client.Client
 	injectorRegistry *apm.InjectorRegistery
+	apmCollector     string
 }
 
 // NewNewrelicSdkInjector is used to create our injector
-func NewNewrelicSdkInjector(client client.Client, injectorRegistry *apm.InjectorRegistery) *NewrelicSdkInjector {
+func NewNewrelicSdkInjector(client client.Client, injectorRegistry *apm.InjectorRegistery, apmCollector string) *NewrelicSdkInjector {
 	return &NewrelicSdkInjector{
 		client:           client,
 		injectorRegistry: injectorRegistry,
+		apmCollector:     apmCollector,
 	}
 }
 
@@ -88,6 +90,7 @@ func (i *NewrelicSdkInjector) InjectContainers(ctx context.Context, containerIns
 				}
 				hadMatchingInjector = true
 				injector.ConfigureClient(i.client)
+				injector.WithAPMCollector(i.apmCollector)
 				apmCtx := logr.NewContext(ctx, logger.WithValues("injector", injector.Language()))
 				logger.V(1).Info("targeting a container for injection",
 					"container_name", containerName,
@@ -97,7 +100,7 @@ func (i *NewrelicSdkInjector) InjectContainers(ctx context.Context, containerIns
 				)
 				mutatedPod, err := injector.InjectContainer(apmCtx, *inst, ns, *pod.DeepCopy(), containerName)
 				if err != nil {
-					logger.Error(err, "skipping agent injection", "agent_language", inst.Spec.Agent.Language)
+					logger.Error(err, "an error occurred, skipping agent injection", "agent_language", inst.Spec.Agent.Language)
 					continue
 				}
 				successfulInjection = true
@@ -120,16 +123,15 @@ func (i *NewrelicSdkInjector) InjectContainers(ctx context.Context, containerIns
 				port := containerPorts[containerName]
 				injector.ConfigureClient(i.client)
 				apmCtx := logr.NewContext(ctx, logger.WithValues("injector", injector.Language()))
-				logger.V(1).Info("targeting a container for injection",
+				logger.V(1).Info("targeting a container for health agent injection",
 					"container_name", containerName,
 					"instrumentation_namespace", inst.Namespace,
 					"instrumentation_name", inst.Name,
-					"agent_language", "health",
 				)
 
 				mutatedPod, err := injector.Inject(apmCtx, *inst, ns, *pod.DeepCopy(), containerName, port, volume)
 				if err != nil {
-					logger.Error(err, "skipping agent injection", "agent_language", "health")
+					logger.Error(err, "an error occurred, skipping health agent injection")
 					continue
 				}
 				pod = mutatedPod

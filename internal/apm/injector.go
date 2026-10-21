@@ -20,6 +20,7 @@ type ContainerInjector interface {
 	Language() string
 	Accepts(inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod) bool
 	ConfigureClient(client client.Client)
+	WithAPMCollector(apmCollector string)
 	InjectContainer(ctx context.Context, inst current.Instrumentation, ns corev1.Namespace, pod corev1.Pod, containerName string) (corev1.Pod, error)
 }
 

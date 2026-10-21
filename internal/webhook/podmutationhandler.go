@@ -3,9 +3,10 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+
 	"github.com/newrelic/k8s-agents-operator/internal/util/svcctx"
 	"k8s.io/apimachinery/pkg/types"
-	"net/http"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -102,11 +103,11 @@ func (m *PodMutationHandler) Handle(ctx context.Context, req admission.Request) 
 }
 
 // SetupWebhookWithManager registers the pod mutation webhook
-func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, logger logr.Logger) error {
+func SetupWebhookWithManager(mgr ctrl.Manager, operatorNamespace string, apmCollector string, logger logr.Logger) error {
 	// Setup InstrumentationMutator
 	mgrClient := mgr.GetClient()
 	injectorRegistry := apm.DefaultInjectorRegistry
-	injector := instrumentation.NewNewrelicSdkInjector(mgrClient, injectorRegistry)
+	injector := instrumentation.NewNewrelicSdkInjector(mgrClient, injectorRegistry, apmCollector)
 	secretReplicator := instrumentation.NewNewrelicSecretReplicator(mgrClient)
 	configMapReplicator := instrumentation.NewNewrelicConfigMapReplicator(mgrClient)
 	instrumentationLocator := instrumentation.NewNewRelicInstrumentationLocator(mgrClient, operatorNamespace)

@@ -129,7 +129,7 @@ func TestMain(m *testing.M) {
 		fmt.Printf("%s\n", err.Error())
 		os.Exit(1)
 	}
-	if err = setupPodMutationWebhook(mgr, operatorNamespace, logr.Logger{}); err != nil {
+	if err = setupPodMutationWebhook(mgr, operatorNamespace, "https://collector.test.com", logr.Logger{}); err != nil {
 		fmt.Printf("%s\n", err.Error())
 		os.Exit(1)
 	}
@@ -265,6 +265,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 							},
 							Env: []corev1.EnvVar{
 								{Name: "PYTHONPATH", Value: "/nri-python--alpine"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "alpine1"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -347,6 +348,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 								"/nri-php--alpine/nr_env_to_ini.sh",
 							}, " && ")},
 							Env: []corev1.EnvVar{
+								{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "alpine2"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -373,6 +375,7 @@ func TestPodMutationHandler_Handle(t *testing.T) {
 								{Name: "a", Value: "a"},
 								{Name: "b", Value: "b"},
 								{Name: "PHP_INI_SCAN_DIR", Value: ":/nri-php--alpine/php-agent/ini"},
+								{Name: "NEW_RELIC_DAEMON_COLLECTOR_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "alpine2"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},

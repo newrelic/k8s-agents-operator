@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	envPythonPath = "PYTHONPATH"
+	envPythonPath      = "PYTHONPATH"
+	envPythonCollector = "NEW_RELIC_HOST"
 )
 
 var _ ContainerInjector = (*PythonInjector)(nil)
@@ -56,6 +57,7 @@ func (i *PythonInjector) InjectContainer(ctx context.Context, inst current.Instr
 	setEnvVar(container, envPythonPath, pythonPathPrefix, true, ":")
 	setContainerEnvFromInst(container, inst)
 
+	setEnvVar(container, envPythonCollector, i.apmCollector, false, "")
 	addPodVolumeIfMissing(&pod, volumeName)
 	addContainerVolumeIfMissing(container, volumeName, mountPath)
 

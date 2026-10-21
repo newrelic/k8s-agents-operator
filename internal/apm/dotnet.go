@@ -33,6 +33,7 @@ const (
 	envLinuxDotnetNewrelicHome                  = "CORECLR_NEWRELIC_HOME"
 	envLinuxDotnetCoreClrEnableProfilingEnabled = "1"
 	envLinuxDotnetCoreClrProfilerID             = "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
+	envLinuxDotnetCollector                     = "NEW_RELIC_HOST"
 )
 
 var errUnableToConfigureEnv = errors.New("unable to configure environment variables, they've already been set to different values")
@@ -81,6 +82,7 @@ func (i *DotnetInjector) InjectContainer(ctx context.Context, inst current.Instr
 	}
 	setContainerEnvFromInst(container, inst)
 
+	setEnvVar(container, envLinuxDotnetCollector, i.apmCollector, false, "")
 	addPodVolumeIfMissing(&pod, volumeName)
 	addContainerVolumeIfMissing(container, volumeName, mountPath)
 
