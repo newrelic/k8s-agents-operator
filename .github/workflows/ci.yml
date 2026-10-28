@@ -60,7 +60,7 @@ jobs:
         run: helm plugin install https://github.com/helm-unittest/helm-unittest --verify=false
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2.8.0
+        uses: helm/chart-testing-action@v2.9.0
 
       - name: Verify ct config exists
         run: |
