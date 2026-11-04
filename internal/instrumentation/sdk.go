@@ -268,6 +268,10 @@ func assignHealthPorts(ctx context.Context, candidates map[string][]*current.Ins
 						// this should be an error, but we'll continue, so it still gets a dynamically assigned port.  We'll need the sidecar injection to account for this and override the port based on this by setting the env var as well
 						logger.Error(err, "unable to parse value for env var", "key", apmHealthPort, "value", entry.Value)
 						parsedPort = 0
+					} else if parsedPort < 1 || parsedPort > 65535 {
+						// invalid explicit port; keep behavior of falling back to dynamic assignment
+						logger.Error(nil, "parsed env var value out of valid port range", "key", apmHealthPort, "value", entry.Value, "parsed_port", parsedPort)
+						parsedPort = 0
 					}
 					desiredPort = parsedPort
 				}
