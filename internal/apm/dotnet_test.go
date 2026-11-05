@@ -98,6 +98,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 							{Name: "CORECLR_PROFILER_PATH", Value: "/nri-dotnet--test/libNewRelicProfiler.so"},
 							{Name: "CORECLR_NEWRELIC_HOME", Value: "/nri-dotnet--test"},
+							{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
 							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -162,6 +163,7 @@ func TestDotnetInjector_Inject(t *testing.T) {
 								{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
 								{Name: "CORECLR_PROFILER_PATH", Value: "/nri-dotnet--init/libNewRelicProfiler.so"},
 								{Name: "CORECLR_NEWRELIC_HOME", Value: "/nri-dotnet--init"},
+								{Name: "NEW_RELIC_HOST", Value: "https://collector.test.com"},
 								{Name: "NEW_RELIC_APP_NAME", Value: "init"},
 								{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
 								{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
@@ -195,11 +197,96 @@ func TestDotnetInjector_Inject(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "a container, instrumentation, with existing env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test", Env: []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"}}},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "NEW_RELIC_HOST", Value: "custom-collector.example.com"},
+							{Name: "CORECLR_ENABLE_PROFILING", Value: "1"},
+							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
+							{Name: "CORECLR_PROFILER_PATH", Value: "/nri-dotnet--test/libNewRelicProfiler.so"},
+							{Name: "CORECLR_NEWRELIC_HOME", Value: "/nri-dotnet--test"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "/nri-dotnet--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-dotnet--test",
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-dotnet--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "/nri-dotnet--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-dotnet--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{Agent: current.Agent{Language: "dotnet"}, LicenseKeySecret: "newrelic-key-secret"}}},
+			},
+		},
+		{
+			name: "a container, instrumentation with env NEW_RELIC_HOST, apm collector is not applied",
+			pod: corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{
+				{Name: "test"},
+			}}},
+			expectedPod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"newrelic.com/instrumentation-versions": `{"/":"/0"}`,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "test",
+						Env: []corev1.EnvVar{
+							{Name: "CORECLR_ENABLE_PROFILING", Value: "1"},
+							{Name: "CORECLR_PROFILER", Value: "{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"},
+							{Name: "CORECLR_PROFILER_PATH", Value: "/nri-dotnet--test/libNewRelicProfiler.so"},
+							{Name: "CORECLR_NEWRELIC_HOME", Value: "/nri-dotnet--test"},
+							{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"},
+							{Name: "NEW_RELIC_APP_NAME", Value: "test"},
+							{Name: "NEW_RELIC_LABELS", Value: "operator:auto-injection"},
+							{Name: "NEW_RELIC_K8S_OPERATOR_ENABLED", Value: "true"},
+							{Name: "NEW_RELIC_LICENSE_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "newrelic-key-secret"}, Key: "new_relic_license_key", Optional: &vtrue}}},
+						},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "/nri-dotnet--test"}},
+					}},
+					InitContainers: []corev1.Container{{
+						Name:         "nri-dotnet--test",
+						Command:      []string{"cp", "-r", "/instrumentation/.", "/nri-dotnet--test/"},
+						VolumeMounts: []corev1.VolumeMount{{Name: "nri-dotnet--test", MountPath: "/nri-dotnet--test"}},
+					}},
+					Volumes: []corev1.Volume{{Name: "nri-dotnet--test", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}}},
+				},
+			},
+			mutations: []mutation{
+				{instrumentation: current.Instrumentation{Spec: current.InstrumentationSpec{
+					Agent: current.Agent{
+						Language: "dotnet",
+						Env:      []corev1.EnvVar{{Name: "NEW_RELIC_HOST", Value: "inst-collector.example.com"}},
+					},
+					LicenseKeySecret: "newrelic-key-secret",
+				}}},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
 			i := &DotnetInjector{baseInjector{lang: "dotnet"}}
+			i.WithAPMCollector("https://collector.test.com")
 			// inject multiple times to assert that it's idempotent. validate it's correct each time
 			var err error
 			var actualPod corev1.Pod

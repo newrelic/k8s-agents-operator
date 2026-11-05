@@ -29,6 +29,7 @@ import (
 
 const (
 	envIniScanDirKey = "PHP_INI_SCAN_DIR"
+	envIniCollector  = "NEW_RELIC_DAEMON_COLLECTOR_HOST"
 )
 
 var _ ContainerInjector = (*PhpInjector)(nil)
@@ -98,6 +99,7 @@ func (i *PhpInjector) InjectContainer(ctx context.Context, inst current.Instrume
 	setEnvVar(container, envIniScanDirKey, envIniScanDirVal, true, ":")
 	setContainerEnvFromInst(container, inst)
 
+	setEnvVar(container, envIniCollector, i.apmCollector, false, "")
 	addPodVolumeIfMissing(&pod, volumeName)
 	addContainerVolumeIfMissing(container, volumeName, mountPath)
 
