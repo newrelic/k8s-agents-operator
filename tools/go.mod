@@ -5,14 +5,14 @@ go 1.27.3
 require (
 	github.com/arttor/helmify v0.4.20
 	github.com/golangci/golangci-lint/v2 v2.15.0
-	github.com/helm-unittest/helm-unittest v1.1.2
-	github.com/helm/chart-testing/v3 v3.14.0
+	github.com/helm-unittest/helm-unittest v1.2.1
+	github.com/helm/chart-testing/v3 v3.15.0
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.52.0
-	helm.sh/helm/v4 v4.2.4
+	helm.sh/helm/v4 v4.3.1
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.25.1
 	sigs.k8s.io/controller-tools v0.23.0
-	sigs.k8s.io/kustomize/kustomize/v5 v5.8.1
+	sigs.k8s.io/kustomize/kustomize/v5 v5.8.3
 )
 
 require (
@@ -80,7 +80,7 @@ require (
 	github.com/ckaznocha/intrange v0.3.1 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
-	github.com/cloudflare/circl v1.6.3 // indirect
+	github.com/cloudflare/circl v1.6.5 // indirect
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/curioswitch/go-reassign v0.3.0 // indirect
@@ -89,10 +89,9 @@ require (
 	github.com/dave/dst v0.28.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/denis-tingaikin/go-header v0.5.0 // indirect
-	github.com/dlclark/regexp2 v1.12.0 // indirect
 	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20250513224043-18a80f8f6df4 // indirect
-	github.com/dylibso/observe-sdk/go v0.0.0-20240819160327-2d926c5d788a // indirect
+	github.com/dylibso/observe-sdk/go v0.0.0-20240828172851-9145d8ad07e1 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
@@ -101,9 +100,9 @@ require (
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/firefart/nonamedreturns v1.0.8 // indirect
-	github.com/fluxcd/cli-utils v1.2.1 // indirect
+	github.com/fluxcd/cli-utils v1.2.2 // indirect
 	github.com/fsnotify/fsnotify v1.10.0 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.3 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/ghostiam/protogetter v1.0.1 // indirect
 	github.com/go-critic/go-critic v0.15.0 // indirect
@@ -113,18 +112,10 @@ require (
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v1.0.0 // indirect
 	github.com/go-openapi/jsonreference v1.0.0 // indirect
-	github.com/go-openapi/swag v0.27.3 // indirect
-	github.com/go-openapi/swag/cmdutils v0.27.3 // indirect
-	github.com/go-openapi/swag/conv v0.27.3 // indirect
-	github.com/go-openapi/swag/fileutils v0.27.3 // indirect
-	github.com/go-openapi/swag/jsonutils v0.27.3 // indirect
-	github.com/go-openapi/swag/loading v0.27.3 // indirect
-	github.com/go-openapi/swag/mangling v0.27.3 // indirect
-	github.com/go-openapi/swag/netutils v0.27.3 // indirect
-	github.com/go-openapi/swag/pools v0.27.3 // indirect
-	github.com/go-openapi/swag/stringutils v0.27.3 // indirect
-	github.com/go-openapi/swag/typeutils v0.27.3 // indirect
-	github.com/go-openapi/swag/yamlutils v0.27.3 // indirect
+	github.com/go-openapi/swag/conv v0.29.1 // indirect
+	github.com/go-openapi/swag/jsonutils v0.29.1 // indirect
+	github.com/go-openapi/swag/pools v0.29.1 // indirect
+	github.com/go-openapi/swag/typeutils v0.29.1 // indirect
 	github.com/go-toolsmith/astcast v1.1.0 // indirect
 	github.com/go-toolsmith/astcopy v1.1.0 // indirect
 	github.com/go-toolsmith/astequal v1.2.0 // indirect
@@ -170,7 +161,7 @@ require (
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/iancoleman/strcase v0.2.0 // indirect
-	github.com/ianlancetaylor/demangle v0.0.0-20240805132620-81f5be970eca // indirect
+	github.com/ianlancetaylor/demangle v0.0.0-20260724033716-83e58baca724 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jgautheron/goconst v1.11.0 // indirect
 	github.com/jjti/go-spancheck v0.6.5 // indirect
@@ -184,7 +175,6 @@ require (
 	github.com/kunwardeep/paralleltest v1.0.16 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
-	github.com/lasiar/canonicalheader v1.1.2 // indirect
 	github.com/ldez/exptostd v0.4.5 // indirect
 	github.com/ldez/gomoddirectives v0.10.0 // indirect
 	github.com/ldez/grignotin v0.10.1 // indirect
@@ -204,7 +194,7 @@ require (
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect
-	github.com/mattn/go-shellwords v1.0.13 // indirect
+	github.com/mattn/go-shellwords v1.0.16 // indirect
 	github.com/mgechev/revive v1.17.1 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -293,7 +283,7 @@ require (
 	go-simpler.org/sloglint v0.12.0 // indirect
 	go.augendre.info/arangolint v0.4.0 // indirect
 	go.augendre.info/fatcontext v0.10.1 // indirect
-	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
@@ -314,30 +304,31 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	helm.sh/helm/v3 v3.21.3 // indirect
+	helm.sh/helm/v3 v3.22.0 // indirect
 	honnef.co/go/tools v0.8.2 // indirect
-	k8s.io/api v0.37.0 // indirect
-	k8s.io/apiextensions-apiserver v0.37.0 // indirect
-	k8s.io/apimachinery v0.37.0 // indirect
-	k8s.io/apiserver v0.37.0 // indirect
-	k8s.io/cli-runtime v0.36.2 // indirect
-	k8s.io/client-go v0.37.0 // indirect
-	k8s.io/code-generator v0.37.0 // indirect
-	k8s.io/component-base v0.37.0 // indirect
+	k8s.io/api v0.37.1 // indirect
+	k8s.io/apiextensions-apiserver v0.37.1 // indirect
+	k8s.io/apimachinery v0.37.1 // indirect
+	k8s.io/apiserver v0.37.1 // indirect
+	k8s.io/cli-runtime v0.37.1 // indirect
+	k8s.io/client-go v0.37.1 // indirect
+	k8s.io/code-generator v0.37.1 // indirect
+	k8s.io/component-base v0.37.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20260408192533-25e2208e0dc3 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
-	k8s.io/kubectl v0.36.2 // indirect
+	k8s.io/kube-openapi v0.0.0-20261001230523-97fa35140926 // indirect
+	k8s.io/kubectl v0.37.1 // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 	mvdan.cc/gofumpt v0.12.0 // indirect
 	mvdan.cc/unparam v0.0.0-20260823230713-2fa3d841b0c8 // indirect
 	oras.land/oras-go/v2 v2.6.2 // indirect
-	sigs.k8s.io/controller-runtime v0.24.1 // indirect
+	sigs.k8s.io/controller-runtime v0.25.2 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
-	sigs.k8s.io/kustomize/api v0.21.1 // indirect
-	sigs.k8s.io/kustomize/cmd/config v0.21.1 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
+	sigs.k8s.io/kustomize/api v0.21.3 // indirect
+	sigs.k8s.io/kustomize/cmd/config v0.21.3 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.21.3 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v7 v7.0.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
