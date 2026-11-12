@@ -488,6 +488,13 @@ spec:
 
 The supported language agents.  PHP being an exception, and currently requires specifying a version suffix.
 
+> **PHP security notice (21 Oct 2026):** PHP 8.5.12, 8.4.27, 8.3.36 and 8.2.35 fix two critical unauthenticated remote code
+> execution vulnerabilities, [CVE-2026-109618](https://github.com/advisories/GHSA-w8hw-w9fx-j79w) and
+> [CVE-2026-109619](https://github.com/advisories/GHSA-6wmf-4rv5-p3rp). The operator only injects the New Relic agent, and the
+> PHP runtime is whatever your workload image ships, so update your own PHP images to these versions or later. PHP 8.1 and older
+> no longer receive upstream updates, although the operator still accepts them for instrumentation. See the
+> [PHP advisory](https://www.php.net/archive/2026.php#2026-10-21-5) for details and interim mitigations.
+
 | languages           |
 |---------------------|
 | dotnet              |
