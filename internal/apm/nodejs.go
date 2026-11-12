@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	envNodeOptions = "NODE_OPTIONS"
+	envNodeOptions   = "NODE_OPTIONS"
+	envNodeCollector = "NEW_RELIC_HOST"
 )
 
 var _ ContainerInjector = (*NodejsInjector)(nil)
@@ -56,6 +57,7 @@ func (i *NodejsInjector) InjectContainer(ctx context.Context, inst current.Instr
 	setEnvVar(container, envNodeOptions, nodeRequireArgument, true, " ")
 	setContainerEnvFromInst(container, inst)
 
+	setEnvVar(container, envNodeCollector, i.apmCollector, false, "")
 	addPodVolumeIfMissing(&pod, volumeName)
 	addContainerVolumeIfMissing(container, volumeName, mountPath)
 

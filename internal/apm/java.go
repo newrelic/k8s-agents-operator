@@ -28,7 +28,8 @@ import (
 
 const (
 	envJavaToolsOptions = "JAVA_TOOL_OPTIONS"
-	envApmConfigFile    = "NEWRELIC_FILE"
+	envJavaConfigFile   = "NEWRELIC_FILE"
+	envJavaCollector    = "NEW_RELIC_HOST"
 )
 
 var _ ContainerInjector = (*JavaInjector)(nil)
@@ -64,16 +65,10 @@ func (i *JavaInjector) InjectContainer(ctx context.Context, inst current.Instrum
 
 	if inst.Spec.AgentConfigMap != "" {
 		setAgentConfigMap(&pod, container, inst.Spec.AgentConfigMap, configVolumeName, configMountPath)
-
-		// Add ENV
-		if apmIdx := getIndexOfEnv(container.Env, envApmConfigFile); apmIdx == -1 {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  envApmConfigFile,
-				Value: configPath,
-			})
-		}
+		setEnvVar(container, envJavaConfigFile, configPath, false, "")
 	}
 
+	setEnvVar(container, envJavaCollector, i.apmCollector, false, "")
 	addPodVolumeIfMissing(&pod, volumeName)
 	addContainerVolumeIfMissing(container, volumeName, mountPath)
 
