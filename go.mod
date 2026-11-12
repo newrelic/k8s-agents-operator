@@ -12,9 +12,9 @@ require (
 	github.com/stretchr/testify v1.12.1
 	go.uber.org/zap v1.28.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.38.0-alpha.2
-	k8s.io/apimachinery v0.38.0-alpha.2
-	k8s.io/client-go v0.38.0-alpha.2
+	k8s.io/api v0.38.0-beta.0
+	k8s.io/apimachinery v0.38.0-beta.0
+	k8s.io/client-go v0.38.0-beta.0
 	k8s.io/klog/v2 v2.140.0
 	sigs.k8s.io/controller-runtime v0.25.2
 )
@@ -69,7 +69,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/mod v0.42.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
@@ -88,12 +88,12 @@ require (
 	k8s.io/apiserver v0.38.0-alpha.2 // indirect
 	k8s.io/component-base v0.38.0-alpha.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20261014044854-ca3452a79603 // indirect
-	k8s.io/streaming v0.38.0-alpha.2 // indirect
+	k8s.io/streaming v0.38.0-beta.0 // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.37.0 // indirect
 	sigs.k8s.io/json v0.0.0-20260909141634-11ed52e25bc5 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v7 v7.0.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v7 v7.0.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
