@@ -2,6 +2,28 @@ apiVersion: v1
 entries:
   k8s-agents-operator:
   - apiVersion: v2
+    appVersion: 0.57.0
+    created: "2026-11-16T12:17:25.884677325Z"
+    dependencies:
+    - name: common-library
+      repository: https://helm-charts.newrelic.com
+      version: 2.3.5
+    description: A Helm chart for the Kubernetes Agents Operator
+    digest: 90175a87b4826616a7b0c00d040293357e32c650581cb115d220f9ac08f0a75b
+    home: https://github.com/newrelic/k8s-agents-operator/blob/main/charts/k8s-agents-operator/README.md
+    maintainers:
+    - name: dbudziwojskiNR
+      url: https://github.com/dbudziwojskiNR
+    - name: danielstokes
+      url: https://github.com/danielstokes
+    name: k8s-agents-operator
+    sources:
+    - https://github.com/newrelic/k8s-agents-operator
+    type: application
+    urls:
+    - https://github.com/newrelic/k8s-agents-operator/releases/download/k8s-agents-operator-0.57.0/k8s-agents-operator-0.57.0.tgz
+    version: 0.57.0
+  - apiVersion: v2
     appVersion: 0.56.0
     created: "2026-11-09T12:13:38.843720734Z"
     dependencies:
@@ -1999,4 +2021,4 @@ entries:
     urls:
     - https://github.com/newrelic/k8s-agents-operator/releases/download/k8s-agents-operator-0.0.0/k8s-agents-operator-0.0.0.tgz
     version: 0.0.0
-generated: "2026-11-09T12:13:38.84396139Z"
+generated: "2026-11-16T12:17:25.884929586Z"
