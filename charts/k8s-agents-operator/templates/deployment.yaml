@@ -54,7 +54,7 @@ spec:
       dnsConfig:
         {{- . | nindent 8 }}
       {{- end }}
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: {{ .Values.controllerManager.terminationGracePeriodSeconds }}
       containers:
       - name: manager
         {{- with include "k8s-agents-operator.manager.securityContext.container" . }}
@@ -113,6 +113,10 @@ spec:
         {{- end }}
         image: {{ include "k8s-agents-operator.manager.image" . }}
         imagePullPolicy: {{ include "k8s-agents-operator.manager.imagePullPolicy" . }}
+        {{- with .Values.controllerManager.manager.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthz
