@@ -335,6 +335,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.manager.image.repository | string | `"newrelic/k8s-agents-operator"` | Sets the repository and image to use for the manager. Please ensure you're using trusted New Relic images. |
 | controllerManager.manager.image.version | string | `nil` | Sets the manager image version to retrieve. Could be a tag i.e. "v0.17.0" or a SHA digest i.e. "sha256:e2399e70e99ac370ca6a3c7e5affa9655da3b246d0ada77c40ed155b3726ee2e" |
 | controllerManager.manager.leaderElection | object | `{"enabled":true}` | Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started |
+| controllerManager.manager.lifecycle | object | `{}` | Lifecycle hooks for the manager container. A `preStop` `sleep` keeps a terminating replica serving admission requests until it has left the webhook Service endpoints. |
 | controllerManager.manager.logLevel | string | `"info"` | Log level for the manager |
 | controllerManager.manager.resources.limits.cpu | string | `"500m"` |  |
 | controllerManager.manager.resources.limits.memory | string | `"192Mi"` |  |
@@ -342,6 +343,7 @@ If you want to see a list of all available charts and releases, check [index.yam
 | controllerManager.manager.resources.requests.memory | string | `"64Mi"` |  |
 | controllerManager.manager.verboseLog | string | `nil` | Enable or disable verbose (debug) logging |
 | controllerManager.replicas | int | `1` |  |
+| controllerManager.terminationGracePeriodSeconds | int | `10` | Seconds the operator pod gets to shut down. Raise it above `controllerManager.manager.lifecycle` preStop delays plus the 30s graceful shutdown. |
 | crds.enabled | bool | `true` |  |
 | dnsConfig | object | `{}` | Sets pod's dnsConfig. Can be configured also with `global.dnsConfig` |
 | healthProbe | object | `{"port":8081}` | when the operator is healthy. It is used by Kubernetes to check the health of the operator. |
