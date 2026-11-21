@@ -9,7 +9,7 @@ require (
 	github.com/helm/chart-testing/v3 v3.15.0
 	github.com/norwoodj/helm-docs v1.14.2
 	golang.org/x/tools v0.52.0
-	helm.sh/helm/v4 v4.3.1
+	helm.sh/helm/v4 v4.3.2
 	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.25.1
 	sigs.k8s.io/controller-tools v0.23.0
 	sigs.k8s.io/kustomize/kustomize/v5 v5.8.3
@@ -291,7 +291,7 @@ require (
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
 	golang.org/x/mod v0.42.0 // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
@@ -306,18 +306,18 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.22.0 // indirect
 	honnef.co/go/tools v0.8.2 // indirect
-	k8s.io/api v0.37.1 // indirect
-	k8s.io/apiextensions-apiserver v0.37.1 // indirect
-	k8s.io/apimachinery v0.37.1 // indirect
-	k8s.io/apiserver v0.37.1 // indirect
-	k8s.io/cli-runtime v0.37.1 // indirect
-	k8s.io/client-go v0.37.1 // indirect
-	k8s.io/code-generator v0.37.1 // indirect
-	k8s.io/component-base v0.37.1 // indirect
+	k8s.io/api v0.37.2 // indirect
+	k8s.io/apiextensions-apiserver v0.37.2 // indirect
+	k8s.io/apimachinery v0.37.2 // indirect
+	k8s.io/apiserver v0.37.2 // indirect
+	k8s.io/cli-runtime v0.37.2 // indirect
+	k8s.io/client-go v0.37.2 // indirect
+	k8s.io/code-generator v0.37.2 // indirect
+	k8s.io/component-base v0.37.2 // indirect
 	k8s.io/gengo/v2 v2.0.0-20260408192533-25e2208e0dc3 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20261001230523-97fa35140926 // indirect
-	k8s.io/kubectl v0.37.1 // indirect
+	k8s.io/kubectl v0.37.2 // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 	mvdan.cc/gofumpt v0.12.0 // indirect
 	mvdan.cc/unparam v0.0.0-20260823230713-2fa3d841b0c8 // indirect
