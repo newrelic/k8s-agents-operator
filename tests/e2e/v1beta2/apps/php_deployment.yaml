@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: phpapp
-          image: php:8.4-alpine
+          image: php:8.4.27-alpine
           workingDir: /app
           command:
             - php
@@ -40,7 +40,7 @@ spec:
             - mountPath: /app/
               name: code
         - name: phpapp2
-          image: php:8.3-alpine
+          image: php:8.3.36-alpine
           workingDir: /app
           command:
             - php
