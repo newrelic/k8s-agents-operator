@@ -1,0 +1,40 @@
+suite: termination
+templates:
+  - templates/deployment.yaml
+release:
+  name: my-release
+  namespace: my-namespace
+tests:
+  - it: keeps the 10s grace period and no lifecycle hooks by default
+    set:
+      licenseKey: us-whatever
+    asserts:
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 10
+        template: templates/deployment.yaml
+      - notExists:
+          path: spec.template.spec.containers[0].lifecycle
+        template: templates/deployment.yaml
+  - it: sets the grace period and a preStop sleep on the manager
+    set:
+      licenseKey: us-whatever
+      controllerManager:
+        terminationGracePeriodSeconds: 45
+        manager:
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 15
+    asserts:
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 45
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.spec.containers[0].lifecycle
+          value:
+            preStop:
+              sleep:
+                seconds: 15
+        template: templates/deployment.yaml

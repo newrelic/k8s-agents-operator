@@ -54,6 +54,9 @@ crds:
 controllerManager:
   replicas: 1
 
+  # -- Seconds the operator pod gets to shut down. Raise it above `controllerManager.manager.lifecycle` preStop delays plus the 30s graceful shutdown.
+  terminationGracePeriodSeconds: 10
+
   manager:
     # -- Enable or disable verbose (debug) logging -- #
     # -- This setting takes precedence over global.verboseLog
@@ -99,6 +102,8 @@ controllerManager:
     # -- Enable leader election mechanism for protecting against split brain if multiple operator pods/replicas are started
     leaderElection:
       enabled: true
+    # -- Lifecycle hooks for the manager container. A `preStop` `sleep` keeps a terminating replica serving admission requests until it has left the webhook Service endpoints.
+    lifecycle: {}
 
 # -- Settings controlling ServiceAccount creation
 # @default -- See `values.yaml`
